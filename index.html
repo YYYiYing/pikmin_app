@@ -169,7 +169,21 @@
                     return;
                 }
 
-                profiles.sort((a, b) => a.nickname.localeCompare(b.nickname, 'zh-Hant'));
+                // 【排序邏輯更新】實現英文在前，中文在後的排序
+                profiles.sort((a, b) => {
+                    const aIsEnglish = /^[a-zA-Z0-9]/.test(a.nickname);
+                    const bIsEnglish = /^[a-zA-Z0-9]/.test(b.nickname);
+
+                    if (aIsEnglish && !bIsEnglish) {
+                        return -1; // a 是英文/數字，b 不是，a 排前面
+                    }
+                    if (!aIsEnglish && bIsEnglish) {
+                        return 1; // b 是英文/數字，a 不是，b 排前面
+                    }
+                    
+                    // 如果兩者都是英文/數字，或都不是，則按原本的語系方式排序
+                    return a.nickname.localeCompare(b.nickname, 'zh-Hant');
+                });
 
                 nicknameSelect.innerHTML = '<option value="" disabled selected>請選擇您的暱稱</option>';
 
@@ -185,7 +199,6 @@
                 if (rememberedNickname) {
                     nicknameSelect.value = rememberedNickname;
                     rememberMeCheckbox.checked = true;
-                    // 為了更好的體驗，直接將焦點移到密碼欄位
                     document.getElementById('password').focus();
                 }
 
