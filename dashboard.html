@@ -270,7 +270,7 @@
             const { data: challenges, error } = await supabaseClient
                 .from('challenges')
                 .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname))`)
-                .order('created_at', { ascending: false });
+                .order('start_time', { ascending: false });
 
             if (error) {
                 console.error('獲取挑戰列表失敗:', error);
