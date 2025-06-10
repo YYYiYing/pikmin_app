@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>菇菇宅配通 - 好友碼分享</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #111827;
+            color: #d1d5db;
+        }
+        .main-container {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+        }
+        .dark-input {
+            background-color: #374151;
+            border-color: #4b5563;
+            color: #d1d5db;
+        }
+        .dark-input:focus {
+            --tw-ring-color: #22c55e; /* green-500 for partner page */
+            border-color: #22c55e;
+        }
+        .primary-button {
+            background-color: #22c55e; /* green-500 */
+            transition: background-color 0.2s ease-in-out;
+        }
+        .primary-button:hover:not(:disabled) {
+            background-color: #16a34a; /* green-600 */
+        }
+        .secondary-button {
+            background-color: #4b5563;
+            color: white;
+        }
+        .secondary-button:hover {
+            background-color: #6b7280;
+        }
+        .table-header {
+            background-color: #374151;
+        }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); }
+        .sort-button {
+            background-color: #4b5563;
+            color: #d1d5db;
+        }
+        .sort-button.active {
+            background-color: #22c55e;
+            color: white;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8 flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-white flex items-center">
+                <span class="mr-3">🚚</span> 菇菇宅配通
+            </h1>
+            <a href="./dashboard.html" class="text-indigo-400 hover:text-indigo-300 font-bold transition">返回主頁</a>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左側/上方：新增表單 -->
+            <div class="lg:col-span-1">
+                <div class="main-container rounded-2xl p-6 sticky top-8">
+                     <h2 class="text-xl font-bold mb-4">新增好友碼</h2>
+                     <form id="add-partner-form" class="space-y-4">
+                        <div>
+                            <label for="new-name" class="text-sm font-medium">名稱</label>
+                            <input type="text" id="new-name" required maxlength="50" class="dark-input mt-1 w-full rounded-md">
+                        </div>
+                        <div>
+                            <label for="new-code" class="text-sm font-medium">好友碼 (12位數字)</label>
+                            <input type="text" id="new-code" required pattern="[0-9]{12}" title="請輸入12位數字的好友碼" class="dark-input mt-1 w-full rounded-md">
+                        </div>
+                        <button type="submit" id="add-partner-button" class="primary-button w-full py-2 rounded-lg font-bold disabled:opacity-50">新增到聯絡簿</button>
+                     </form>
+                </div>
+            </div>
+            
+            <!-- 右側/下方：列表 -->
+            <div class="lg:col-span-2 main-container rounded-2xl p-6">
+                <div class="flex flex-wrap gap-4 justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">好友聯絡簿</h2>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- 查找功能 -->
+                        <form id="search-form" class="flex items-center space-x-2">
+                            <input type="text" id="search-input" placeholder="查找名稱..." class="dark-input rounded-full px-3 py-1 text-xs w-32">
+                            <button type="submit" class="sort-button text-xs px-3 py-1.5 rounded-full">查找</button>
+                        </form>
+                        <!-- 排序功能 -->
+                        <div id="sort-controls" class="flex space-x-2">
+                            <button id="sort-by-name" class="sort-button text-xs px-3 py-1.5 rounded-full">依名稱排序</button>
+                            <button id="sort-by-time" class="sort-button text-xs px-3 py-1.5 rounded-full active">依時間排序</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-[75vh]">
+                    <table class="w-full text-left">
+                        <thead class="table-header sticky top-0">
+                            <tr>
+                                <th class="p-3">名稱</th>
+                                <th class="p-3">好友碼</th>
+                                <th class="p-3 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="partner-list-body">
+                            <tr><td colspan="3" class="text-center p-4">讀取中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 編輯 Modal -->
+    <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="main-container w-full max-w-sm p-8 rounded-2xl shadow-2xl">
+            <h2 class="text-xl font-bold mb-6 text-white">編輯聯絡人</h2>
+            <form id="edit-partner-form">
+                <input type="hidden" id="edit-id">
+                <div class="space-y-4">
+                    <div>
+                        <label for="edit-name" class="text-sm font-medium">名稱</label>
+                        <input type="text" id="edit-name" required maxlength="50" class="dark-input mt-1 w-full rounded-md">
+                    </div>
+                    <div>
+                        <label for="edit-code" class="text-sm font-medium">好友碼 (12位數字)</label>
+                        <input type="text" id="edit-code" required pattern="[0-9]{12}" title="請輸入12位數字的好友碼" class="dark-input mt-1 w-full rounded-md">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 mt-8">
+                    <button type="button" id="cancel-edit-button" class="secondary-button px-4 py-2 rounded-lg">取消</button>
+                    <button type="submit" class="primary-button px-4 py-2 rounded-lg font-bold">確認儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 全局訊息提示 -->
+    <div id="toast-message" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0ZGRkbW9jbG1ocWVieXZ6ZWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzNjQ5NDAsImV4cCI6MjA2NDk0MDk0MH0.HW9N1aGETLdhMGlqGtQwDhKXhILX0AxfzDGPqlMkrTk';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let partnerToEditId = null;
+        let currentSort = { column: 'created_at', ascending: false };
+
+        const addPartnerForm = document.getElementById('add-partner-form');
+        const addPartnerButton = document.getElementById('add-partner-button');
+        const partnerListBody = document.getElementById('partner-list-body');
+        const editModal = document.getElementById('edit-modal');
+        const editPartnerForm = document.getElementById('edit-partner-form');
+        const cancelEditButton = document.getElementById('cancel-edit-button');
+        const toastMessage = document.getElementById('toast-message');
+        const sortByNameButton = document.getElementById('sort-by-name');
+        const sortByTimeButton = document.getElementById('sort-by-time');
+        const searchForm = document.getElementById('search-form');
+        const searchInput = document.getElementById('search-input');
+
+        // --- 核心功能 ---
+
+        async function loadPartners() {
+            const searchTerm = searchInput.value.trim();
+            
+            let query = supabaseClient
+                .from('partners')
+                .select('*')
+                .order(currentSort.column, { ascending: currentSort.ascending });
+
+            if (searchTerm) {
+                query = query.ilike('name', `%${searchTerm}%`);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                partnerListBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-400">無法載入資料: ${error.message}</td></tr>`;
+                return;
+            }
+            
+            if (data.length === 0) {
+                const message = searchTerm ? `找不到名稱包含 "${escapeHtml(searchTerm)}" 的村民。` : "目前沒有任何好友碼，快來新增第一筆！";
+                partnerListBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-400">${message}</td></tr>`;
+                return;
+            }
+
+            partnerListBody.innerHTML = data.map(partner => `
+                <tr id="partner-${partner.id}" class="border-b border-gray-700">
+                    <td class="p-3">${escapeHtml(partner.name)}</td>
+                    <td class="p-3 font-mono">
+                        <span>${escapeHtml(partner.friend_code)}</span>
+                        <button data-code="${escapeHtml(partner.friend_code)}" class="copy-button ml-2 text-gray-400 hover:text-white" title="複製好友碼">📋</button>
+                    </td>
+                    <td class="p-3 text-center space-x-2">
+                        <button data-id="${partner.id}" data-name="${escapeHtml(partner.name)}" data-code="${escapeHtml(partner.friend_code)}" class="edit-button text-xs px-2 py-1 bg-blue-600 rounded hover:bg-blue-500">編輯</button>
+                        <button data-id="${partner.id}" data-name="${escapeHtml(partner.name)}" class="delete-button text-xs px-2 py-1 bg-red-700 rounded hover:bg-red-600">刪除</button>
+                    </td>
+                </tr>
+            `).join('');
+            updateSortButtonsUI();
+        }
+
+        addPartnerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            addPartnerButton.disabled = true;
+
+            const name = document.getElementById('new-name').value;
+            const code = document.getElementById('new-code').value;
+
+            const { data: existing, error: checkError } = await supabaseClient.from('partners').select('name').eq('name', name).single();
+
+            if (checkError && checkError.code !== 'PGRST116') {
+                 showToast(`檢查暱稱時發生錯誤: ${checkError.message}`, true);
+                 addPartnerButton.disabled = false;
+                 return;
+            }
+
+            if (existing) {
+                showToast('村民已登錄，可用查找功能搜尋。', true);
+                addPartnerButton.disabled = false;
+                return;
+            }
+            
+            const { error } = await supabaseClient.from('partners').insert({ name: name, friend_code: code });
+            
+            if (error) {
+                showToast(`新增失敗: ${error.message}`, true);
+            } else {
+                showToast('新增成功！', false);
+                addPartnerForm.reset();
+                loadPartners(); // 【即時更新修正】
+            }
+            addPartnerButton.disabled = false;
+        });
+
+        partnerListBody.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+
+            const { id, name, code } = button.dataset;
+
+            if (button.classList.contains('edit-button')) {
+                partnerToEditId = id;
+                document.getElementById('edit-id').value = id;
+                document.getElementById('edit-name').value = name;
+                document.getElementById('edit-code').value = code;
+                editModal.classList.remove('hidden');
+            } else if (button.classList.contains('delete-button')) {
+                if(confirm(`確定要刪除 "${name}" 的好友碼嗎？`)) {
+                    deletePartner(id);
+                }
+            } else if (button.classList.contains('copy-button')) {
+                copyToClipboard(code);
+            }
+        });
+
+        async function deletePartner(id) {
+            const { error } = await supabaseClient.from('partners').delete().eq('id', id);
+            if (error) { showToast(`刪除失敗: ${error.message}`, true); } 
+            else { 
+                showToast('刪除成功！', false); 
+                loadPartners(); // 【即時更新修正】
+            }
+        }
+        
+        cancelEditButton.addEventListener('click', () => editModal.classList.add('hidden'));
+        editPartnerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const name = document.getElementById('edit-name').value;
+            const code = document.getElementById('edit-code').value;
+
+            const { error } = await supabaseClient.from('partners').update({ name: name, friend_code: code }).eq('id', id);
+            
+            if (error) { showToast(`更新失敗: ${error.message}`, true); } 
+            else { 
+                showToast('更新成功！', false); 
+                editModal.classList.add('hidden');
+                loadPartners(); // 【即時更新修正】
+            }
+        });
+        
+        // --- 排序 & 查找 ---
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            loadPartners();
+        });
+
+        sortByNameButton.addEventListener('click', () => {
+            if (currentSort.column === 'name') {
+                currentSort.ascending = !currentSort.ascending;
+            } else {
+                currentSort.column = 'name';
+                currentSort.ascending = true;
+            }
+            loadPartners();
+        });
+        sortByTimeButton.addEventListener('click', () => {
+             if (currentSort.column === 'created_at') {
+                currentSort.ascending = !currentSort.ascending;
+            } else {
+                currentSort.column = 'created_at';
+                currentSort.ascending = false;
+            }
+            loadPartners();
+        });
+        function updateSortButtonsUI() {
+            document.querySelectorAll('#sort-controls button').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(currentSort.column === 'name' ? 'sort-by-name' : 'sort-by-time');
+            activeBtn.classList.add('active');
+            
+            const arrow = currentSort.ascending ? ' ▲' : ' ▼';
+            activeBtn.textContent = (currentSort.column === 'name' ? '依名稱排序' : '依時間排序') + arrow;
+            
+            const inactiveBtn = document.getElementById(currentSort.column === 'name' ? 'sort-by-time' : 'sort-by-name');
+            inactiveBtn.textContent = inactiveBtn.id === 'sort-by-name' ? '依名稱排序' : '依時間排序';
+        }
+
+        // --- Realtime ---
+        function setupRealtime() {
+            const channel = supabaseClient.channel('partners-list');
+            // 【即時更新修正】移除手動刷新後，Realtime 變得更為重要
+            channel.on('postgres_changes', { event: '*', schema: 'public', table: 'partners' }, loadPartners).subscribe();
+        }
+
+        // --- 輔助函式 ---
+        function copyToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast(`已複製好友碼: ${text}`, false);
+            } catch (err) {
+                showToast('複製失敗！', true);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function showToast(message, isError = false) {
+            toastMessage.textContent = message;
+            toastMessage.className = `fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white py-3 px-6 rounded-lg shadow-xl z-50 ${isError ? 'bg-red-600' : 'bg-green-600'}`;
+            toastMessage.classList.remove('hidden');
+            setTimeout(() => {
+                toastMessage.classList.add('hidden');
+            }, 2000);
+        }
+
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return '';
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPartners();
+            setupRealtime();
+        });
+    </script>
+</body>
+</html>

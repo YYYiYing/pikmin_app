@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pikmin Bloom 蘑菇宅配網 - 登入</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* 功能更新：與挑戰大廳同步的暗色系主題 */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #111827; /* Dark Gray */
+            color: #d1d5db; /* Light Gray */
+        }
+        .login-container {
+            background-color: #1f2937; /* Card background */
+            border: 1px solid #374151;
+        }
+        .dark-input {
+            background-color: #374151;
+            border-color: #4b5563;
+            color: #d1d5db;
+        }
+        .dark-input:focus {
+            --tw-ring-color: #4f46e5;
+            border-color: #4f46e5;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .dark-button {
+            background-color: #4f46e5;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .dark-button:hover {
+            background-color: #4338ca;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="login-container w-full max-w-md p-8 space-y-8 rounded-2xl shadow-2xl">
+        <div class="text-center">
+            <img src="https://s1.aigei.com/src/img/png/12/12945d6a5a45428f80e73fd0ba96b619.png?imageMogr2/auto-orient/thumbnail/!282x282r/gravity/Center/crop/282x282/quality/85/%7CimageView2/2/w/282&e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:tvIa-J9rw1PINd8_blDaacB-7CM=" alt="Pikmin Logo" class="w-24 h-24 mx-auto rounded-full shadow-lg">
+            <h1 class="mt-4 text-3xl font-bold text-gray-100">蘑菇宅配網</h1>
+            <p class="mt-2 text-gray-400">歡迎回來！</p>
+        </div>
+
+        <!-- 登入表單 -->
+        <form id="login-form" class="space-y-6">
+            <div>
+                <label for="nickname-select" class="text-sm font-bold text-gray-400">遊戲暱稱</label>
+                <select id="nickname-select" name="nickname" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none appearance-none">
+                    <option value="" disabled selected>讀取中...</option>
+                </select>
+            </div>
+            <div>
+                <label for="password" class="text-sm font-bold text-gray-400">密碼</label>
+                <input id="password" name="password" type="password" autocomplete="current-password" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none" placeholder="••••••••">
+            </div>
+            <div>
+                <button type="submit" id="login-button" class="dark-button w-full px-4 py-3 font-bold text-white rounded-xl focus:outline-none">
+                    登入
+                </button>
+            </div>
+        </form>
+
+        <!-- 訊息提示區 -->
+        <div id="message-box" class="p-4 text-center text-sm rounded-xl hidden"></div>
+
+    </div>
+
+    <script>
+        // --- 設定您的 Supabase 專案金鑰 ---
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0ZGRkbW9jbG1ocWVieXZ6ZWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzNjQ5NDAsImV4cCI6MjA2NDk0MDk0MH0.HW9N1aGETLdhMGlqGtQwDhKXhILX0AxfzDGPqlMkrTk';
+
+        // 初始化 Supabase Client
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- 處理登入邏輯 ---
+        const loginForm = document.getElementById('login-form');
+        const loginButton = document.getElementById('login-button');
+        const messageBox = document.getElementById('message-box');
+
+        // 功能更新：頁面載入時檢查是否已登入，是的話直接跳轉
+        async function checkInitialSession() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                window.location.href = './dashboard.html';
+            }
+        }
+
+        loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            loginButton.disabled = true;
+            loginButton.textContent = '登入中...';
+
+            const nickname = loginForm.nickname.value;
+            const password = loginForm.password.value;
+            
+            if (!nickname) {
+                showMessage('請先選擇一個暱稱！', 'bg-yellow-500', 'text-white');
+                loginButton.disabled = false;
+                loginButton.textContent = '登入';
+                return;
+            }
+            
+            // 【中文暱稱修正】對暱稱進行編碼以建立合法的虛擬 Email
+            const virtualEmail = `${encodeURIComponent(nickname)}@pikmin.sys`;
+            
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: virtualEmail,
+                    password: password,
+                });
+
+                if (error) throw error;
+
+                showMessage('登入成功！即將跳轉...', 'bg-green-500', 'text-white');
+                
+                // 功能更新：登入成功後，延遲 250ms 自動跳轉
+                setTimeout(() => {
+                    window.location.href = './dashboard.html'; 
+                }, 250);
+
+            } catch (error) {
+                if (error.message.includes('Invalid login credentials')) {
+                    showMessage('登入失敗：暱稱或密碼錯誤。', 'bg-red-500', 'text-white');
+                } else {
+                    showMessage(`登入失敗: ${error.message}`, 'bg-red-500', 'text-white');
+                }
+                loginButton.disabled = false;
+                loginButton.textContent = '登入';
+            }
+        });
+        
+        // --- 頁面載入時，獲取並填充暱稱列表 ---
+        async function populateNicknames() {
+            const nicknameSelect = document.getElementById('nickname-select');
+            try {
+                const { data: profiles, error } = await supabaseClient
+                    .from('profiles')
+                    .select('nickname');
+
+                if (error) throw error;
+                
+                if (!profiles || profiles.length === 0) {
+                    nicknameSelect.innerHTML = '<option value="" disabled selected>無可用暱稱</option>';
+                    showMessage('系統中找不到任何暱稱，請先由管理者在後台新增。', 'bg-yellow-500', 'text-white');
+                    return;
+                }
+
+                nicknameSelect.innerHTML = '<option value="" disabled selected>請選擇您的暱稱</option>';
+
+                profiles.forEach(profile => {
+                    const option = document.createElement('option');
+                    option.value = profile.nickname;
+                    option.textContent = profile.nickname;
+                    nicknameSelect.appendChild(option);
+                });
+
+            } catch (error) {
+                nicknameSelect.innerHTML = '<option value="" disabled selected>無法載入暱稱</option>';
+                showMessage('無法載入暱稱列表，請確認資料庫連線與 RLS 設定。', 'bg-red-500', 'text-white');
+            }
+        }
+
+        // --- 輔助函式: 用於顯示提示訊息 ---
+        function showMessage(text, bgColor, textColor) {
+            messageBox.textContent = text;
+            messageBox.className = `p-4 text-center text-sm rounded-xl ${bgColor} ${textColor}`;
+            messageBox.classList.remove('hidden');
+        }
+        
+        // --- 頁面載入時執行 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            checkInitialSession();
+            populateNicknames();
+        });
+    </script>
+</body>
+</html>
