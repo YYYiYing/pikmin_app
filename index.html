@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pikmin Bloom 蘑菇宅配網 - 登入</title>
-    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Supabase Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* 功能更新：與挑戰大廳同步的暗色系主題 */
@@ -51,7 +49,6 @@
             <p class="mt-2 text-gray-400">歡迎回來！</p>
         </div>
 
-        <!-- 登入表單 -->
         <form id="login-form" class="space-y-6">
             <div>
                 <label for="nickname-select" class="text-sm font-bold text-gray-400">遊戲暱稱</label>
@@ -63,6 +60,15 @@
                 <label for="password" class="text-sm font-bold text-gray-400">密碼</label>
                 <input id="password" name="password" type="password" autocomplete="current-password" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none" placeholder="••••••••">
             </div>
+            
+            <!-- 【新增功能】記住我核取方塊 -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 rounded border-gray-500 bg-gray-600 text-indigo-600 focus:ring-indigo-500">
+                    <label for="remember-me" class="ml-2 block text-sm text-gray-400">記住我</label>
+                </div>
+            </div>
+
             <div>
                 <button type="submit" id="login-button" class="dark-button w-full px-4 py-3 font-bold text-white rounded-xl focus:outline-none">
                     登入
@@ -70,7 +76,6 @@
             </div>
         </form>
 
-        <!-- 訊息提示區 -->
         <div id="message-box" class="p-4 text-center text-sm rounded-xl hidden"></div>
 
     </div>
@@ -88,6 +93,7 @@
         const loginForm = document.getElementById('login-form');
         const loginButton = document.getElementById('login-button');
         const messageBox = document.getElementById('message-box');
+        const rememberMeCheckbox = document.getElementById('remember-me');
 
         // 功能更新：頁面載入時檢查是否已登入，是的話直接跳轉
         async function checkInitialSession() {
@@ -113,7 +119,6 @@
                 return;
             }
             
-            // 【中文暱稱修正】對暱稱進行編碼以建立合法的虛擬 Email
             const virtualEmail = `${encodeURIComponent(nickname)}@pikmin.sys`;
             
             try {
@@ -123,10 +128,16 @@
                 });
 
                 if (error) throw error;
+                
+                // 【新增功能】如果使用者勾選了「記住我」，就儲存暱稱
+                if (rememberMeCheckbox.checked) {
+                    localStorage.setItem('rememberedNickname', nickname);
+                } else {
+                    localStorage.removeItem('rememberedNickname');
+                }
 
                 showMessage('登入成功！即將跳轉...', 'bg-green-500', 'text-white');
                 
-                // 功能更新：登入成功後，延遲 250ms 自動跳轉
                 setTimeout(() => {
                     window.location.href = './dashboard.html'; 
                 }, 250);
@@ -158,6 +169,8 @@
                     return;
                 }
 
+                profiles.sort((a, b) => a.nickname.localeCompare(b.nickname, 'zh-Hant'));
+
                 nicknameSelect.innerHTML = '<option value="" disabled selected>請選擇您的暱稱</option>';
 
                 profiles.forEach(profile => {
@@ -166,6 +179,15 @@
                     option.textContent = profile.nickname;
                     nicknameSelect.appendChild(option);
                 });
+
+                // 【新增功能】在選項填充完畢後，檢查是否有被記住的暱稱
+                const rememberedNickname = localStorage.getItem('rememberedNickname');
+                if (rememberedNickname) {
+                    nicknameSelect.value = rememberedNickname;
+                    rememberMeCheckbox.checked = true;
+                    // 為了更好的體驗，直接將焦點移到密碼欄位
+                    document.getElementById('password').focus();
+                }
 
             } catch (error) {
                 nicknameSelect.innerHTML = '<option value="" disabled selected>無法載入暱稱</option>';

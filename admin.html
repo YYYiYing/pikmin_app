@@ -287,7 +287,7 @@
 
         async function loadChallenges() {
             challengeListAdmin.innerHTML = '<p>讀取中...</p>';
-            const { data: challenges, error } = await supabaseClient.from('challenges').select('*, host:profiles(nickname), signups(profile:profiles(nickname))').order('created_at', { ascending: false });
+            const { data: challenges, error } = await supabaseClient.from('challenges').select('*, host:profiles(nickname), signups(profile:profiles(nickname))').order('start_time', { ascending: true });
             if(error) { challengeListAdmin.innerHTML = `<p class="text-red-400">無法載入挑戰列表: ${error.message}</p>`; return; }
             if(challenges.length === 0) { challengeListAdmin.innerHTML = `<p>目前沒有任何挑戰。</p>`; return; }
             challengeListAdmin.innerHTML = '';
