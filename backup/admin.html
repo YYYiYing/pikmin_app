@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理後台 - 菇菇宅配網</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #111827;
+            color: #d1d5db;
+        }
+        .admin-container {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+        }
+        .dark-input {
+            background-color: #374151;
+            border-color: #4b5563;
+            color: #d1d5db;
+        }
+        .dark-input:focus {
+            --tw-ring-color: #fb923c; /* orange-400 for admin panel */
+            border-color: #fb923c;
+        }
+        .admin-button {
+            background-color: #f97316; /* orange-500 */
+            transition: background-color 0.2s ease-in-out;
+        }
+        .admin-button:hover:not(:disabled) {
+            background-color: #ea580c; /* orange-600 */
+        }
+        .secondary-button {
+            background-color: #4b5563;
+            color: white;
+        }
+        .secondary-button:hover {
+            background-color: #6b7280;
+        }
+        .table-header {
+            background-color: #374151;
+        }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); }
+        .challenge-card {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex; 
+            flex-direction: column;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <!-- 登入介面 -->
+    <div id="admin-login-section" class="admin-container w-full max-w-md p-8 space-y-8 rounded-2xl shadow-2xl">
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-gray-100">管理後台</h1>
+            <p class="mt-2 text-gray-400">請使用管理者帳號登入</p>
+        </div>
+        <form id="admin-login-form" class="space-y-6">
+            <div>
+                <label for="admin-nickname-select" class="text-sm font-bold text-gray-400">管理員暱稱</label>
+                <select id="admin-nickname-select" name="nickname" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none appearance-none">
+                    <option value="" disabled selected>讀取中...</option>
+                </select>
+            </div>
+            <div>
+                <label for="admin-password" class="text-sm font-bold text-gray-400">密碼</label>
+                <input id="admin-password" name="password" type="password" autocomplete="current-password" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none" placeholder="••••••••">
+            </div>
+            <div>
+                <button type="submit" id="admin-login-button" class="admin-button w-full px-4 py-3 font-bold text-white rounded-xl focus:outline-none disabled:opacity-50">登入</button>
+            </div>
+        </form>
+        <div id="admin-message-box" class="p-4 text-center text-sm rounded-xl hidden"></div>
+        <a href="./dashboard.html" class="block text-center text-indigo-400 hover:text-indigo-300 mt-4 text-sm">返回主頁</a>
+    </div>
+
+    <!-- 主管理介面 (預設隱藏) -->
+    <div id="admin-dashboard-section" class="hidden w-full max-w-7xl mx-auto">
+        <header class="mb-8 flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-white">管理中心</h1>
+            <div>
+                <span id="admin-user-info" class="font-semibold text-gray-300 mr-4"></span>
+                <a href="./dashboard.html" class="text-indigo-400 hover:text-indigo-300 mr-4">返回主頁</a>
+                <button id="admin-logout-button" class="bg-red-700 text-white px-4 py-2 text-sm rounded-lg font-bold hover:bg-red-600 transition">登出</button>
+            </div>
+        </header>
+
+        <!-- 【版面調整】蘑菇挑戰管理 (上) -->
+        <div class="mb-8 admin-container rounded-2xl p-6">
+            <h2 class="text-xl font-bold mb-4">蘑菇挑戰管理</h2>
+            <div id="challenge-list-admin" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
+                <p>讀取中...</p>
+            </div>
+        </div>
+        
+        <!-- 【版面調整】使用者管理 (下) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 admin-container rounded-2xl p-6">
+                <h2 class="text-xl font-bold mb-4">現有使用者列表</h2>
+                <div class="overflow-x-auto max-h-[60vh]">
+                    <table class="w-full text-left">
+                        <thead class="table-header sticky top-0">
+                            <tr>
+                                <th class="p-3">暱稱</th><th class="p-3">角色</th><th class="p-3 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-list-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="space-y-8">
+                <div class="admin-container rounded-2xl p-6">
+                     <h2 class="text-xl font-bold mb-4">新增使用者</h2>
+                     <form id="add-user-form" class="space-y-4">
+                        <div>
+                            <label for="new-nickname" class="text-sm font-medium">暱稱</label>
+                            <input type="text" id="new-nickname" required class="dark-input mt-1 w-full rounded-md">
+                        </div>
+                        <div>
+                            <label for="new-password" class="text-sm font-medium">預設密碼</label>
+                            <input type="text" id="new-password" required class="dark-input mt-1 w-full rounded-md" value="000000">
+                        </div>
+                        <div>
+                            <label for="new-role" class="text-sm font-medium">角色</label>
+                            <select id="new-role" required class="dark-input mt-1 w-full rounded-md">
+                                <option value="報名者">報名者</option><option value="發菇者">發菇者</option><option value="管理者">管理者</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="add-user-button" class="admin-button w-full py-2 rounded-lg font-bold disabled:opacity-50">確認新增</button>
+                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modals -->
+    <div id="reset-password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="admin-container w-full max-w-sm p-8 rounded-2xl shadow-2xl"><h2 class="text-xl font-bold mb-2 text-white">重設密碼</h2><p class="text-gray-400 mb-6">正在為 <strong id="reset-pw-nickname" class="text-orange-300"></strong> 重設密碼。</p><form id="reset-password-form"><label for="reset-pw-input" class="text-sm font-medium">新密碼 (至少6位數)</label><input type="text" id="reset-pw-input" required minlength="6" class="dark-input w-full mt-1 rounded-md mb-6" value="000000"><div class="flex justify-end space-x-3"><button type="button" id="cancel-reset-pw" class="secondary-button px-4 py-2 rounded-lg">取消</button><button type="submit" class="admin-button px-4 py-2 rounded-lg font-bold">確認重設</button></div></form></div></div>
+    <div id="change-role-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="admin-container w-full max-w-sm p-8 rounded-2xl shadow-2xl"><h2 class="text-xl font-bold mb-2 text-white">變更角色</h2><p class="text-gray-400 mb-6">正在變更 <strong id="change-role-nickname" class="text-orange-300"></strong> 的角色。</p><form id="change-role-form"><label for="change-role-select" class="text-sm font-medium">新角色</label><select id="change-role-select" required class="dark-input mt-1 w-full rounded-md mb-6"><option value="報名者">報名者</option><option value="發菇者">發菇者</option><option value="管理者">管理者</option></select><div class="flex justify-end space-x-3"><button type="button" id="cancel-change-role" class="secondary-button px-4 py-2 rounded-lg">取消</button><button type="submit" class="admin-button px-4 py-2 rounded-lg font-bold">確認變更</button></div></form></div></div>
+
+    <script>
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0ZGRkbW9jbG1ocWVieXZ6ZWFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzNjQ5NDAsImV4cCI6MjA2NDk0MDk0MH0.HW9N1aGETLdhMGlqGtQwDhKXhILX0AxfzDGPqlMkrTk';
+        const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0ZGRkbW9jbG1ocWVieXZ6ZWFuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTM2NDk0MCwiZXhwIjoyMDY0OTQwOTQwfQ.HElFBLgIG9hKPYvzSbAIFlS0zTA5NlL182JFcgAUSyM';
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let supabaseAdmin = null;
+        let userToEdit = null;
+        
+        const adminLoginSection = document.getElementById('admin-login-section');
+        const adminDashboardSection = document.getElementById('admin-dashboard-section');
+        const adminLoginForm = document.getElementById('admin-login-form');
+        const adminLoginButton = document.getElementById('admin-login-button');
+        const adminMessageBox = document.getElementById('admin-message-box');
+        const adminUserInfo = document.getElementById('admin-user-info');
+        const adminLogoutButton = document.getElementById('admin-logout-button');
+        const userListBody = document.getElementById('user-list-body');
+        const addUserForm = document.getElementById('add-user-form');
+        const addUserButton = document.getElementById('add-user-button');
+        
+        const resetPasswordModal = document.getElementById('reset-password-modal');
+        const resetPasswordForm = document.getElementById('reset-password-form');
+        const cancelResetPwButton = document.getElementById('cancel-reset-pw');
+        const changeRoleModal = document.getElementById('change-role-modal');
+        const changeRoleForm = document.getElementById('change-role-form');
+        const cancelChangeRoleButton = document.getElementById('cancel-change-role');
+
+        const challengeListAdmin = document.getElementById('challenge-list-admin');
+
+        // --- 核心邏輯 ---
+
+        adminLoginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            adminLoginButton.disabled = true; adminLoginButton.textContent = '驗證中...';
+            const { nickname, password } = e.target.elements;
+            const virtualEmail = `${encodeURIComponent(nickname.value)}@pikmin.sys`;
+            try {
+                const { data: { user }, error } = await supabaseClient.auth.signInWithPassword({ email: virtualEmail, password: password.value });
+                if (error) throw error;
+                const { data: profile } = await supabaseClient.from('profiles').select('role, nickname').eq('id', user.id).single();
+                if (profile.role !== '管理者') throw new Error('權限不足，僅限管理者登入。');
+                
+                authorizeAndShowDashboard(profile);
+            } catch (error) {
+                showMessage(error.message.includes('Invalid') ? '暱稱或密碼錯誤。' : error.message, true);
+            } finally {
+                adminLoginButton.disabled = false; adminLoginButton.textContent = '登入';
+            }
+        });
+
+        function authorizeAndShowDashboard(profile) {
+            supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+            adminUserInfo.textContent = `管理員：${profile.nickname}`;
+            adminLoginSection.classList.add('hidden');
+            adminDashboardSection.classList.remove('hidden');
+            loadAllAdminData();
+        }
+
+        adminLogoutButton.addEventListener('click', async () => {
+            await supabaseClient.auth.signOut(); window.location.reload();
+        });
+
+        function loadAllAdminData() {
+            loadUsers();
+            loadChallenges();
+            setupAdminRealtime();
+        }
+
+        async function loadUsers() {
+            userListBody.innerHTML = '<tr><td colspan="3" class="text-center p-4">讀取中...</td></tr>';
+            const { data: users, error } = await supabaseClient.from('profiles').select('id, nickname, role').order('nickname', { ascending: true });
+            if (error) { userListBody.innerHTML = '<tr><td colspan="3" class="text-center p-4 text-red-400">無法載入使用者列表。</td></tr>'; return; }
+            userListBody.innerHTML = users.map(user => `
+                <tr class="border-b border-gray-700 hover:bg-gray-800/50">
+                    <td class="p-3">${user.nickname}</td>
+                    <td class="p-3">${user.role}</td>
+                    <td class="p-3 text-center space-x-2">
+                        <button data-id="${user.id}" data-nickname="${user.nickname}" class="reset-password-button text-xs px-2 py-1 bg-blue-600 rounded hover:bg-blue-500">改密碼</button>
+                        <button data-id="${user.id}" data-nickname="${user.nickname}" data-role="${user.role}" class="change-role-button text-xs px-2 py-1 bg-yellow-600 rounded hover:bg-yellow-500">改角色</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        addUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!supabaseAdmin) { showMessage('管理權限已失效，請重新登入。', true); return; }
+            addUserButton.disabled = true; addUserButton.textContent = '新增中...';
+            const { value: nickname } = document.getElementById('new-nickname');
+            const { value: password } = document.getElementById('new-password');
+            const { value: role } = document.getElementById('new-role');
+            const virtualEmail = `${encodeURIComponent(nickname)}@pikmin.sys`;
+            try {
+                const { data: { user }, error: authError } = await supabaseAdmin.auth.admin.createUser({ email: virtualEmail, password, email_confirm: true });
+                if (authError) throw authError;
+                const { error: profileError } = await supabaseClient.from('profiles').insert({ id: user.id, nickname, role });
+                if (profileError) { await supabaseAdmin.auth.admin.deleteUser(user.id); throw profileError; }
+                showMessage(`使用者 ${nickname} 新增成功！`, false);
+                addUserForm.reset(); loadUsers();
+            } catch (error) {
+                showMessage(`新增失敗: ${error.message}`, true);
+            } finally {
+                addUserButton.disabled = false; addUserButton.textContent = '確認新增';
+            }
+        });
+
+        userListBody.addEventListener('click', (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+            const userData = target.dataset;
+            userToEdit = { id: userData.id, nickname: userData.nickname, role: userData.role };
+
+            if (target.classList.contains('reset-password-button')) {
+                document.getElementById('reset-pw-nickname').textContent = userToEdit.nickname;
+                resetPasswordModal.classList.remove('hidden');
+            } else if (target.classList.contains('change-role-button')) {
+                document.getElementById('change-role-nickname').textContent = userToEdit.nickname;
+                document.getElementById('change-role-select').value = userToEdit.role;
+                changeRoleModal.classList.remove('hidden');
+            }
+        });
+
+        cancelResetPwButton.addEventListener('click', () => resetPasswordModal.classList.add('hidden'));
+        resetPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = document.getElementById('reset-pw-input').value;
+            const { error } = await supabaseAdmin.auth.admin.updateUserById(userToEdit.id, { password: newPassword });
+            if (error) { showMessage(`密碼重設失敗: ${error.message}`, true); } 
+            else { showMessage(`使用者 ${userToEdit.nickname} 的密碼已成功重設。`, false); resetPasswordModal.classList.add('hidden'); }
+        });
+
+        cancelChangeRoleButton.addEventListener('click', () => changeRoleModal.classList.add('hidden'));
+        changeRoleForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newRole = document.getElementById('change-role-select').value;
+            const { error } = await supabaseAdmin.from('profiles').update({ role: newRole }).eq('id', userToEdit.id);
+            if (error) { showMessage(`角色變更失敗: ${error.message}`, true); } 
+            else { showMessage(`使用者 ${userToEdit.nickname} 的角色已更新為 ${newRole}。`, false); changeRoleModal.classList.add('hidden'); loadUsers(); }
+        });
+
+        async function loadChallenges() {
+            challengeListAdmin.innerHTML = '<p>讀取中...</p>';
+            const { data: challenges, error } = await supabaseClient.from('challenges').select('*, host:profiles(nickname), signups(profile:profiles(nickname))').order('created_at', { ascending: false });
+            if(error) { challengeListAdmin.innerHTML = `<p class="text-red-400">無法載入挑戰列表: ${error.message}</p>`; return; }
+            if(challenges.length === 0) { challengeListAdmin.innerHTML = `<p>目前沒有任何挑戰。</p>`; return; }
+            challengeListAdmin.innerHTML = '';
+            challenges.forEach(c => renderAdminChallengeCard(c));
+        }
+        
+        function renderAdminChallengeCard(challenge) {
+            const card = document.createElement('div');
+            card.className = 'challenge-card p-4';
+            card.id = `admin-challenge-${challenge.id}`;
+            const statusClass = challenge.status === '開放報名中' ? 'bg-green-600' : (challenge.status === '已額滿' ? 'bg-red-600' : 'bg-yellow-600');
+            const signupCount = challenge.signups ? challenge.signups.length : 0;
+            let participantsHtml = '';
+            if (signupCount > 0) {
+                const participantsList = challenge.signups.map((signup) => `<span class="text-xs bg-gray-700 px-2 py-1 rounded">${signup.profile?.nickname || '未知'}</span>`).join(' ');
+                participantsHtml = `<div class="mt-2 flex flex-wrap gap-2 items-center">${participantsList}</div>`;
+            }
+
+            card.innerHTML = `
+                <div>
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="text-lg font-bold text-gray-100">${challenge.mushroom_type}</h3>
+                        <span class="text-xs font-bold px-2 py-1 rounded-full text-white ${statusClass}">${challenge.status}</span>
+                    </div>
+                    <div class="text-sm text-gray-400 space-y-1">
+                        <p><strong>發布者:</strong> ${challenge.host?.nickname || '未知'}</p>
+                        <p><strong>名額:</strong> ${signupCount} / ${challenge.slots}</p>
+                        <p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })}</p>
+                    </div>
+                    ${participantsHtml}
+                </div>
+                <button data-id="${challenge.id}" class="delete-challenge-admin-button mt-4 w-full text-white font-bold py-2 px-4 rounded-lg bg-red-800 hover:bg-red-700 transition">刪除</button>`;
+            challengeListAdmin.appendChild(card);
+        }
+
+        challengeListAdmin.addEventListener('click', async (e) => {
+            const button = e.target.closest('.delete-challenge-admin-button');
+            if(!button) return;
+            const challengeId = button.dataset.id;
+            if (confirm(`【管理員操作】\n您確定要刪除這個 ID 為 ${challengeId} 的挑戰嗎？\n此操作無法復原。`)) {
+                if (!supabaseAdmin) { showMessage('管理權限已失效，請重新登入。', true); return; }
+                button.disabled = true; button.textContent = '刪除中...';
+                const { error } = await supabaseAdmin.from('challenges').delete().eq('id', challengeId);
+                if(error) { 
+                    showMessage(`刪除挑戰失敗: ${error.message}`, true); 
+                    button.disabled = false; button.textContent = '刪除';
+                } else { 
+                    showMessage(`挑戰 ${challengeId} 已成功刪除。`, false);
+                    document.getElementById(`admin-challenge-${challengeId}`)?.remove(); // 【即時更新修正】
+                }
+            }
+        });
+
+        function setupAdminRealtime() {
+            supabaseClient.channel('admin-realtime')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, loadChallenges)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, loadUsers)
+                .subscribe();
+        }
+
+        async function populateNicknames() {
+            const nicknameSelect = document.getElementById('admin-nickname-select');
+            try {
+                const { data, error } = await supabaseClient.from('profiles').select('nickname').eq('role', '管理者').order('nickname');
+                if (error) throw error;
+                nicknameSelect.innerHTML = '<option value="" disabled selected>請選擇管理員暱稱</option>';
+                data.forEach(p => nicknameSelect.innerHTML += `<option value="${p.nickname}">${p.nickname}</option>`);
+            } catch (error) {
+                nicknameSelect.innerHTML = '<option value="" disabled>無法載入</option>';
+            }
+        }
+        
+        function showMessage(text, isError) {
+            adminMessageBox.textContent = text;
+            adminMessageBox.className = `p-4 text-center text-sm rounded-xl ${isError ? 'bg-red-500/50 text-red-300' : 'bg-green-500/50 text-green-300'}`;
+        }
+        
+        async function checkInitialSession() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                const { data: profile } = await supabaseClient.from('profiles').select('role, nickname').eq('id', session.user.id).single();
+                if (profile && profile.role === '管理者') {
+                    authorizeAndShowDashboard(profile);
+                }
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            populateNicknames();
+            checkInitialSession();
+        });
+    </script>
+</body>
+</html>

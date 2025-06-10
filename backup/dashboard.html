@@ -125,46 +125,43 @@
 <body class="bg-gray-900">
 
     <header class="header-gradient shadow-md sticky top-0 z-10">
-        <!-- RWD: 在小螢幕(md)以下，flex-col 讓元素垂直排列，大螢幕(md)以上才是 flex-row 水平排列 -->
-        <div class="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center">
-            <h1 class="text-2xl font-bold text-white flex items-center mb-2 md:mb-0">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-white flex items-center">
                 <img src="https://s1.aigei.com/src/img/png/12/12945d6a5a45428f80e73fd0ba96b619.png?imageMogr2/auto-orient/thumbnail/!282x282r/gravity/Center/crop/282x282/quality/85/%7CimageView2/2/w/282&e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:tvIa-J9rw1PINd8_blDaacB-7CM=" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
                 菇菇宅配網
             </h1>
-             <!-- RWD: 使用 flex-wrap 讓按鈕在空間不足時可以換行，並調整間距 -->
-            <div class="flex items-center flex-wrap justify-center gap-x-4 gap-y-2">
-                <span id="user-info" class="font-semibold text-gray-200 text-sm order-first md:order-none w-full md:w-auto text-center">讀取中...</span>
-                <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
-                <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🚚 菇菇宅配通</a>
-                <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
-                <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">改密碼</button>
-                <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">登出</button>
+            <div class="flex items-center space-x-4">
+                <a href="./partner.html" class="text-gray-300 hover:text-white transition">🚚 菇菇宅配通</a>
+                <button id="leaderboard-button" class="text-gray-300 hover:text-white transition">🏆 排行榜</button>
+                <span id="user-info" class="font-semibold text-gray-200">讀取中...</span>
+                <!-- 【權限整合】新增管理後台連結，預設隱藏 -->
+                <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition">⚙️ 管理後台</a>
+                <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-sm rounded-full font-bold hover:bg-gray-600 transition">修改密碼</button>
+                <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-sm rounded-full font-bold hover:bg-red-600 transition">登出</button>
             </div>
         </div>
     </header>
 
     <main class="container mx-auto p-4 md:p-8">
-        <!-- RWD: 在小螢幕(md)以下，flex-col 讓元素垂直排列並置中，大螢幕以上恢復原狀 -->
-        <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div id="filter-tabs" class="flex space-x-2 flex-wrap justify-center">
+        <div class="mb-6 flex justify-between items-center">
+            <div id="filter-tabs" class="flex space-x-2">
                 <button data-filter="all" class="filter-tab active">全部挑戰</button>
                 <button data-filter="signed-up" class="filter-tab">我的報名</button>
                 <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden">我的發布</button>
             </div>
-            <button id="post-challenge-button" class="hidden bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 w-full md:w-auto">
+            <button id="post-challenge-button" class="hidden bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-indigo-700 transition transform hover:scale-105">
                 🍄 發布新挑戰
             </button>
         </div>
-        <!-- RWD: grid-cols-1 是預設(手機)，md:以上變兩欄，lg:以上變三欄，這是原本就正確的寫法 -->
         <div id="challenges-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <p id="loading-indicator" class="text-center col-span-full text-gray-400">正在載入挑戰列表，請稍候...</p>
         </div>
     </main>
     
-    <!-- Modals (程式碼不變) -->
+    <!-- 其他 Modal (程式碼不變) -->
     <div id="challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8"><h2 class="text-2xl font-bold mb-6 text-gray-100">發布一個新挑戰</h2><form id="challenge-form"><div class="space-y-4"><div><label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label><select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm"><option value="巨菇" selected>巨菇</option><option value="活動菇">活動菇</option><option value="大晶">大晶</option><option value="大火">大火</option><option value="大水">大水</option><option value="大電">大電</option><option value="大毒">大毒</option><option value="大紅">大紅</option><option value="大黃">大黃</option><option value="大藍">大藍</option><option value="大紫">大紫</option><option value="大粉">大粉</option><option value="大灰">大灰</option><option value="大白">大白</option><option value="晶">晶</option><option value="水">水</option><option value="火">火</option><option value="電">電</option><option value="毒">毒</option></select></div><div><label for="slots" class="block text-sm font-medium text-gray-400">名額</label><input type="number" id="slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm"></div><div><div class="flex justify-between items-center"><label for="start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label><button type="button" id="set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button></div><input type="datetime-local" id="start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm"></div><div><label for="details" class="block text-sm font-medium text-gray-400">用餐時段</label><select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm"><option value="滿人開">滿人開</option><option value="早餐">早餐</option><option value="宵夜" selected>宵夜</option></select></div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button></div></form></div></div>
     <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-sm rounded-2xl shadow-xl p-8"><h2 class="text-xl font-bold mb-4 text-white">確認刪除</h2><p class="text-gray-400 mb-6">您確定要刪除這個挑戰嗎？此操作無法復原。</p><div class="flex justify-end space-x-4"><button type="button" id="cancel-delete-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="button" id="confirm-delete-button" class="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50">確認刪除</button></div></div></div>
-    <div id="leaderboard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-gray-100">🏆 排行榜</h2><button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white">&times;</button></div><div id="leaderboard-tabs" class="flex border-b border-gray-600 mb-4 overflow-x-auto"><button data-type="count" data-period="week" class="leaderboard-tab active whitespace-nowrap">本週報名王</button><button data-type="count" data-period="month" class="leaderboard-tab whitespace-nowrap">本月報名王</button><button data-type="speed" data-period="week" class="leaderboard-tab whitespace-nowrap">本週最速</button><button data-type="speed" data-period="month" class="leaderboard-tab whitespace-nowrap">本月最速</button></div><div id="leaderboard-content" class="space-y-2 max-h-96 overflow-y-auto"><p>讀取中...</p></div></div></div>
+    <div id="leaderboard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-gray-100">🏆 排行榜</h2><button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white">&times;</button></div><div id="leaderboard-tabs" class="flex border-b border-gray-600 mb-4"><button data-type="count" data-period="week" class="leaderboard-tab active">本週報名王</button><button data-type="count" data-period="month" class="leaderboard-tab">本月報名王</button><button data-type="speed" data-period="week" class="leaderboard-tab">本週最速</button><button data-type="speed" data-period="month" class="leaderboard-tab">本月最速</button></div><div id="leaderboard-content" class="space-y-2 max-h-96 overflow-y-auto"><p>讀取中...</p></div></div></div>
     <div id="password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-md rounded-2xl shadow-xl p-8"><h2 class="text-2xl font-bold mb-6 text-gray-100">修改密碼</h2><form id="password-form"><div class="space-y-4"><div><label for="new-password" class="block text-sm font-medium text-gray-400">新密碼 (至少6位數)</label><input type="password" id="new-password" required minlength="6" class="dark-input mt-1 block w-full rounded-md shadow-sm"></div><div><label for="confirm-password" class="block text-sm font-medium text-gray-400">確認新密碼</label><input type="password" id="confirm-password" required minlength="6" class="dark-input mt-1 block w-full rounded-md shadow-sm"></div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" id="cancel-password-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="submit" id="submit-password-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認修改</button></div></form></div></div>
     <div id="toast-message" class="hidden fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg"></div>
 
@@ -243,6 +240,7 @@
             if (!currentUserProfile) return;
             userInfoEl.textContent = `你好，${currentUserProfile.nickname}！`;
             
+            // 【權限整合】根據新的三層權限來顯示按鈕
             if (currentUserProfile.role === '管理者' || currentUserProfile.role === '發菇者') {
                 postChallengeButton.classList.remove('hidden');
                 hostedTab.classList.remove('hidden');
@@ -330,7 +328,7 @@
             }
 
             let startTimeHtml;
-            if (challenge.status === '預計開放' && new Date(challenge.start_time) > new Date()) { 
+            if (challenge.status === '預計開放' && new Date(challenge.start_time) > new Date()) { //
                 startTimeHtml = `<p><strong>等待時間:</strong> <span class="countdown-timer" data-starttime="${challenge.start_time}">計算中...</span></p>`;
             } else {
                 startTimeHtml = `<p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false })}</p>`;
@@ -719,22 +717,33 @@
             return `${timeString}.${milliseconds}`;
         }
         
+        // 【錯誤修復 & 體驗優化】新函式：當倒數結束時，由第一個偵測到的客戶端觸發狀態更新
         async function triggerChallengeOpening(challengeId, timerElement) {
+            // 【優化】增加一個檢查，確保這個函式只會對一個挑戰執行一次，避免重複觸發
             if (!timerElement.classList.contains('countdown-timer')) {
                 return;
             }
+            // 立刻移除 class，防止下一個計時器週期再次觸發
             timerElement.classList.remove('countdown-timer');
+            
+            // 【體驗優化】為了即時反應，先在畫面上顯示處理中，避免畫面卡在 "1秒後"
             timerElement.textContent = '開放中...';
 
+            // 僅當挑戰狀態仍為 "預計開放" 時才執行更新，避免重複或衝突
             const { error } = await supabaseClient
                 .from('challenges')
                 .update({ status: '開放報名中' })
                 .eq('id', challengeId)
                 .eq('status', '預計開放');
-            
+
+            // 【體驗優化】原先依賴 Realtime 更新，但為了讓觸發者有最即時的體驗，
+            // 我們在資料庫更新指令發出後，立刻手動刷新一次卡片。
+            // 這不會與 Realtime 衝突，因為 reloadChallengeCard 本身是冪等的。
             reloadChallengeCard(challengeId);
 
             if (error) {
+                // 這個錯誤通常是正常的，因為可能有多個使用者同時觸發，但只有第一個人會成功更新資料庫。
+                // 我們只在控制台記錄它，不需向使用者顯示。
                 console.log(`嘗試自動開啟挑戰 ${challengeId} 時，它可能已被其他使用者更新。錯誤訊息: ${error.message}`);
             }
         }
@@ -744,6 +753,7 @@
                 const startTime = new Date(el.dataset.starttime);
                 const diff = startTime - new Date();
 
+                // 【錯誤修復】當倒數結束時，呼叫新的觸發函式
                 if (diff < 1000) {
                     const card = el.closest('.challenge-card');
                     if (card) {
