@@ -664,9 +664,15 @@
 
         async function handleToggleDispatchStatus(challengeId, currentStatus) {
             const newStatus = currentStatus === '待發' ? '已發' : '待發';
+            
+            const updateData = { 
+                dispatch_status: newStatus, // 要更新的第一個欄位
+                dispatched_at: newStatus === '已發' ? new Date().toISOString() : null // 要更新的第二個欄位
+            };
+                       
             const { error } = await supabaseClient
                 .from('challenges')
-                .update({ dispatch_status: newStatus })
+                .update(updateData)
                 .eq('id', challengeId);
             
             if (error) {
