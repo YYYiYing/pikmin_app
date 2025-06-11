@@ -125,13 +125,23 @@
 <body class="bg-gray-900">
 
     <header class="header-gradient shadow-md sticky top-0 z-10">
-        <!-- RWD: 在小螢幕(md)以下，flex-col 讓元素垂直排列，大螢幕(md)以上才是 flex-row 水平排列 -->
         <div class="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center">
-            <h1 class="text-2xl font-bold text-white flex items-center mb-2 md:mb-0">
-                <img src="https://s1.aigei.com/src/img/png/12/12945d6a5a45428f80e73fd0ba96b619.png?imageMogr2/auto-orient/thumbnail/!282x282r/gravity/Center/crop/282x282/quality/85/%7CimageView2/2/w/282&e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:tvIa-J9rw1PINd8_blDaacB-7CM=" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
-                菇菇宅配網
-            </h1>
-             <!-- RWD: 使用 flex-wrap 讓按鈕在空間不足時可以換行，並調整間距 -->
+            <div class="flex items-center mb-2 md:mb-0">
+                <h1 class="text-2xl font-bold text-white flex items-center">
+                    <img src="https://s1.aigei.com/src/img/png/12/12945d6a5a45428f80e73fd0ba96b619.png?imageMogr2/auto-orient/thumbnail/!282x282r/gravity/Center/crop/282x282/quality/85/%7CimageView2/2/w/282&e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:tvIa-J9rw1PINd8_blDaacB-7CM=" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
+                    菇菇宅配網
+                </h1>
+                <div id="online-users-container" class="ml-4 flex items-center gap-2 text-sm text-white cursor-pointer hover:text-gray-300 transition" title="查看在線列表">
+                    <span></span>
+                    <button id="refresh-button" title="重新整理" class="hover:text-white transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+             
             <div class="flex items-center flex-wrap justify-center gap-x-4 gap-y-2">
                 <span id="user-info" class="font-semibold text-gray-200 text-sm order-first md:order-none w-full md:w-auto text-center">讀取中...</span>
                 <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
@@ -144,10 +154,11 @@
     </header>
 
     <main class="container mx-auto p-4 md:p-8">
-        <!-- RWD: 在小螢幕(md)以下，flex-col 讓元素垂直排列並置中，大螢幕以上恢復原狀 -->
         <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div id="filter-tabs" class="flex space-x-2 flex-wrap justify-center">
                 <button data-filter="all" class="filter-tab active">全部挑戰</button>
+                <!-- 【新增功能】已額滿分類 -->
+                <button data-filter="full" class="filter-tab">已額滿</button>
                 <button data-filter="signed-up" class="filter-tab">我的報名</button>
                 <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden">我的發布</button>
             </div>
@@ -155,13 +166,25 @@
                 🍄 發布新挑戰
             </button>
         </div>
-        <!-- RWD: grid-cols-1 是預設(手機)，md:以上變兩欄，lg:以上變三欄，這是原本就正確的寫法 -->
         <div id="challenges-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <p id="loading-indicator" class="text-center col-span-full text-gray-400">正在載入挑戰列表，請稍候...</p>
         </div>
     </main>
     
-    <!-- Modals (程式碼不變) -->
+    <!-- 【新增功能】在線人員列表 Modal -->
+    <div id="online-users-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="modal-content w-full max-w-xs rounded-2xl shadow-xl p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-100">在線人員</h2>
+                <button type="button" id="close-online-users-modal" class="text-gray-500 hover:text-white text-2xl">&times;</button>
+            </div>
+            <ul id="online-users-list" class="space-y-2 max-h-64 overflow-y-auto text-gray-300">
+                <!-- 在線人員將會顯示在這裡 -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- 其他 Modals (程式碼不變) -->
     <div id="challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8"><h2 class="text-2xl font-bold mb-6 text-gray-100">發布一個新挑戰</h2><form id="challenge-form"><div class="space-y-4"><div><label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label><select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm"><option value="巨菇" selected>巨菇</option><option value="活動菇">活動菇</option><option value="大晶">大晶</option><option value="大火">大火</option><option value="大水">大水</option><option value="大電">大電</option><option value="大毒">大毒</option><option value="大紅">大紅</option><option value="大黃">大黃</option><option value="大藍">大藍</option><option value="大紫">大紫</option><option value="大粉">大粉</option><option value="大灰">大灰</option><option value="大白">大白</option><option value="晶">晶</option><option value="水">水</option><option value="火">火</option><option value="電">電</option><option value="毒">毒</option></select></div><div><label for="slots" class="block text-sm font-medium text-gray-400">名額</label><input type="number" id="slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm"></div><div><div class="flex justify-between items-center"><label for="start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label><button type="button" id="set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button></div><input type="datetime-local" id="start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm"></div><div><label for="details" class="block text-sm font-medium text-gray-400">用餐時段</label><select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm"><option value="滿人開">滿人開</option><option value="早餐">早餐</option><option value="宵夜" selected>宵夜</option></select></div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button></div></form></div></div>
     <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-sm rounded-2xl shadow-xl p-8"><h2 class="text-xl font-bold mb-4 text-white">確認刪除</h2><p class="text-gray-400 mb-6">您確定要刪除這個挑戰嗎？此操作無法復原。</p><div class="flex justify-end space-x-4"><button type="button" id="cancel-delete-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="button" id="confirm-delete-button" class="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50">確認刪除</button></div></div></div>
     <div id="leaderboard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-gray-100">🏆 排行榜</h2><button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white">&times;</button></div><div id="leaderboard-tabs" class="flex border-b border-gray-600 mb-4 overflow-x-auto"><button data-type="count" data-period="week" class="leaderboard-tab active whitespace-nowrap">本週報名王</button><button data-type="count" data-period="month" class="leaderboard-tab whitespace-nowrap">本月報名王</button><button data-type="speed" data-period="week" class="leaderboard-tab whitespace-nowrap">本週最速</button><button data-type="speed" data-period="month" class="leaderboard-tab whitespace-nowrap">本月最速</button></div><div id="leaderboard-content" class="space-y-2 max-h-96 overflow-y-auto"><p>讀取中...</p></div></div></div>
@@ -199,13 +222,21 @@
         const submitPasswordButton = document.getElementById('submit-password-button');
         const filterTabs = document.getElementById('filter-tabs');
         const hostedTab = document.getElementById('hosted-tab');
-        const adminLink = document.getElementById('admin-link'); // 【權限整合】
+        const adminLink = document.getElementById('admin-link'); 
+        const onlineUsersContainer = document.getElementById('online-users-container');
+        const refreshButton = document.getElementById('refresh-button');
+        // 【新增功能】獲取在線列表 Modal 的 DOM
+        const onlineUsersModal = document.getElementById('online-users-modal');
+        const onlineUsersList = document.getElementById('online-users-list');
+        const closeOnlineUsersModalButton = document.getElementById('close-online-users-modal');
+
 
         let currentUserProfile = null;
         let challengeToDeleteId = null;
         let userSignedUpChallengeIds = new Set(); 
         let countdownInterval = null; 
         let activeFilter = 'all';
+        let onlineNicknames = []; // 【新增功能】用來儲存在線使用者暱稱的陣列
 
         async function initializePage() {
             supabaseClient.auth.onAuthStateChange((event, session) => {
@@ -236,6 +267,7 @@
             await fetchUserSignups();
             await fetchChallenges();
             setupRealtimeListeners();
+            setupOnlinePresence();
             startGlobalCountdown();
         }
 
@@ -291,6 +323,9 @@
             card.className = 'challenge-card bg-gray-800 rounded-xl shadow-md overflow-hidden p-6 flex flex-col justify-between';
             card.id = `challenge-${challenge.id}`;
             const statusClass = challenge.status === '開放報名中' ? 'status-open' : (challenge.status === '已額滿' ? 'status-full' : 'status-pending');
+            
+            // 【新增功能】為卡片加上狀態的 data attribute
+            card.dataset.status = challenge.status;
 
             const isHost = challenge.host && challenge.host.id === currentUserProfile.id;
             const isSignedUp = userSignedUpChallengeIds.has(challenge.id);
@@ -419,7 +454,37 @@
                 .subscribe();
         }
 
+        function setupOnlinePresence() {
+            const channel = supabaseClient.channel('online-users', {
+                config: {
+                    presence: {
+                        key: currentUserProfile.nickname,
+                    },
+                },
+            });
+
+            const updatePresence = () => {
+                const presenceState = channel.presenceState();
+                onlineNicknames = Object.keys(presenceState);
+                onlineUsersContainer.querySelector('span').textContent = `在線: ${onlineNicknames.length}人`;
+            };
+
+            channel
+                .on('presence', { event: 'sync' }, updatePresence)
+                .on('presence', { event: 'join' }, updatePresence)
+                .on('presence', { event: 'leave' }, updatePresence)
+                .subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        await channel.track({ online_at: new Date().toISOString() });
+                    }
+                });
+        }
+
         document.addEventListener('DOMContentLoaded', initializePage);
+        
+        refreshButton.addEventListener('click', () => {
+            window.location.reload();
+        });
 
         filterTabs.addEventListener('click', (e) => {
             const tab = e.target.closest('.filter-tab');
@@ -428,6 +493,18 @@
             tab.classList.add('active');
             activeFilter = tab.dataset.filter;
             applyFilter();
+        });
+        
+        // 【新增功能】在線人數列表的顯示/隱藏
+        onlineUsersContainer.addEventListener('click', (e) => {
+            // 避免點擊刷新按鈕時也觸發
+            if(e.target.closest('#refresh-button')) return;
+
+            onlineUsersList.innerHTML = onlineNicknames.map(name => `<li class="p-1">${name}</li>`).join('');
+            onlineUsersModal.classList.remove('hidden');
+        });
+        closeOnlineUsersModalButton.addEventListener('click', () => {
+            onlineUsersModal.classList.add('hidden');
         });
 
         logoutButton.addEventListener('click', async () => {
@@ -784,7 +861,15 @@
             allCards.forEach(card => {
                 let show = false;
                 if (activeFilter === 'all') {
-                    show = true;
+                    // 【新增功能】在「全部挑戰」中，隱藏已額滿的卡片
+                    if (card.dataset.status !== '已額滿') {
+                        show = true;
+                    }
+                } else if (activeFilter === 'full') {
+                     // 【新增功能】顯示狀態為「已額滿」的卡片
+                    if (card.dataset.status === '已額滿') {
+                        show = true;
+                    }
                 } else if (activeFilter === 'signed-up') {
                     if (card.dataset.isSignedUp === 'true') show = true;
                 } else if (activeFilter === 'hosted') {
