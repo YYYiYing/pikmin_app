@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>菇菇宅配網 - Pikmin Bloom 蘑菇報名表</title>
+    <link rel="icon" href="./mashroom_s.png" type="image/png">
+    <link rel="apple-touch-icon" href="./mashroom_s.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -128,7 +130,7 @@
         <div class="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center">
             <div class="flex items-center mb-2 md:mb-0">
                 <h1 class="text-2xl font-bold text-white flex items-center">
-                    <img src="https://s1.aigei.com/src/img/png/12/12945d6a5a45428f80e73fd0ba96b619.png?imageMogr2/auto-orient/thumbnail/!282x282r/gravity/Center/crop/282x282/quality/85/%7CimageView2/2/w/282&e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:tvIa-J9rw1PINd8_blDaacB-7CM=" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
+                    <img src="./mashroom.png" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
                     菇菇宅配網
                 </h1>
                 <div id="online-users-container" class="ml-4 flex items-center gap-2 text-sm text-white cursor-pointer hover:text-gray-300 transition" title="查看在線列表">
@@ -157,7 +159,6 @@
         <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div id="filter-tabs" class="flex space-x-2 flex-wrap justify-center">
                 <button data-filter="all" class="filter-tab active">全部挑戰</button>
-                <!-- 【新增功能】已額滿分類 -->
                 <button data-filter="full" class="filter-tab">已額滿</button>
                 <button data-filter="signed-up" class="filter-tab">我的報名</button>
                 <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden">我的發布</button>
@@ -171,21 +172,55 @@
         </div>
     </main>
     
-    <!-- 【新增功能】在線人員列表 Modal -->
     <div id="online-users-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
         <div class="modal-content w-full max-w-xs rounded-2xl shadow-xl p-6">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold text-gray-100">在線人員</h2>
                 <button type="button" id="close-online-users-modal" class="text-gray-500 hover:text-white text-2xl">&times;</button>
             </div>
-            <ul id="online-users-list" class="space-y-2 max-h-64 overflow-y-auto text-gray-300">
-                <!-- 在線人員將會顯示在這裡 -->
-            </ul>
+            <ul id="online-users-list" class="space-y-2 max-h-64 overflow-y-auto text-gray-300"></ul>
         </div>
     </div>
 
-    <!-- 其他 Modals (程式碼不變) -->
+    <!-- 新增/發布挑戰 Modal -->
     <div id="challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8"><h2 class="text-2xl font-bold mb-6 text-gray-100">發布一個新挑戰</h2><form id="challenge-form"><div class="space-y-4"><div><label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label><select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm"><option value="巨菇" selected>巨菇</option><option value="活動菇">活動菇</option><option value="大晶">大晶</option><option value="大火">大火</option><option value="大水">大水</option><option value="大電">大電</option><option value="大毒">大毒</option><option value="大紅">大紅</option><option value="大黃">大黃</option><option value="大藍">大藍</option><option value="大紫">大紫</option><option value="大粉">大粉</option><option value="大灰">大灰</option><option value="大白">大白</option><option value="晶">晶</option><option value="水">水</option><option value="火">火</option><option value="電">電</option><option value="毒">毒</option></select></div><div><label for="slots" class="block text-sm font-medium text-gray-400">名額</label><input type="number" id="slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm"></div><div><div class="flex justify-between items-center"><label for="start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label><button type="button" id="set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button></div><input type="datetime-local" id="start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm"></div><div><label for="details" class="block text-sm font-medium text-gray-400">用餐時段</label><select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm"><option value="滿人開">滿人開</option><option value="早餐">早餐</option><option value="宵夜" selected>宵夜</option></select></div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button></div></form></div></div>
+    
+    <!-- 【新增功能】編輯挑戰 Modal -->
+    <div id="edit-challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
+            <h2 class="text-2xl font-bold mb-6 text-gray-100">編輯挑戰內容</h2>
+            <form id="edit-challenge-form">
+                <input type="hidden" id="edit-challenge-id">
+                <div class="space-y-4">
+                    <div>
+                        <label for="edit-mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
+                        <select id="edit-mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="巨菇">巨菇</option><option value="活動菇">活動菇</option><option value="大晶">大晶</option><option value="大火">大火</option><option value="大水">大水</option><option value="大電">大電</option><option value="大毒">大毒</option><option value="大紅">大紅</option><option value="大黃">大黃</option><option value="大藍">大藍</option><option value="大紫">大紫</option><option value="大粉">大粉</option><option value="大灰">大灰</option><option value="大白">大白</option><option value="晶">晶</option><option value="水">水</option><option value="火">火</option><option value="電">電</option><option value="毒">毒</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="edit-slots" class="block text-sm font-medium text-gray-400">名額</label>
+                        <input type="number" id="edit-slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="edit-start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label>
+                        <input type="datetime-local" id="edit-start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="edit-details" class="block text-sm font-medium text-gray-400">用餐時段</label>
+                        <select id="edit-details" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="滿人開">滿人開</option><option value="早餐">早餐</option><option value="宵夜">宵夜</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-end space-x-4">
+                    <button type="button" id="cancel-edit-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
+                    <button type="submit" id="submit-edit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-sm rounded-2xl shadow-xl p-8"><h2 class="text-xl font-bold mb-4 text-white">確認刪除</h2><p class="text-gray-400 mb-6">您確定要刪除這個挑戰嗎？此操作無法復原。</p><div class="flex justify-end space-x-4"><button type="button" id="cancel-delete-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="button" id="confirm-delete-button" class="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50">確認刪除</button></div></div></div>
     <div id="leaderboard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-gray-100">🏆 排行榜</h2><button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white">&times;</button></div><div id="leaderboard-tabs" class="flex border-b border-gray-600 mb-4 overflow-x-auto"><button data-type="count" data-period="week" class="leaderboard-tab active whitespace-nowrap">本週報名王</button><button data-type="count" data-period="month" class="leaderboard-tab whitespace-nowrap">本月報名王</button><button data-type="speed" data-period="week" class="leaderboard-tab whitespace-nowrap">本週最速</button><button data-type="speed" data-period="month" class="leaderboard-tab whitespace-nowrap">本月最速</button></div><div id="leaderboard-content" class="space-y-2 max-h-96 overflow-y-auto"><p>讀取中...</p></div></div></div>
     <div id="password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-md rounded-2xl shadow-xl p-8"><h2 class="text-2xl font-bold mb-6 text-gray-100">修改密碼</h2><form id="password-form"><div class="space-y-4"><div><label for="new-password" class="block text-sm font-medium text-gray-400">新密碼 (至少6位數)</label><input type="password" id="new-password" required minlength="6" class="dark-input mt-1 block w-full rounded-md shadow-sm"></div><div><label for="confirm-password" class="block text-sm font-medium text-gray-400">確認新密碼</label><input type="password" id="confirm-password" required minlength="6" class="dark-input mt-1 block w-full rounded-md shadow-sm"></div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" id="cancel-password-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="submit" id="submit-password-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認修改</button></div></form></div></div>
@@ -225,18 +260,20 @@
         const adminLink = document.getElementById('admin-link'); 
         const onlineUsersContainer = document.getElementById('online-users-container');
         const refreshButton = document.getElementById('refresh-button');
-        // 【新增功能】獲取在線列表 Modal 的 DOM
         const onlineUsersModal = document.getElementById('online-users-modal');
         const onlineUsersList = document.getElementById('online-users-list');
         const closeOnlineUsersModalButton = document.getElementById('close-online-users-modal');
-
+        const editChallengeModal = document.getElementById('edit-challenge-modal');
+        const editChallengeForm = document.getElementById('edit-challenge-form');
+        const cancelEditModalButton = document.getElementById('cancel-edit-modal-button');
 
         let currentUserProfile = null;
         let challengeToDeleteId = null;
         let userSignedUpChallengeIds = new Set(); 
         let countdownInterval = null; 
         let activeFilter = 'all';
-        let onlineNicknames = []; // 【新增功能】用來儲存在線使用者暱稱的陣列
+        let onlineNicknames = []; 
+        let challengesData = {}; 
 
         async function initializePage() {
             supabaseClient.auth.onAuthStateChange((event, session) => {
@@ -310,6 +347,11 @@
                 return;
             }
             
+            challengesData = {}; 
+            challenges.forEach(c => {
+                challengesData[c.id] = c;
+            });
+
             const loadingIndicator = document.getElementById('loading-indicator');
             if(loadingIndicator) loadingIndicator.remove();
             
@@ -319,12 +361,17 @@
         }
 
         function renderChallenge(challenge) {
+            if (!challenge || !challenge.host) {
+                console.warn('收到不完整的挑戰資料，已略過渲染:', challenge);
+                return;
+            }
+            challengesData[challenge.id] = challenge; 
+
             const card = document.createElement('div');
             card.className = 'challenge-card bg-gray-800 rounded-xl shadow-md overflow-hidden p-6 flex flex-col justify-between';
             card.id = `challenge-${challenge.id}`;
             const statusClass = challenge.status === '開放報名中' ? 'status-open' : (challenge.status === '已額滿' ? 'status-full' : 'status-pending');
             
-            // 【新增功能】為卡片加上狀態的 data attribute
             card.dataset.status = challenge.status;
 
             const isHost = challenge.host && challenge.host.id === currentUserProfile.id;
@@ -332,9 +379,11 @@
 
             if (isHost) card.dataset.isHosted = 'true';
             if (isSignedUp) card.dataset.isSignedUp = 'true';
-
-            const deleteButtonHtml = isHost ? `<button data-id="${challenge.id}" class="delete-challenge-button text-gray-500 hover:text-red-500 transition">🗑️</button>` : '';
-            const isFull = challenge.status === '已額滿';
+            
+            const hostControlsHtml = isHost ? `
+                <button data-id="${challenge.id}" class="edit-challenge-button text-gray-500 hover:text-yellow-400 transition" title="編輯">✏️</button>
+                <button data-id="${challenge.id}" class="delete-challenge-button text-gray-500 hover:text-red-500 transition" title="刪除">🗑️</button>
+            ` : '';
 
             let actionButtonHtml;
             if (isHost) {
@@ -343,7 +392,7 @@
                 actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名</button>`;
             } else if (challenge.status === '預計開放') {
                 actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>尚未開放</button>`;
-            } else if (isFull) {
+            } else if (challenge.status === '已額滿') {
                 actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>已額滿</button>`;
             } else {
                  actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
@@ -386,7 +435,7 @@
                         <div class="flex items-center space-x-2">
                            ${dispatchTagHtml}
                            <span class="status-badge ${statusClass}">${challenge.status}</span>
-                           ${deleteButtonHtml}
+                           ${hostControlsHtml}
                         </div>
                     </div>
                     <div class="text-gray-400 space-y-2 mb-4">
@@ -495,9 +544,7 @@
             applyFilter();
         });
         
-        // 【新增功能】在線人數列表的顯示/隱藏
         onlineUsersContainer.addEventListener('click', (e) => {
-            // 避免點擊刷新按鈕時也觸發
             if(e.target.closest('#refresh-button')) return;
 
             onlineUsersList.innerHTML = onlineNicknames.map(name => `<li class="p-1">${name}</li>`).join('');
@@ -583,6 +630,14 @@
                 deleteConfirmModal.classList.remove('hidden');
                 return;
             }
+
+            const editButton = e.target.closest('.edit-challenge-button');
+            if (editButton) {
+                const challengeId = editButton.dataset.id;
+                openEditModal(challengeId);
+                return;
+            }
+
             const signupButton = e.target.closest('.signup-button');
             if (signupButton) {
                 handleSignUp(signupButton.dataset.challengeId, signupButton);
@@ -600,6 +655,64 @@
             }
         });
         
+        function openEditModal(challengeId) {
+            const challenge = challengesData[challengeId];
+            if (!challenge) {
+                showToast('找不到挑戰資料，可能已被刪除。', true);
+                return;
+            }
+
+            document.getElementById('edit-challenge-id').value = challenge.id;
+            document.getElementById('edit-mushroom-type').value = challenge.mushroom_type;
+            document.getElementById('edit-slots').value = challenge.slots;
+            
+            const localTime = new Date(challenge.start_time);
+            localTime.setMinutes(localTime.getMinutes() - localTime.getTimezoneOffset());
+            document.getElementById('edit-start-time').value = localTime.toISOString().slice(0, 16);
+
+            document.getElementById('edit-details').value = challenge.details;
+            
+            editChallengeModal.classList.remove('hidden');
+        }
+
+        cancelEditModalButton.addEventListener('click', () => {
+            editChallengeModal.classList.add('hidden');
+        });
+
+        editChallengeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitButton = document.getElementById('submit-edit-challenge-button');
+            submitButton.disabled = true;
+            submitButton.textContent = '儲存中...';
+
+            const challengeId = document.getElementById('edit-challenge-id').value;
+            const newStartTime = new Date(document.getElementById('edit-start-time').value);
+            
+            const updatedData = {
+                mushroom_type: document.getElementById('edit-mushroom-type').value,
+                slots: parseInt(document.getElementById('edit-slots').value),
+                start_time: newStartTime.toISOString(),
+                details: document.getElementById('edit-details').value,
+                status: newStartTime > new Date() ? '預計開放' : '開放報名中'
+            };
+
+            const { error } = await supabaseClient
+                .from('challenges')
+                .update(updatedData)
+                .eq('id', challengeId);
+            
+            if (error) {
+                showToast(`更新失敗: ${error.message}`, true);
+            } else {
+                showToast('挑戰已成功更新！', false);
+                editChallengeModal.classList.add('hidden');
+                reloadChallengeCard(challengeId);
+            }
+
+            submitButton.disabled = false;
+            submitButton.textContent = '確認儲存';
+        });
+
         async function deleteChallenge(id) {
             confirmDeleteButton.disabled = true;
             confirmDeleteButton.textContent = '刪除中...';
@@ -666,17 +779,17 @@
             const newStatus = currentStatus === '待發' ? '已發' : '待發';
             
             const updateData = { 
-                dispatch_status: newStatus, // 要更新的第一個欄位
-                dispatched_at: newStatus === '已發' ? new Date().toISOString() : null // 要更新的第二個欄位
+                dispatch_status: newStatus,
+                dispatched_at: newStatus === '已發' ? new Date().toISOString() : null
             };
-                       
+            
             const { error } = await supabaseClient
                 .from('challenges')
                 .update(updateData)
                 .eq('id', challengeId);
             
             if (error) {
-                showToast(`更新狀態失敗: ${error.message}`, true);
+                showToast(`更新失敗: ${error.message}`, true);
                 reloadChallengeCard(challengeId);
             } else {
                 reloadChallengeCard(challengeId);
@@ -733,23 +846,56 @@
         }
         function renderCountLeaderboard(data) {
             if (!data || data.length === 0) {
-                leaderboardContent.innerHTML = '<p>目前沒有紀錄。</p>'; return;
+                leaderboardContent.innerHTML = '<p>目前沒有紀錄。</p>'; 
+                return;
             }
+
+            let rank = 0;
+            let lastScore = -1;
+
             const listHtml = data.map((item, index) => {
-                const rank = index + 1;
-                let rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
+                // 如果當前分數與上一位不同，則名次+1
+                if (item.signup_count !== lastScore) {
+                    rank++;
+                }
+                lastScore = item.signup_count;
+
+                let rankDisplay;
+                if (rank === 1) { rankDisplay = '🥇'; }
+                else if (rank === 2) { rankDisplay = '🥈'; }
+                else if (rank === 3) { rankDisplay = '🥉'; }
+                else { rankDisplay = rank; }
+
                 return `<div class="leaderboard-item"><span class="leaderboard-rank">${rankDisplay}</span><span class="leaderboard-nickname">${item.nickname}</span><span class="leaderboard-count">${item.signup_count} 次</span></div>`;
             }).join('');
             leaderboardContent.innerHTML = listHtml;
         }
+
         function renderSpeedLeaderboard(data) {
             if (!data || data.length === 0) {
-                leaderboardContent.innerHTML = '<p>目前沒有紀錄。</p>'; return;
+                leaderboardContent.innerHTML = '<p>目前沒有紀錄。</p>'; 
+                return;
             }
+            
+            let rank = 0;
+            let lastTime = -1.0;
+
             const listHtml = data.map((item, index) => {
-                const rank = index + 1;
-                let rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
-                const timeInSeconds = parseFloat(item.fastest_time_seconds).toFixed(3);
+                const currentTime = parseFloat(item.fastest_time_seconds);
+
+                // 如果當前時間與上一位不同，則名次+1
+                if (currentTime !== lastTime) {
+                    rank++;
+                }
+                lastTime = currentTime;
+
+                let rankDisplay;
+                if (rank === 1) { rankDisplay = '🥇'; }
+                else if (rank === 2) { rankDisplay = '🥈'; }
+                else if (rank === 3) { rankDisplay = '🥉'; }
+                else { rankDisplay = rank; }
+                
+                const timeInSeconds = currentTime.toFixed(3);
                 return `<div class="leaderboard-item"><span class="leaderboard-rank">${rankDisplay}</span><span class="leaderboard-nickname">${item.nickname}</span><span class="leaderboard-count">${timeInSeconds} s</span></div>`;
             }).join('');
             leaderboardContent.innerHTML = listHtml;
@@ -867,12 +1013,10 @@
             allCards.forEach(card => {
                 let show = false;
                 if (activeFilter === 'all') {
-                    // 【新增功能】在「全部挑戰」中，隱藏已額滿的卡片
                     if (card.dataset.status !== '已額滿') {
                         show = true;
                     }
                 } else if (activeFilter === 'full') {
-                     // 【新增功能】顯示狀態為「已額滿」的卡片
                     if (card.dataset.status === '已額滿') {
                         show = true;
                     }
