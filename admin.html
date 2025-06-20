@@ -92,7 +92,10 @@
         </header>
 
         <div class="mb-8 admin-container rounded-2xl p-6">
-            <h2 class="text-xl font-bold mb-4">蘑菇挑戰管理</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">蘑菇挑戰管理</h2>
+                <button id="test-function-button" class="secondary-button text-xs px-3 py-1.5 rounded-full">測試後端連線</button>
+            </div>
             <div id="challenge-list-admin" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
                 <p>讀取中...</p>
             </div>
@@ -169,6 +172,7 @@
         const cancelChangeRoleButton = document.getElementById('cancel-change-role');
 
         const challengeListAdmin = document.getElementById('challenge-list-admin');
+        const testFunctionButton = document.getElementById('test-function-button');
 
         // --- 核心邏輯 ---
 
@@ -224,6 +228,42 @@
             `).join('');
         }
 
+        async function invokeAdminFunction(action, payload) {
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: { action, payload }
+                });
+
+                if (error) {
+                    // 專門處理網路或 CORS 錯誤
+                    if (error instanceof supabase.functions.FunctionsFetchError) {
+                        throw new Error(`網路或 CORS 錯誤: ${error.message}`);
+                    }
+                    throw error;
+                }
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                return data;
+
+            } catch (e) {
+                 // 統一在這裡印出詳細錯誤，方便除錯
+                console.error(`Edge Function [${action}] 執行失敗:`, e);
+                throw e; // 將錯誤繼續拋出，讓呼叫它的地方可以接收到
+            }
+        }
+        
+        testFunctionButton.addEventListener('click', async () => {
+            try {
+                const data = await invokeAdminFunction('ping', {});
+                showMessage('後端連線成功！', false);
+            } catch (error) {
+                showMessage(`後端連線失敗: ${error.message}`, true);
+            }
+        });
+
         addUserForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             addUserButton.disabled = true; addUserButton.textContent = '新增中...';
@@ -232,21 +272,12 @@
             const { value: role } = document.getElementById('new-role');
             
             try {
-                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
-                    body: { 
-                        action: 'create-user',
-                        payload: {
-                            email: `${encodeURIComponent(nickname)}@pikmin.sys`,
-                            password: password,
-                            nickname: nickname,
-                            role: role
-                        }
-                    },
+                await invokeAdminFunction('create-user', {
+                    email: `${encodeURIComponent(nickname)}@pikmin.sys`,
+                    password: password,
+                    nickname: nickname,
+                    role: role
                 });
-
-                if (error) throw error;
-                if(data.error) throw new Error(data.error);
-
                 showMessage(`使用者 ${nickname} 新增成功！`, false);
                 addUserForm.reset();
             } catch (error) {
@@ -277,13 +308,7 @@
             e.preventDefault();
             const newPassword = document.getElementById('reset-pw-input').value;
             try {
-                const { error } = await supabaseClient.functions.invoke('admin-actions', {
-                    body: {
-                        action: 'reset-user-password',
-                        payload: { userId: userToEdit.id, password: newPassword }
-                    }
-                });
-                if (error) throw error;
+                await invokeAdminFunction('reset-user-password', { userId: userToEdit.id, password: newPassword });
                 showMessage(`使用者 ${userToEdit.nickname} 的密碼已成功重設。`, false); 
                 resetPasswordModal.classList.add('hidden');
             } catch(error) {
@@ -296,13 +321,7 @@
             e.preventDefault();
             const newRole = document.getElementById('change-role-select').value;
             try {
-                 const { error } = await supabaseClient.functions.invoke('admin-actions', {
-                    body: {
-                        action: 'update-user-role',
-                        payload: { userId: userToEdit.id, role: newRole }
-                    }
-                });
-                if (error) throw error;
+                 await invokeAdminFunction('update-user-role', { userId: userToEdit.id, role: newRole });
                 showMessage(`使用者 ${userToEdit.nickname} 的角色已更新為 ${newRole}。`, false); 
                 changeRoleModal.classList.add('hidden');
             } catch(error) {
@@ -355,13 +374,7 @@
             if (confirm(`【管理員操作】\n您確定要刪除這個 ID 為 ${challengeId} 的挑戰嗎？\n此操作無法復原。`)) {
                 button.disabled = true; button.textContent = '刪除中...';
                 try {
-                    const { error } = await supabaseClient.functions.invoke('admin-actions', {
-                        body: {
-                            action: 'delete-challenge',
-                            payload: { challengeId: challengeId }
-                        }
-                    });
-                    if (error) throw error;
+                    await invokeAdminFunction('delete-challenge', { challengeId: challengeId });
                     showMessage(`挑戰 ${challengeId} 已成功刪除。`, false);
                 } catch(error) {
                     showMessage(`刪除挑戰失敗: ${error.message}`, true); 
@@ -390,9 +403,8 @@
         }
         
         function showMessage(text, isError) {
-            const box = document.getElementById('admin-message-box');
-            box.textContent = text;
-            box.className = `p-4 text-center text-sm rounded-xl ${isError ? 'bg-red-500/50 text-red-300' : 'bg-green-500/50 text-green-300'}`;
+            adminMessageBox.textContent = text;
+            adminMessageBox.className = `p-4 text-center text-sm rounded-xl ${isError ? 'bg-red-500/50 text-red-300' : 'bg-green-500/50 text-green-300'}`;
         }
         
         async function checkInitialSession() {
