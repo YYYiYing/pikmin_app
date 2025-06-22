@@ -184,53 +184,54 @@
 
     <!-- 新增/發布挑戰 Modal -->
     <div id="challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-        <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
-            <h2 class="text-2xl font-bold mb-6 text-gray-100">發布一個新挑戰</h2>
-            <form id="challenge-form">
-            <div class="space-y-4">
+            <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
+                <h2 class="text-2xl font-bold mb-6 text-gray-100">發布一個新挑戰</h2>
+                <form id="challenge-form">
+                <div class="space-y-4">
 
-                <!-- 蘑菇種類 -->
-                <div>
-                    <label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
-                    <select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                        <option value="巨菇" selected>巨菇</option>
-                        <option value="活動菇">活動菇</option>
-                        <option value="大晶">大晶</option>
-                        <option value="大火">大火</option>
-                        <option value="大水">大水</option>
-                        <option value="大電">大電</option>
-                        <option value="大毒">大毒</option>
-                        <option value="大紅">大紅</option>
-                        <option value="大黃">大黃</option>
-                        <option value="大藍">大藍</option>
-                        <option value="大紫">大紫</option>
-                        <option value="大粉">大粉</option>
-                        <option value="大灰">大灰</option>
-                        <option value="大白">大白</option>
-                        <option value="晶">晶</option>
-                        <option value="水">水</option>
-                        <option value="火">火</option>
-                        <option value="電">電</option>
-                        <option value="毒">毒</option>
-                    </select>
-                </div>
-
-                <!-- 名額 -->
-                <div>
-                    <label for="slots" class="block text-sm font-medium text-gray-400">名額</label>
-                    <input type="number" id="slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                </div>
-
-                <!-- 開放報名時間 -->
-                <div>
-                    <div class="flex justify-between items-center">
-                        <label for="start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label>
-                        <button type="button" id="set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button>
+                    <div>
+                        <label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
+                        <select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="巨菇" selected>巨菇</option>
+                            <option value="活動菇">活動菇</option>
+                            <option value="大晶">大晶</option>
+                            <option value="大火">大火</option>
+                            <option value="大水">大水</option>
+                            <option value="大電">大電</option>
+                            <option value="大毒">大毒</option>
+                            <option value="大紅">大紅</option>
+                            <option value="大黃">大黃</option>
+                            <option value="大藍">大藍</option>
+                            <option value="大紫">大紫</option>
+                            <option value="大粉">大粉</option>
+                            <option value="大灰">大灰</option>
+                            <option value="大白">大白</option>
+                            <option value="晶">晶</option>
+                            <option value="水">水</option>
+                            <option value="火">火</option>
+                            <option value="電">電</option>
+                            <option value="毒">毒</option>
+                        </select>
                     </div>
-                    <input type="datetime-local" id="start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                </div>
 
-                    <!-- 用餐時段 -->
+                    <div>
+                        <label for="slots" class="block text-sm font-medium text-gray-400">名額</label>
+                        <input type="number" id="slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm" value="4">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center">
+                            <label for="start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label>
+                            <button type="button" id="set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button>
+                        </div>
+                        <input type="datetime-local" id="start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                        
+                        <div class="mt-2 flex items-center">
+                            <input id="remember-time-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-600 dark:border-gray-500">
+                            <label for="remember-time-checkbox" class="ml-2 block text-sm text-gray-400">記住時間 (下次自動帶入)</label>
+                        </div>
+                    </div>
+
                     <div>
                         <label for="details" class="block text-sm font-medium text-gray-400">用餐時段</label>
                         <select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
@@ -242,15 +243,14 @@
 
                 </div>
 
-                <!-- 操作按鈕 -->
                 <div class="mt-8 flex justify-end space-x-4">
                     <button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
                     <button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button>
                 </div>
-            </form>
+                </form>
+            </div>
         </div>
-    </div> 
-    
+
     <!-- 【新增功能】編輯挑戰 Modal -->
     <div id="edit-challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
         <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
@@ -662,13 +662,30 @@
             }
         });
         
+        // 【必要修正】請用這段程式碼替換掉你原本的 postChallengeButton.addEventListener('click', ...)
         postChallengeButton.addEventListener('click', () => {
             challengeForm.reset();
             challengeForm['mushroom-type'].value = '巨菇';
             challengeForm['slots'].value = 4;
+            
+            // --- 以下是讀取時間的核心邏輯 ---
+            const rememberTimeCheckbox = document.getElementById('remember-time-checkbox');
+            const rememberedTime = localStorage.getItem('rememberedChallengeTime');
+            
             const now = new Date();
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            challengeForm['start-time'].value = now.toISOString().slice(0, 16);
+            const datePart = now.toISOString().split('T')[0];
+
+            if (rememberedTime) {
+                // 如果 localStorage 中有記憶的時間，就使用它
+                challengeForm['start-time'].value = `${datePart}T${rememberedTime}`;
+                rememberTimeCheckbox.checked = true; // 並將核取框打勾
+            } else {
+                // 否則，使用當前時間
+                challengeForm['start-time'].value = now.toISOString().slice(0, 16);
+                rememberTimeCheckbox.checked = false; // 並取消核取框打勾
+            }
+            
             challengeModal.classList.remove('hidden');
         });
 
@@ -686,7 +703,19 @@
             submitChallengeButton.textContent = '發布中...';
 
             const form = e.target;
-            const startTime = new Date(form['start-time'].value);
+            
+            // 【新增】在提交表單時，根據 checkbox 狀態儲存或移除時間
+            const rememberTimeCheckbox = document.getElementById('remember-time-checkbox');
+            const timeValue = form['start-time'].value; // e.g., "2025-06-22T14:30"
+
+            if (rememberTimeCheckbox.checked && timeValue) {
+                const timePart = timeValue.split('T')[1]; // e.g., "14:30"
+                localStorage.setItem('rememberedChallengeTime', timePart);
+            } else {
+                localStorage.removeItem('rememberedChallengeTime');
+            }
+
+            const startTime = new Date(timeValue);
             const newChallengeData = {
                 host_id: currentUserProfile.id,
                 mushroom_type: form['mushroom-type'].value,
