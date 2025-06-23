@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ㄈ<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
@@ -91,13 +91,13 @@
             </div>
             <div class="space-y-8">
                 <div class="admin-container rounded-2xl p-6">
-                     <h2 class="text-xl font-bold mb-4">新增使用者</h2>
-                     <form id="add-user-form" class="space-y-4">
-                        <div><label for="new-nickname" class="text-sm font-medium">暱稱</label><input type="text" id="new-nickname" required class="dark-input mt-1 w-full rounded-md"></div>
-                        <div><label for="new-password" class="text-sm font-medium">預設密碼</label><input type="text" id="new-password" required class="dark-input mt-1 w-full rounded-md" value="000000"></div>
-                        <div><label for="new-role" class="text-sm font-medium">角色</label><select id="new-role" required class="dark-input mt-1 w-full rounded-md"><option value="報名者">報名者</option><option value="發菇者">發菇者</option><option value="管理者">管理者</option></select></div>
-                        <button type="submit" id="add-user-button" class="admin-button w-full py-2 rounded-lg font-bold disabled:opacity-50">確認新增</button>
-                     </form>
+                    <h2 class="text-xl font-bold mb-4">邀請新使用者</h2>
+                    <form id="invite-user-form" class="space-y-4">
+                        <div><label for="new-email" class="text-sm font-medium">使用者 Email</label><input type="email" id="new-email" required class="dark-input mt-1 w-full rounded-md"></div>
+                        <div><label for="new-nickname-invite" class="text-sm font-medium">暱稱</label><input type="text" id="new-nickname-invite" required class="dark-input mt-1 w-full rounded-md"></div>
+                        <div><label for="new-role-invite" class="text-sm font-medium">角色</label><select id="new-role-invite" required class="dark-input mt-1 w-full rounded-md"><option value="報名者">報名者</option><option value="發菇者">發菇者</option><option value="管理者">管理者</option></select></div>
+                        <button type="submit" id="invite-user-button" class="admin-button w-full py-2 rounded-lg font-bold disabled:opacity-50">發送邀請</button>
+                    </form>
                 </div>
             </div>
         </div>

@@ -1,4 +1,4 @@
-// 【最終權威版】index.ts - 採用 RPC 呼叫，最穩健安全
+// 【偵錯版】 - 以您可正常執行的版本為基礎，僅加上日誌
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -45,10 +45,10 @@ serve(async (req) => {
     let data: unknown = null;
     let error = null;
 
+    // ★【偵錯日誌 1】顯示收到的 action 和 payload
+    console.log(`[DEBUG] Received action: "${action}" with payload:`, JSON.stringify(payload));
+
     switch (action) {
-      // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-      // ★  【最終修正邏輯】改為呼叫我們建立的資料庫函式 (RPC)
-      // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
       case 'list-users-with-details':
         {
             const { data: profiles, error: profilesError } = await adminSupabaseClient.from('profiles').select('*');
@@ -57,81 +57,95 @@ serve(async (req) => {
                 data = { users: [] };
                 break;
             }
-
             const userIds = profiles.map(p => p.id);
-
-            // 步驟 3:【新方法】呼叫我們在 SQL Editor 中建立的 'get_users_signin_data' 函式
             const { data: authData, error: rpcError } = await adminSupabaseClient
                 .rpc('get_users_signin_data', { user_ids: userIds });
-
             if (rpcError) {
                 console.error("RPC call failed:", rpcError);
                 throw rpcError;
             }
-
             const authMap = new Map(authData.map((u: any) => [u.id, u.last_sign_in_at]));
-            
             const combinedUsers = profiles.map(profile => ({
                 ...profile,
                 last_sign_in_at: authMap.get(profile.id) || null
             }));
-            
             data = { users: combinedUsers };
         }
         break;
 
-      // 其他 action 的邏輯保持不變
-      case 'create-user':
+      case 'invite-user':
         {
-            // 【最終解決方案】移除所有額外參數，使用最標準的方式建立使用者
-            const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({
-              email: payload.email,
-              password: payload.password
-              // 不再有 email_confirm: true
-            });
-            
-            if (createErr) throw createErr;
-            
-            if (created.user) {
-                // 手動寫入 profile 的邏輯保持不變
-                const { error: profileErr } = await adminSupabaseClient.from('profiles').insert({
-                    id: created.user.id,
-                    nickname: payload.nickname,
-                    role: payload.role
-                });
-                
-                if (profileErr) {
-                  await adminSupabaseClient.auth.admin.deleteUser(created.user.id);
-                  throw new Error(`建立 Profile 失敗: ${profileErr.message}`);
+            // 使用 Supabase 官方推薦的邀請流程
+            const { data: invited, error: inviteErr } = await adminSupabaseClient.auth.admin.inviteUserByEmail(
+              payload.email, // 從前端傳來的真實 email
+              {
+                data: { 
+                  nickname: payload.nickname, // 您可以將暱稱等資訊放在 metadata 中
+                  role: payload.role 
                 }
-                data = created;
+              }
+            );
+
+            if (inviteErr) throw inviteErr;
+
+            // 這裡可以手動更新 profiles 表，因為觸發器可能在使用者接受邀請後才執行
+            if (invited.user) {
+              const { error: profileErr } = await adminSupabaseClient.from('profiles').update({
+                nickname: payload.nickname,
+                role: payload.role
+              }).eq('id', invited.user.id);
+              
+              if (profileErr) {
+                 // 這裡可以選擇是否要刪除邀請，或只是記錄錯誤
+                 console.error("邀請後更新 profile 失敗:", profileErr);
+              }
             }
+            data = invited;
         }
         break;
-      // ...其他 case...
+
       case 'update-user-role':
         ({ data, error } = await adminSupabaseClient.from('profiles')
             .update({ role: payload.role })
             .eq('id', payload.userId)
             .select());
         break;
-      case 'reset-user-password':
-        ({ data, error } = await adminSupabaseClient.auth.admin.updateUserById(
-          payload.userId,
-          { password: payload.password }
-        ));
+
+      case 'reset-user-password': // ★★★ 增加日誌 ★★★
+        {
+            console.log(`[DEBUG] Entering 'reset-user-password' for userId: ${payload.userId}`);
+            const result = await adminSupabaseClient.auth.admin.updateUserById(
+                payload.userId,
+                { password: payload.password }
+            );
+            data = result.data;
+            error = result.error;
+            // 顯示執行結果，無論成功或失敗
+            console.log('[DEBUG] updateUserById result:', { data, error });
+        }
         break;
+
       case 'delete-challenge':
         ({ error } = await adminSupabaseClient.from('challenges')
             .delete()
             .eq('id', payload.challengeId));
         break;
-      case 'delete-user':
-        if (!payload.userId) throw new Error('缺少 userId');
-        ({ data, error } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId));
+
+      case 'delete-user': // ★★★ 增加日誌 ★★★
+        {
+            if (!payload.userId) throw new Error('缺少 userId');
+            console.log(`[DEBUG] Entering 'delete-user' for userId: ${payload.userId}`);
+            const result = await adminSupabaseClient.auth.admin.deleteUser(payload.userId);
+            data = result.data;
+            error = result.error;
+            // 顯示執行結果，無論成功或失敗
+            console.log('[DEBUG] deleteUser result:', { data, error });
+        }
         break;
+
       case 'ping':
         break;
+        
       default:
         throw new Error(`未知的操作: ${action}`);
     }
@@ -143,6 +157,8 @@ serve(async (req) => {
       status: 200,
     });
   } catch (err) {
+    // ★【偵錯日誌】捕捉並顯示所有拋出的錯誤
+    console.error('[FATAL ERROR]', err);
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
