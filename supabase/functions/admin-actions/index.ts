@@ -83,23 +83,23 @@ serve(async (req) => {
       // 其他 action 的邏輯保持不變
       case 'create-user':
         {
+            // 【最終解決方案】移除所有額外參數，使用最標準的方式建立使用者
             const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({
               email: payload.email,
-              password: payload.password,
-
+              password: payload.password
+              // 不再有 email_confirm: true
             });
             
             if (createErr) throw createErr;
             
             if (created.user) {
-                // 手動將 nickname 和 role 寫入 profiles 表
+                // 手動寫入 profile 的邏輯保持不變
                 const { error: profileErr } = await adminSupabaseClient.from('profiles').insert({
                     id: created.user.id,
                     nickname: payload.nickname,
                     role: payload.role
                 });
                 
-                // 如果 profile 寫入失敗，要記得刪除剛剛建立的 auth user，避免產生孤兒資料
                 if (profileErr) {
                   await adminSupabaseClient.auth.admin.deleteUser(created.user.id);
                   throw new Error(`建立 Profile 失敗: ${profileErr.message}`);
