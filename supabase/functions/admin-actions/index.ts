@@ -73,34 +73,25 @@ serve(async (req) => {
         }
         break;
 
-      case 'invite-user':
+      case 'create-user':
         {
-            // 使用 Supabase 官方推薦的邀請流程
-            const { data: invited, error: inviteErr } = await adminSupabaseClient.auth.admin.inviteUserByEmail(
-              payload.email, // 從前端傳來的真實 email
-              {
-                data: { 
-                  nickname: payload.nickname, // 您可以將暱稱等資訊放在 metadata 中
-                  role: payload.role 
+            const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({
+              email: payload.email,
+              password: payload.password
+            });
+            if (createErr) throw createErr;
+            if (created.user) {
+                const { error: profileErr } = await adminSupabaseClient.from('profiles').insert({
+                    id: created.user.id,
+                    nickname: payload.nickname,
+                    role: payload.role
+                });
+                if (profileErr) {
+                  await adminSupabaseClient.auth.admin.deleteUser(created.user.id);
+                  throw new Error(`建立 Profile 失敗: ${profileErr.message}`);
                 }
-              }
-            );
-
-            if (inviteErr) throw inviteErr;
-
-            // 這裡可以手動更新 profiles 表，因為觸發器可能在使用者接受邀請後才執行
-            if (invited.user) {
-              const { error: profileErr } = await adminSupabaseClient.from('profiles').update({
-                nickname: payload.nickname,
-                role: payload.role
-              }).eq('id', invited.user.id);
-              
-              if (profileErr) {
-                 // 這裡可以選擇是否要刪除邀請，或只是記錄錯誤
-                 console.error("邀請後更新 profile 失敗:", profileErr);
-              }
+                data = created;
             }
-            data = invited;
         }
         break;
 
