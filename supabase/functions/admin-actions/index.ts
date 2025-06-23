@@ -121,27 +121,29 @@ serve(async (req) => {
       // --- 其他操作的邏輯保持不變 ---
       case 'create-user':
         {
-            // 使用 admin 客戶端的 `createUser` 方法在 Supabase 的認證系統中建立新使用者。
+            // 【核心修正】在後端根據原始 nickname 生成標準的 virtualEmail 「問題根源」
+            const virtualEmail = `${encodeURIComponent(payload.nickname)}@pikmin.sys`;
+
             const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({
-              email: payload.email,
-              password: payload.password,
-              email_confirm: true, // 自動確認 email，省去驗證步驟
+              email: virtualEmail, // ★ 使用後端自行生成的 virtualEmail
+              password: payload.password
             });
+            
             if (createErr) throw createErr;
-            // 如果認證使用者建立成功，接著在他的 'profiles' 資料表中新增對應的個人資料（暱稱、角色）。
+            
+            // 後續的 profile 寫入邏輯完全不變
             if (created.user) {
                 const { error: profileErr } = await adminSupabaseClient.from('profiles').insert({
                     id: created.user.id,
-                    nickname: payload.nickname,
+                    nickname: payload.nickname, // 這裡依然使用原始 nickname
                     role: payload.role
                 });
-                // 如果 profile 建立失敗，這是一個嚴重的問題（會有一個沒有個人資料的孤兒帳號），
-                // 所以我們必須把剛才建立的認證使用者也刪除，以保持資料一致性。這稱為「交易復原」。
+                
                 if (profileErr) {
                   await adminSupabaseClient.auth.admin.deleteUser(created.user.id);
                   throw new Error(`建立 Profile 失敗: ${profileErr.message}`);
                 }
-                data = created; // 一切順利，回傳建立的使用者資訊
+                data = created;
             }
         }
         break;

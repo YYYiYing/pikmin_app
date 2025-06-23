@@ -391,8 +391,8 @@
             const password = document.getElementById('new-password').value;
             const role = document.getElementById('new-role').value;
             try {
-                // 呼叫後端函式 'create-user'
-                await invokeAdminFunction('create-user', { email: `${encodeURIComponent(nickname)}@pikmin.sys`, password, nickname, role });
+                // 呼叫後端函式 'create-user' 「問題根源」
+                await invokeAdminFunction('create-user', { nickname, password, role });
                 showMessage(`使用者 ${nickname} 新增成功！`, false);
                 addUserForm.reset();
                 loadUsers(); // 重新載入使用者列表
