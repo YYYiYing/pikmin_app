@@ -86,15 +86,20 @@ serve(async (req) => {
             const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({
               email: payload.email,
               password: payload.password,
-              email_confirm: true,
+
             });
+            
             if (createErr) throw createErr;
+            
             if (created.user) {
+                // 手動將 nickname 和 role 寫入 profiles 表
                 const { error: profileErr } = await adminSupabaseClient.from('profiles').insert({
                     id: created.user.id,
                     nickname: payload.nickname,
                     role: payload.role
                 });
+                
+                // 如果 profile 寫入失敗，要記得刪除剛剛建立的 auth user，避免產生孤兒資料
                 if (profileErr) {
                   await adminSupabaseClient.auth.admin.deleteUser(created.user.id);
                   throw new Error(`建立 Profile 失敗: ${profileErr.message}`);
