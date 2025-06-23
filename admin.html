@@ -1,29 +1,36 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理後台 - 菇菇宅配網</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
+    <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>管理後台 - 菇菇宅配網</title> <script src="https://cdn.tailwindcss.com"></script> <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> <style>
+        /* CSS 註解：以下是本頁面的樣式設定 */
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
         .admin-container { background-color: #1f2937; border: 1px solid #374151; }
         .dark-input { background-color: #374151; border-color: #4b5563; color: #d1d5db; }
-        .dark-input:focus { --tw-ring-color: #fb923c; border-color: #fb923c; }
-        .admin-button { background-color: #f97316; transition: background-color 0.2s ease-in-out; }
-        .admin-button:hover:not(:disabled) { background-color: #ea580c; }
-        .secondary-button { background-color: #4b5563; color: white; }
+        .dark-input:focus { --tw-ring-color: #fb923c; border-color: #fb923c; } /* 管理後台的輸入框，焦點顏色改為橘色系 */
+        .admin-button { background-color: #f97316; transition: background-color 0.2s ease-in-out; } /* 主要按鈕使用橘色系 */
+        .admin-button:hover:not(:disabled) { background-color: #ea580c; } /* 滑鼠懸浮在可用的主要按鈕上時，加深顏色 */
+        .secondary-button { background-color: #4b5563; color: white; } /* 次要按鈕（如取消）使用灰色系 */
         .secondary-button:hover { background-color: #6b7280; }
-        .table-header { background-color: #374151; }
-        .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); }
+        .table-header { background-color: #374151; } /* 使用者列表的表頭背景色 */
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); } /* 彈出視窗（Modal）的半透明黑色背景 */
         .challenge-card { background-color: #1f2937; border: 1px solid #374151; transition: transform 0.3s ease, box-shadow 0.3s ease; display: flex; flex-direction: column; justify-content: space-between; }
-        .status-light { width: 0.75rem; height: 0.75rem; border-radius: 9999px; transition: background-color 0.3s ease-in-out; }
+        .status-light { width: 0.75rem; height: 0.75rem; border-radius: 9999px; transition: background-color 0.3s ease-in-out; } /* 資料庫連線狀態的指示燈 */
         
         /* ★ 新增：可排序標頭的樣式 */
-        .sortable-header { cursor: pointer; user-select: none; transition: background-color 0.2s; }
-        .sortable-header:hover { background-color: #4b5563; }
-        .sort-indicator { color: #f97316; margin-left: 6px; font-size: 0.7rem; vertical-align: middle; }
+        .sortable-header { 
+            cursor: pointer; /* 當滑鼠移到標頭上時，顯示為可點擊的手形圖示 */
+            user-select: none; /* 防止使用者在快速點擊時選取到標頭文字，提升體驗 */
+            transition: background-color 0.2s; /* 讓背景色變化有平滑的過渡效果 */
+        }
+        .sortable-header:hover { 
+            background-color: #4b5563; /* 滑鼠懸浮時，改變背景色以提供視覺回饋 */
+        }
+        .sort-indicator { 
+            color: #f97316; /* 排序指示符號（▲▼）的顏色 */
+            margin-left: 6px; /* 離標頭文字的距離 */
+            font-size: 0.7rem; /* 符號的字體大小 */
+            vertical-align: middle; /* 讓符號能和文字垂直對齊 */
+        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
@@ -48,16 +55,14 @@
                 <button type="submit" id="admin-login-button" class="admin-button w-full px-4 py-3 font-bold text-white rounded-xl focus:outline-none disabled:opacity-50">登入</button>
             </div>
         </form>
-        <div id="admin-message-box" class="p-4 text-center text-sm rounded-xl hidden"></div>
-        <a href="./dashboard.html" class="block text-center text-indigo-400 hover:text-indigo-300 mt-4 text-sm">返回主頁</a>
+        <div id="admin-message-box" class="p-4 text-center text-sm rounded-xl hidden"></div> <a href="./dashboard.html" class="block text-center text-indigo-400 hover:text-indigo-300 mt-4 text-sm">返回主頁</a>
     </div>
 
     <div id="admin-dashboard-section" class="hidden w-full max-w-7xl mx-auto">
         <header class="mb-8 flex justify-between items-center">
             <h1 class="text-3xl font-bold text-white">管理中心</h1>
             <div>
-                <span id="admin-user-info" class="font-semibold text-gray-300 mr-4"></span>
-                <a href="./dashboard.html" class="text-indigo-400 hover:text-indigo-300 mr-4">返回主頁</a>
+                <span id="admin-user-info" class="font-semibold text-gray-300 mr-4"></span> <a href="./dashboard.html" class="text-indigo-400 hover:text-indigo-300 mr-4">返回主頁</a>
                 <button id="admin-logout-button" class="bg-red-700 text-white px-4 py-2 text-sm rounded-lg font-bold hover:bg-red-600 transition">登出</button>
             </div>
         </header>
@@ -65,11 +70,9 @@
         <div class="mb-8 admin-container rounded-2xl p-6">
             <div class="flex items-center space-x-2 mb-4">
                 <h2 class="text-xl font-bold">蘑菇挑戰管理</h2>
-                <div id="db-status-light" class="status-light bg-gray-500" title="正在檢查資料庫連線..."></div>
-            </div>
+                <div id="db-status-light" class="status-light bg-gray-500" title="正在檢查資料庫連線..."></div> </div>
             <div id="challenge-list-admin" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
-                <p>讀取中...</p>
-            </div>
+                <p>讀取中...</p> </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -77,13 +80,13 @@
                 <h2 class="text-xl font-bold mb-4">現有使用者列表</h2>
                 <div class="overflow-x-auto max-h-[60vh]">
                     <table class="w-full text-left">
-                        <thead id="user-table-header" class="table-header sticky top-0">
-                            <tr>
+                        <thead id="user-table-header" class="table-header sticky top-0"> <tr>
                                 <th class="p-3 sortable-header" data-sort-key="nickname">暱稱<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header" data-sort-key="role">角色<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header text-center" data-sort-key="monthly_signup_count">參與度<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header" data-sort-key="last_sign_in_at">最後上線<span class="sort-indicator"></span></th>
-                                <th class="p-3 text-center">操作</th> </tr>
+                                <th class="p-3 text-center">操作</th>
+                            </tr>
                         </thead>
                         <tbody id="user-list-body"></tbody>
                     </table>
@@ -103,17 +106,47 @@
         </div>
     </div>
     
-    <div id="reset-password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="admin-container w-full max-w-sm p-8 rounded-2xl shadow-2xl"><h2 class="text-xl font-bold mb-2 text-white">重設密碼</h2><p class="text-gray-400 mb-6">正在為 <strong id="reset-pw-nickname" class="text-orange-300"></strong> 重設密碼。</p><form id="reset-password-form"><label for="reset-pw-input" class="text-sm font-medium">新密碼 (至少6位數)</label><input type="text" id="reset-pw-input" required minlength="6" class="dark-input w-full mt-1 rounded-md mb-6" value="000000"><div class="flex justify-end space-x-3"><button type="button" id="cancel-reset-pw" class="secondary-button px-4 py-2 rounded-lg">取消</button><button type="submit" class="admin-button px-4 py-2 rounded-lg font-bold">確認重設</button></div></form></div></div>
-    <div id="change-role-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="admin-container w-full max-w-sm p-8 rounded-2xl shadow-2xl"><h2 class="text-xl font-bold mb-2 text-white">變更角色</h2><p class="text-gray-400 mb-6">正在變更 <strong id="change-role-nickname" class="text-orange-300"></strong> 的角色。</p><form id="change-role-form"><label for="change-role-select" class="text-sm font-medium">新角色</label><select id="change-role-select" required class="dark-input mt-1 w-full rounded-md mb-6"><option value="報名者">報名者</option><option value="發菇者">發菇者</option><option value="管理者">管理者</option></select><div class="flex justify-end space-x-3"><button type="button" id="cancel-change-role" class="secondary-button px-4 py-2 rounded-lg">取消</button><button type="submit" class="admin-button px-4 py-2 rounded-lg font-bold">確認變更</button></div></form></div></div>
+    <div id="reset-password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="admin-container w-full max-w-sm p-8 rounded-2xl shadow-2xl">
+            <h2 class="text-xl font-bold mb-2 text-white">重設密碼</h2>
+            <p class="text-gray-400 mb-6">正在為 <strong id="reset-pw-nickname" class="text-orange-300"></strong> 重設密碼。</p>
+            <form id="reset-password-form">
+                <label for="reset-pw-input" class="text-sm font-medium">新密碼 (至少6位數)</label>
+                <input type="text" id="reset-pw-input" required minlength="6" class="dark-input w-full mt-1 rounded-md mb-6" value="000000">
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-reset-pw" class="secondary-button px-4 py-2 rounded-lg">取消</button>
+                    <button type="submit" class="admin-button px-4 py-2 rounded-lg font-bold">確認重設</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="change-role-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="admin-container w-full max-w-sm p-8 rounded-2xl shadow-2xl">
+            <h2 class="text-xl font-bold mb-2 text-white">變更角色</h2>
+            <p class="text-gray-400 mb-6">正在變更 <strong id="change-role-nickname" class="text-orange-300"></strong> 的角色。</p>
+            <form id="change-role-form">
+                <label for="change-role-select" class="text-sm font-medium">新角色</label>
+                <select id="change-role-select" required class="dark-input mt-1 w-full rounded-md mb-6">
+                    <option value="報名者">報名者</option><option value="發菇者">發菇者</option><option value="管理者">管理者</option>
+                </select>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-change-role" class="secondary-button px-4 py-2 rounded-lg">取消</button>
+                    <button type="submit" class="admin-button px-4 py-2 rounded-lg font-bold">確認變更</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script>
         // --- 1. 初始化設定 ---
+        // 這部分和登入頁一樣，是設定與 Supabase 後端服務的連線資訊
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
         const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, PUBLIC_KEY);
         
-        // --- 2. 抓取所有 HTML 元素 ---
+        // --- 2. 抓取所有會用到的 HTML 元素 ---
+        // 預先將所有需要操作的網頁元素抓取出來，存成變數，方便後續程式碼使用。
         const adminLoginSection = document.getElementById('admin-login-section');
         const adminDashboardSection = document.getElementById('admin-dashboard-section');
         const adminLoginForm = document.getElementById('admin-login-form');
@@ -132,87 +165,94 @@
         const cancelChangeRoleButton = document.getElementById('cancel-change-role');
         const challengeListAdmin = document.getElementById('challenge-list-admin');
         const dbStatusLight = document.getElementById('db-status-light');
-        const userTableHeader = document.getElementById('user-table-header'); // ★ 新增
+        const userTableHeader = document.getElementById('user-table-header'); // ★ 新增：抓取整個表頭元素
 
         // --- 3. 狀態變數 ---
-        let userToEdit = null;
-        let dbConnectionInterval = null;
-        let allUsersData = []; // ★ 新增：快取所有使用者資料
-        let currentSortColumn = 'nickname'; // ★ 新增：當前排序欄位
-        let currentSortDirection = 'asc'; // ★ 新增：當前排序方向
+        // 這些變數用來儲存整個頁面的狀態
+        let userToEdit = null; // 暫存正在被編輯（改密碼/改角色）的使用者資訊
+        let dbConnectionInterval = null; // 用於存放計時器，定期檢查資料庫連線
+        let allUsersData = []; // ★ 新增：用來「快取」所有從資料庫下載的使用者資料。這樣排序時就不用重新跟資料庫要資料，速度會快很多。
+        let currentSortColumn = 'nickname'; // ★ 新增：記錄目前是依據哪個欄位排序，預設是 'nickname'
+        let currentSortDirection = 'asc'; // ★ 新增：記錄目前的排序方向 ('asc' 為升冪，'desc' 為降冪)，預設是升冪
 
         // --- 4. 核心功能函式 ---
 
-        // ★ 修改：loadUsers 只負責獲取資料並觸發第一次渲染
+        // ★ 修改：此函式現在只負責從後端「獲取」資料，並觸發第一次的畫面渲染
         async function loadUsers() {
-            userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4">讀取中...</td></tr>`;
+            userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4">讀取中...</td></tr>`; // 顯示讀取中訊息
             try {
+                // 'invokeAdminFunction' 是一個自訂的輔助函式，用來呼叫 Supabase 的後端函式(Edge Function)
+                // 這裡呼叫名為 'list-users-with-details' 的後端函式來取得所有使用者的詳細資料
                 const { data, error } = await invokeAdminFunction('list-users-with-details', {});
-                if (error) throw error;
+                if (error) throw error; // 如果出錯，拋出錯誤
                 
-                allUsersData = data.users || []; // 將獲取的資料存到快取變數中
-                renderUserList(); // 呼叫渲染函式來顯示列表
+                allUsersData = data.users || []; // 將獲取到的使用者資料存入 'allUsersData' 這個快取變數中
+                renderUserList(); // ★ 呼叫新的渲染函式來顯示列表
             } catch (error) {
                 userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-400">無法載入使用者列表: ${error.message}</td></tr>`;
             }
         }
 
+        // ★ 新增的核心函式：此函式專門負責「渲染」(畫出)使用者列表
+        // 它不直接跟後端溝通，而是使用 'allUsersData' 快取中的資料來產生畫面
         function renderUserList() {
-            updateSortIndicators(); // 更新表頭箭頭
+            updateSortIndicators(); // 首先，更新表頭的排序箭頭（▲▼）
 
             if (!allUsersData || allUsersData.length === 0) {
                 userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4">目前沒有任何使用者。</td></tr>`;
                 return;
             }
 
+            // 這一步是排序的核心。
+            // `[...allUsersData]` 創建一個 'allUsersData' 的淺拷貝(copy)，確保我們不會修改到原始的快取資料。
+            // `.sort((a, b) => { ... })` 會對這個拷貝的陣列進行排序。
             const sortedUsers = [...allUsersData].sort((a, b) => {
-                const valA = a[currentSortColumn];
-                const valB = b[currentSortColumn];
+                const valA = a[currentSortColumn]; // 取得 a 物件中，目前要排序欄位的值
+                const valB = b[currentSortColumn]; // 取得 b 物件中，目前要排序欄位的值
 
-                let comparison = 0;
+                let comparison = 0; // 排序比較的結果
                 
-                // --- 核心修改：針對暱稱欄位的特殊排序邏輯 ---
+                // --- ★ 核心修改：針對「暱稱」欄位的特殊排序邏輯 ---
                 if (currentSortColumn === 'nickname') {
-                    // 定義一個函式來判斷字串類型 (1=英文, 2=其他)
+                    // 定義一個內部函式，用來判斷字串是英文還是中文（或其他）
                     const getStringType = (str) => {
-                        if (!str || str.length === 0) return 2;
-                        // 使用正規表示式檢查是否以英文字母開頭
-                        if (/^[a-zA-Z]/.test(str)) {
-                            return 1; // 英文優先級為 1
+                        if (!str) return 2; // 如果是空字串，歸為非英文
+                        if (/^[a-zA-Z]/.test(str)) { // 使用正規表達式檢查是否為英文字母開頭
+                            return 1; // 英文的優先級設為 1
                         }
-                        return 2; // 其他 (中文、數字等) 優先級為 2
+                        return 2; // 其他（中文、數字等）的優先級設為 2
                     };
 
                     const typeA = getStringType(valA);
                     const typeB = getStringType(valB);
 
                     if (typeA !== typeB) {
-                        // 如果類型不同 (一個英文一個中文)，直接依照類型排序
+                        // 如果類型不同（一個英文，一個中文），直接用優先級排序（1 會排在 2 前面）
                         comparison = typeA - typeB;
                     } else {
-                        // 如果類型相同 (都是英文或都是中文)，則在同類型內進行標準排序
+                        // 如果類型相同（都是英文或都是中文），則使用 'localeCompare' 進行標準的字母或筆劃排序
                         comparison = String(valA || '').localeCompare(String(valB || ''));
                     }
                 } else {
-                    // --- 對於其他欄位，維持原有的排序邏輯 ---
-                    // 處理 null 或 undefined 的情況，讓它們排在最後面
-                    if (valA == null) return 1;
+                    // --- 對於「非暱稱」的其他欄位，維持原有的排序邏輯 ---
+                    if (valA == null) return 1; // 讓沒有資料(null)的排在最後面
                     if (valB == null) return -1;
                     
                     if (currentSortColumn === 'monthly_signup_count') {
-                        comparison = valA - valB;
+                        comparison = valA - valB; // 數字直接相減排序
                     } else if (currentSortColumn === 'last_sign_in_at') {
-                        comparison = new Date(valA).getTime() - new Date(valB).getTime();
-                    } else { // role 欄位
-                        comparison = String(valA).localeCompare(String(valB));
+                        comparison = new Date(valA).getTime() - new Date(valB).getTime(); // 日期轉換成時間戳(毫秒數)後再相減排序
+                    } else { // 'role' 角色欄位
+                        comparison = String(valA).localeCompare(String(valB)); // 字串使用標準方法排序
                     }
                 }
 
-                // 根據排序方向決定最終結果
+                // 最後，根據目前的排序方向 ('asc' 或 'desc') 來決定最終結果
+                // 如果是升冪('asc')，直接回傳比較結果；如果是降冪('desc')，則將結果乘以 -1 來反轉順序
                 return currentSortDirection === 'asc' ? comparison : -comparison;
             });
 
-            // 將排序後的結果渲染到頁面上 (此部分不變)
+            // 將排序完成的 `sortedUsers` 陣列，透過 `.map()` 轉換成 HTML 字串，再用 `.join('')` 組合成單一的長字串，最後塞入 `userListBody`
             userListBody.innerHTML = sortedUsers.map(user => {
                 const lastSignIn = user.last_sign_in_at
                     ? new Date(user.last_sign_in_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
@@ -233,47 +273,57 @@
             }).join('');
         }
         
-        // ★ 新增：更新排序指示箭頭的函式
+        // ★ 新增：更新排序指示箭頭（▲▼）的函式
         function updateSortIndicators() {
+            // 尋找所有 class 為 'sortable-header' 的表頭元素
             document.querySelectorAll('.sortable-header').forEach(header => {
-                const indicator = header.querySelector('.sort-indicator');
+                const indicator = header.querySelector('.sort-indicator'); // 找到該表頭內的指示符號<span>
                 if (indicator) {
+                    // 如果這個表頭就是當前正在排序的欄位
                     if (header.dataset.sortKey === currentSortColumn) {
+                        // 根據排序方向顯示對應的箭頭
                         indicator.textContent = currentSortDirection === 'asc' ? '▲' : '▼';
                     } else {
+                        // 其他非排序欄位的表頭，清空箭頭
                         indicator.textContent = '';
                     }
                 }
             });
         }
         
-        // ★ 新增：監聽表頭點擊事件
+        // ★ 新增：監聽整個表頭區域的點擊事件
         userTableHeader.addEventListener('click', (e) => {
-            const header = e.target.closest('.sortable-header');
-            if (!header) return;
+            const header = e.target.closest('.sortable-header'); // 找到被點擊的、且可排序的表頭元素
+            if (!header) return; // 如果點擊的不是可排序的表頭，就什麼都不做
 
-            const sortKey = header.dataset.sortKey;
+            const sortKey = header.dataset.sortKey; // 獲取點擊欄位的 sortKey
             if (sortKey === currentSortColumn) {
+                // 如果點擊的欄位就是目前正在排序的欄位，則切換排序方向
                 currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             } else {
+                // 如果點擊的是新的欄位，則將該欄位設為新的排序欄位，並預設為升冪排序
                 currentSortColumn = sortKey;
                 currentSortDirection = 'asc';
             }
-            renderUserList(); // 重新渲染列表
+            renderUserList(); // ★ 設定完新的排序狀態後，呼叫渲染函式，用新的排序方式重新畫出列表
         });
 
-        // --- 以下為您原本可正常運作的程式碼，保持不變 ---
+        // --- 以下為您原本可正常運作的程式碼，此處僅加上簡易註解說明其功能 ---
 
+        // 監聽管理者登入表單提交事件
         adminLoginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             adminLoginButton.disabled = true; adminLoginButton.textContent = '驗證中...';
             const { nickname, password } = e.target.elements;
             const virtualEmail = `${encodeURIComponent(nickname.value)}@pikmin.sys`;
             try {
+                // 使用 Supabase 進行登入驗證
                 const { data: { user }, error } = await supabaseClient.auth.signInWithPassword({ email: virtualEmail, password: password.value });
                 if (error) throw error;
+                // 從 'profiles' 表中查詢該使用者的角色
                 const { data: profile } = await supabaseClient.from('profiles').select('role, nickname').eq('id', user.id).single();
                 if (profile.role !== '管理者') throw new Error('權限不足，僅限管理者登入。');
+                // 如果是管理者，則顯示主控台
                 authorizeAndShowDashboard(profile);
             } catch (error) {
                 showMessage(error.message.includes('Invalid') ? '暱稱或密碼錯誤。' : error.message, true);
@@ -282,40 +332,43 @@
             }
         });
 
+        // 授權並顯示主控台的函式
         function authorizeAndShowDashboard(profile) {
-            adminUserInfo.textContent = `管理員：${profile.nickname}`;
-            adminLoginSection.classList.add('hidden');
-            adminDashboardSection.classList.remove('hidden');
-            loadAllAdminData();
+            adminUserInfo.textContent = `管理員：${profile.nickname}`; // 顯示歡迎訊息
+            adminLoginSection.classList.add('hidden'); // 隱藏登入畫面
+            adminDashboardSection.classList.remove('hidden'); // 顯示管理主控台
+            loadAllAdminData(); // 載入所有管理資料
         }
 
+        // 登出按鈕事件
         adminLogoutButton.addEventListener('click', async () => {
-            if (dbConnectionInterval) clearInterval(dbConnectionInterval);
-            await supabaseClient.auth.signOut();
-            window.location.reload();
+            if (dbConnectionInterval) clearInterval(dbConnectionInterval); // 清除計時器
+            await supabaseClient.auth.signOut(); // 執行登出
+            window.location.reload(); // 重新整理頁面
         });
 
+        // 統一載入所有管理資料的函式
         function loadAllAdminData() {
-            loadUsers();
-            loadChallenges();
-            setupAdminRealtime();
-            checkDbConnection();
-            dbConnectionInterval = setInterval(checkDbConnection, 30000);
+            loadUsers(); // 載入使用者列表
+            loadChallenges(); // 載入挑戰列表
+            setupAdminRealtime(); // 設定即時更新
+            checkDbConnection(); // 首次檢查資料庫連線
+            dbConnectionInterval = setInterval(checkDbConnection, 30000); // 每 30 秒檢查一次
         }
 
+        // 檢查資料庫連線狀態並更新指示燈
         async function checkDbConnection() {
             try {
-                await invokeAdminFunction('ping', {});
-                dbStatusLight.classList.remove('bg-red-500', 'bg-gray-500');
-                dbStatusLight.classList.add('bg-green-500');
+                await invokeAdminFunction('ping', {}); // 呼叫一個空的後端函式來測試連線
+                dbStatusLight.className = 'status-light bg-green-500'; // 成功則亮綠燈
                 dbStatusLight.title = `資料庫連線正常 (上次檢查於 ${new Date().toLocaleTimeString()})`;
             } catch (error) {
-                dbStatusLight.classList.remove('bg-green-500', 'bg-gray-500');
-                dbStatusLight.classList.add('bg-red-500');
+                dbStatusLight.className = 'status-light bg-red-500'; // 失敗則亮紅燈
                 dbStatusLight.title = `資料庫連線異常 (上次檢查於 ${new Date().toLocaleTimeString()})\n錯誤: ${error.message}`;
             }
         }
         
+        // 呼叫後端 Edge Function 的輔助函式
         async function invokeAdminFunction(action, payload) {
             try {
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
@@ -330,6 +383,7 @@
             }
         }
 
+        // 新增使用者表單提交事件
         addUserForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             addUserButton.disabled = true; addUserButton.textContent = '新增中...';
@@ -337,10 +391,11 @@
             const password = document.getElementById('new-password').value;
             const role = document.getElementById('new-role').value;
             try {
+                // 呼叫後端函式 'create-user'
                 await invokeAdminFunction('create-user', { email: `${encodeURIComponent(nickname)}@pikmin.sys`, password, nickname, role });
                 showMessage(`使用者 ${nickname} 新增成功！`, false);
                 addUserForm.reset();
-                loadUsers();
+                loadUsers(); // 重新載入使用者列表
             } catch (error) {
                 showMessage(`新增失敗: ${error.message}`, true);
             } finally {
@@ -348,19 +403,23 @@
             }
         });
 
+        // 使用者列表中的按鈕點擊事件 (改密碼、改角色、刪除)
         userListBody.addEventListener('click', async (e) => {
             const target = e.target.closest('button');
             if (!target) return;
             const userData = target.dataset;
             userToEdit = { id: userData.id, nickname: userData.nickname, role: userData.role };
             if (target.classList.contains('reset-password-button')) {
+                // 處理改密碼
                 document.getElementById('reset-pw-nickname').textContent = userToEdit.nickname;
                 resetPasswordModal.classList.remove('hidden');
             } else if (target.classList.contains('change-role-button')) {
+                // 處理改角色
                 document.getElementById('change-role-nickname').textContent = userToEdit.nickname;
                 document.getElementById('change-role-select').value = userToEdit.role;
                 changeRoleModal.classList.remove('hidden');
             } else if (target.classList.contains('delete-user-button')) {
+                // 處理刪除使用者
                 const confirmationMessage = `【高風險管理員操作】\n\n您確定要永久刪除使用者「${userToEdit.nickname}」嗎？\n\n此操作會將其帳號及所有相關資料從系統中移除，且無法復原。`;
                 if (confirm(confirmationMessage)) {
                     target.disabled = true; target.textContent = '刪除中';
@@ -376,6 +435,7 @@
             }
         });
 
+        // 處理重設密碼彈窗的邏輯
         cancelResetPwButton.addEventListener('click', () => resetPasswordModal.classList.add('hidden'));
         resetPasswordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -388,18 +448,20 @@
             } catch(error) { showMessage(`密碼重設失敗: ${error.message}`, true); }
         });
 
+        // 處理變更角色彈窗的邏輯
         cancelChangeRoleButton.addEventListener('click', () => changeRoleModal.classList.add('hidden'));
         changeRoleForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const newRole = document.getElementById('change-role-select').value;
             try {
-                await invokeAdminFunction('update-user-role', { userId: userToEdit.id, role: newRole });
+                await invokeAdminFunction('update-user-role', { userId: userTo.id, role: newRole });
                 showMessage(`使用者 ${userToEdit.nickname} 的角色已更新為 ${newRole}。`, false);
                 changeRoleModal.classList.add('hidden');
                 loadUsers();
             } catch(error) { showMessage(`角色變更失敗: ${error.message}`, true); }
         });
 
+        // 載入與渲染蘑菇挑戰列表
         async function loadChallenges() {
             challengeListAdmin.innerHTML = '<p>讀取中...</p>';
             try {
@@ -413,7 +475,9 @@
             }
         }
         
+        // 渲染單個挑戰卡片 (管理員視角)
         function renderAdminChallengeCard(challenge) {
+            // (此處省略渲染邏輯的詳細註解，功能是將挑戰資料轉換成 HTML 卡片)
             const card = document.createElement('div');
             card.className = 'challenge-card p-4';
             card.id = `admin-challenge-${challenge.id}`;
@@ -428,6 +492,7 @@
             challengeListAdmin.appendChild(card);
         }
 
+        // 監聽挑戰列表中的刪除按鈕
         challengeListAdmin.addEventListener('click', async (e) => {
             const button = e.target.closest('.delete-challenge-admin-button');
             if(!button) return;
@@ -445,13 +510,15 @@
             }
         });
 
+        // 設定 Supabase Realtime 即時資料庫，當資料有變動時自動更新畫面
         function setupAdminRealtime() {
             supabaseClient.channel('admin-realtime')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, loadChallenges)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, loadUsers)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, loadChallenges) // 監聽 challenges 表的變化
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, loadUsers) // 監聽 profiles 表的變化
                 .subscribe();
         }
 
+        // 載入「管理者」角色的暱稱到登入選單
         async function populateNicknames() {
             const nicknameSelect = document.getElementById('admin-nickname-select');
             try {
@@ -464,6 +531,7 @@
             }
         }
         
+        // 顯示訊息的輔助函式，5秒後自動消失
         function showMessage(text, isError) {
             adminMessageBox.textContent = text;
             adminMessageBox.className = `p-4 text-center text-sm rounded-xl ${isError ? 'bg-red-500/50 text-red-300' : 'bg-green-500/50 text-green-300'}`;
@@ -472,6 +540,7 @@
             }, 5000);
         }
         
+        // 檢查初始 session，如果已經是登入的管理者，直接顯示主控台
         async function checkInitialSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
@@ -482,6 +551,7 @@
             }
         }
         
+        // 當 DOM 載入完成後，執行初始化函式
         document.addEventListener('DOMContentLoaded', () => {
             populateNicknames();
             checkInitialSession();
