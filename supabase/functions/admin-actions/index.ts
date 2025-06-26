@@ -119,32 +119,42 @@ serve(async (req) => {
         break; // 結束這個 case 的處理
 
       // --- 其他操作的邏輯保持不變 ---
+      
+      // 在 index.ts 的 switch(action) 中，替換掉舊的 'create-user' case
       case 'create-user':
         {
-            // 【核心修正】在後端根據原始 nickname 生成標準的 virtualEmail 「問題根源」
-            const virtualEmail = `${encodeURIComponent(payload.nickname)}@pikmin.sys`;
+          // 【核心修正】為確保 Email 格式絕對一致，我們在後端這裡，
+          // 根據傳入的原始 nickname，統一生成標準的虛擬 Email。
+          const virtualEmail = `${encodeURIComponent(payload.nickname)}@pikmin.sys`;
 
-            const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({
-              email: virtualEmail, // ★ 使用後端自行生成的 virtualEmail
-              password: payload.password
-            });
-            
-            if (createErr) throw createErr;
-            
-            // 後續的 profile 寫入邏輯完全不變
-            if (created.user) {
-                const { error: profileErr } = await adminSupabaseClient.from('profiles').insert({
-                    id: created.user.id,
-                    nickname: payload.nickname, // 這裡依然使用原始 nickname
-                    role: payload.role
-                });
-                
-                if (profileErr) {
-                  await adminSupabaseClient.auth.admin.deleteUser(created.user.id);
-                  throw new Error(`建立 Profile 失敗: ${profileErr.message}`);
-                }
-                data = created;
-            }
+          // 使用 admin 權限的 client，以剛生成的虛擬 Email 建立認證使用者。
+          // 我們也加上 email_confirm: true，這是管理員建立帳號時的最佳實踐。
+          const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({
+            email: virtualEmail, // ★ 使用後端自行生成的 virtualEmail
+            password: payload.password,
+            email_confirm: true // ★ 確保使用者為已驗證狀態
+          });
+          
+          // 如果建立認證使用者時出錯，直接拋出錯誤。
+          if (createErr) throw createErr;
+          
+          // 如果認證使用者成功建立，接著在他的 public.profiles 表中新增對應的公開資料。
+          if (created.user) {
+              const { error: profileErr } = await adminSupabaseClient.from('profiles').insert({
+                  id: created.user.id,
+                  nickname: payload.nickname, // 這裡依然使用未經編碼的原始 nickname
+                  role: payload.role
+              });
+              
+              // 【重要】如果 profile 寫入失敗，這會導致資料不一致（有一個沒有個人資料的孤兒帳號）。
+              // 所以我們必須手動將剛才建立的認證使用者刪除，進行「交易復原」。
+              if (profileErr) {
+                await adminSupabaseClient.auth.admin.deleteUser(created.user.id);
+                throw new Error(`建立 Profile 失敗: ${profileErr.message}`);
+              }
+              // 一切順利，將成功建立的使用者資訊回傳
+              data = created;
+          }
         }
         break;
       
