@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>菇菇宅配網 - Pikmin Bloom 蘑菇報名表</title>
+    <title>菇菇宅配網 - Pikmin Bloom 蘑菇報名表5.0</title>
     <link rel="icon" href="./mashroom_s.png" type="image/png">
     <link rel="apple-touch-icon" href="./mashroom_s.png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -140,10 +140,7 @@
                 <img src="./mashroom.png" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
                 菇菇宅配網
             </h1>
-        </div>
-
-        <div class="flex items-center gap-x-4">
-            <span id="user-info" class="font-semibold text-gray-200 text-sm text-center">讀取中...</span>
+            
             <div id="online-users-container" class="flex items-center gap-2 text-sm text-white cursor-pointer hover:text-gray-300 transition" title="查看在線列表">
                 <span></span>
                 <button id="refresh-button" title="重新整理" class="hover:text-white transition">
@@ -153,6 +150,11 @@
                     </svg>
                 </button>
             </div>
+        </div>
+
+        <div class="flex items-center gap-x-4">
+            <span id="user-info" class="font-semibold text-gray-200 text-sm text-center">讀取中...</span>
+            
             <div class="hidden md:flex items-center gap-x-4">
                 <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
                 <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🚚 菇菇宅配通</a>
@@ -163,19 +165,17 @@
         </div>
 
         <div id="mobile-menu" class="hidden absolute top-full left-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg p-2">
-            
-            <button id="leaderboard-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏆 排行榜</button>
-            <a href="./partner.html" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🚚 菇菇宅配通</a>
-            
+            <div class="space-y-1">
+                <button id="leaderboard-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏆 排行榜</button>
+                <a href="./partner.html" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🚚 菇菇宅配通</a>
+            </div>
             <hr class="border-gray-600 my-2">
-            
             <a id="admin-link-mobile" href="./admin.html" class="hidden text-orange-400 hover:bg-gray-700 p-2 rounded-md font-bold">⚙️ 管理後台</a>
-            
             <hr class="border-gray-600 my-2">
-
-            <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">改密碼</button>
-            <button id="logout-button-mobile" class="w-full text-left text-red-400 hover:bg-gray-700 p-2 rounded-md">登出</button>
-
+            <div class="space-y-1">
+                <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">改密碼</button>
+                <button id="logout-button-mobile" class="w-full text-left text-red-400 hover:bg-gray-700 p-2 rounded-md">登出</button>
+            </div>
         </div>
         
     </div>
@@ -448,7 +448,7 @@
             userInfoEl.textContent = `你好，${currentUserProfile.nickname}！`;
             
             // 判斷是否為「管理者」或「發菇者」，以顯示發布相關按鈕
-            if (currentUserProfile.role === '管理者' || currentUserProfile.role === '發菇者') {
+            if (currentUserProfile.role === '管理者' || currentUserProfile.role === '發菇者' || currentUserProfile.role === '發菇及報名者') {
                 postChallengeButton.classList.remove('hidden');
                 hostedTab.classList.remove('hidden');
             }
@@ -546,7 +546,12 @@
             } else if (challenge.status === '已額滿') {
                 actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>已額滿</button>`;
             } else {
-                actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
+                // ★ 修改：增加判斷，若角色為「發菇者」，則無法報名
+                if (currentUserProfile.role === '發菇者') {
+                    actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default" disabled>僅發布權限</button>`;
+                } else {
+                    actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
+                }
             }
 
             const signupCount = challenge.signups ? challenge.signups.length : 0;
