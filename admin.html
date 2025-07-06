@@ -471,7 +471,7 @@
                 const { data: challenges, error } = await supabaseClient.from('challenges').select('*, host:profiles(nickname), signups(profile:profiles(nickname))').order('created_at', { ascending: false });
                 if(error) throw error;
                 if(challenges.length === 0) { challengeListAdmin.innerHTML = `<p>目前沒有任何挑戰。</p>`; return; }
-                challengeListAdmin.innerHTML = '';
+                challengeListAdmin.innerHTML = '';          
                 challenges.forEach(c => renderAdminChallengeCard(c));
             } catch (error) {
                 challengeListAdmin.innerHTML = `<p class="text-red-400">無法載入挑戰列表: ${error.message}</p>`;
@@ -509,35 +509,38 @@
 
             // --- ★ 調整結構：將兩個狀態標籤用一個 div 包裹起來，並插入 dispatchTagHtml ---
             card.innerHTML = `
+            <div class="flex flex-col justify-between h-full">
+                
                 <div>
-                    <div class="flex justify-between items-start mb-2">
-                        <h3 class="text-lg font-bold text-gray-100">${challenge.mushroom_type}</h3>
-                        <div class="flex items-center space-x-2">
-                            ${dispatchTagHtml}
-                            <span class="text-xs font-bold px-2 py-1 rounded-full text-white ${statusClass}">${challenge.status}</span>
-                        </div>
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-lg font-bold text-gray-100">${challenge.mushroom_type}</h3>
+                    <div class="flex items-center space-x-2">
+                    ${dispatchTagHtml}
+                    <span class="text-xs font-bold px-2 py-1 rounded-full text-white ${statusClass}">
+                        ${challenge.status}
+                    </span>
                     </div>
-                    <div class="text-sm text-gray-400 space-y-1">
-                        <p><strong>發布者:</strong> ${challenge.host?.nickname || '未知'}</p>
-                        <p><strong>名額:</strong> ${signupCount} / ${challenge.slots}</p>
-                        <p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })}</p>
-                    </div>
-                    ${participantsHtml}
                 </div>
-                <button data-id="${challenge.id}" class="delete-challenge-admin-button mt-4 w-full text-white font-bold py-2 px-4 rounded-lg bg-red-800 hover:bg-red-700 transition">刪除</button>
+
+                <div class="text-sm text-gray-400 space-y-1">
+                    <p><strong>發布者:</strong> ${challenge.host?.nickname || '未知'}</p>
+                    <p><strong>名額:</strong> ${signupCount} / ${challenge.slots}</p>
+                    <p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+
+                ${participantsHtml}
+                </div>
+
+                <div>
+                <button data-id="${challenge.id}" class="delete-challenge-admin-button mt-4 w-full text-white font-bold py-2 px-4 rounded-lg bg-red-800 hover:bg-red-700 transition">
+                    刪除
+                </button>
+                </div>
+                
+            </div>
             `;
             
-            // 將新建立的卡片附加到列表中
-            const existingCard = challengeListAdmin.querySelector(`#admin-challenge-${challenge.id}`);
-            if (existingCard) {
-                challengeListAdmin.replaceChild(card, existingCard);
-            } else {
-                // 如果是初次載入，清空「讀取中...」的提示
-                if (challengeListAdmin.querySelector('p')) {
-                    challengeListAdmin.innerHTML = '';
-                }
-                challengeListAdmin.appendChild(card);
-            }
+            challengeListAdmin.appendChild(card); // ★ 修改：簡化函式，只負責建立並附加卡片到 DOM
         }
 
         // 監聽挑戰列表中的刪除按鈕
