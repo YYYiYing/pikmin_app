@@ -8,6 +8,7 @@
     <link rel="apple-touch-icon" href="./mashroom_s.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body {
             font-family: 'Inter', 'Noto Sans TC', sans-serif;
@@ -162,6 +163,7 @@
                 <button data-filter="full" class="filter-tab">已額滿</button>
                 <button data-filter="signed-up" class="filter-tab">我的報名</button>
                 <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden">我的發布</button>
+                <button id="screenshot-button" class="filter-tab !bg-teal-600 hover:!bg-teal-700 text-white">📸 截圖</button>
             </div>
             <button id="post-challenge-button" class="hidden bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 w-full md:w-auto">
                 🍄 發布新挑戰
@@ -269,7 +271,10 @@
                         <input type="number" id="edit-slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
                     </div>
                     <div>
-                        <label for="edit-start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label>
+                        <div class="flex justify-between items-center">
+                            <label for="edit-start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label>
+                            <button type="button" id="edit-set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button>
+                        </div>
                         <input type="datetime-local" id="edit-start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
                     </div>
                     <div>
@@ -332,7 +337,9 @@
         const editChallengeModal = document.getElementById('edit-challenge-modal');
         const editChallengeForm = document.getElementById('edit-challenge-form');
         const cancelEditModalButton = document.getElementById('cancel-edit-modal-button');
-
+        const editSetTimeNowButton = document.getElementById('edit-set-time-now-button');
+        const screenshotButton = document.getElementById('screenshot-button');
+        
         let currentUserProfile = null;
         let challengeToDeleteId = null;
         let userSignedUpChallengeIds = new Set(); 
@@ -365,6 +372,10 @@
         };
 
         async function initializePage() {
+
+            // 在頁面初始化時，靜默呼叫後端函式，更新自己的最後活躍時間
+            await supabaseClient.rpc('update_last_active');
+
             supabaseClient.auth.onAuthStateChange((event, session) => {
                 if (event === 'SIGNED_OUT' || !session) {
                     if (countdownInterval) clearInterval(countdownInterval);
@@ -805,6 +816,14 @@
             editChallengeModal.classList.add('hidden');
         });
 
+        // ★ 編輯蘑菇立即發布時間監聽器
+        editSetTimeNowButton.addEventListener('click', () => {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            // 將編輯視窗內的時間輸入框，設定為當前時間
+            document.getElementById('edit-start-time').value = now.toISOString().slice(0, 16);
+        });
+
         editChallengeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const submitButton = document.getElementById('submit-edit-challenge-button');
@@ -1166,6 +1185,35 @@
                 challengesListEl.appendChild(p);
             }
         }
+        // ★ 新增：處理截圖功能的事件監聽器
+        screenshotButton.addEventListener('click', () => {
+            const challengesListElement = document.getElementById('challenges-list');
+            const originalButtonText = screenshotButton.innerHTML;
+
+            // 提供使用者操作回饋
+            screenshotButton.disabled = true;
+            screenshotButton.innerHTML = '截圖中...';
+
+            html2canvas(challengesListElement, {
+                backgroundColor: '#111827', 
+                useCORS: true, 
+                scale: 2 
+            }).then(canvas => {
+                const link = document.createElement('a');
+                const now = new Date();
+                const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+                link.download = `菇菇挑戰列表_${timestamp}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                link.remove();
+            }).catch(err => {
+                console.error('截圖失敗:', err);
+                showToast('截圖失敗，請查看控制台錯誤。', true);
+            }).finally(() => {
+                screenshotButton.disabled = false;
+                screenshotButton.innerHTML = originalButtonText;
+            });
+        });
     </script>
 </body>
 </html>

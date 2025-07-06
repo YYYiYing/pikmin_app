@@ -80,11 +80,14 @@
                 <h2 class="text-xl font-bold mb-4">現有使用者列表</h2>
                 <div class="overflow-x-auto max-h-[60vh]">
                     <table class="w-full text-left">
-                        <thead id="user-table-header" class="table-header sticky top-0"> <tr>
+                        <thead id="user-table-header" class="table-header sticky top-0">
+                            <tr>
                                 <th class="p-3 sortable-header" data-sort-key="nickname">暱稱<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header" data-sort-key="role">角色<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header text-center" data-sort-key="monthly_signup_count">參與度<span class="sort-indicator"></span></th>
-                                <th class="p-3 sortable-header" data-sort-key="last_sign_in_at">最後上線<span class="sort-indicator"></span></th>
+
+                                <th class="p-3 sortable-header" data-sort-key="last_active_at">最後活躍<span class="sort-indicator"></span></th>
+
                                 <th class="p-3 text-center">操作</th>
                             </tr>
                         </thead>
@@ -240,7 +243,7 @@
                     
                     if (currentSortColumn === 'monthly_signup_count') {
                         comparison = valA - valB; // 數字直接相減排序
-                    } else if (currentSortColumn === 'last_sign_in_at') {
+                    } else if (currentSortColumn === 'last_active_at') {
                         comparison = new Date(valA).getTime() - new Date(valB).getTime(); // 日期轉換成時間戳(毫秒數)後再相減排序
                     } else { // 'role' 角色欄位
                         comparison = String(valA).localeCompare(String(valB)); // 字串使用標準方法排序
@@ -254,8 +257,8 @@
 
             // 將排序完成的 `sortedUsers` 陣列，透過 `.map()` 轉換成 HTML 字串，再用 `.join('')` 組合成單一的長字串，最後塞入 `userListBody`
             userListBody.innerHTML = sortedUsers.map(user => {
-                const lastSignIn = user.last_sign_in_at
-                    ? new Date(user.last_sign_in_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
+                const lastSignIn = user.last_active_at
+                    ? new Date(user.last_active_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
                     : '從未';
                 return `
                     <tr class="border-b border-gray-700 hover:bg-gray-800/50">
@@ -454,7 +457,7 @@
             e.preventDefault();
             const newRole = document.getElementById('change-role-select').value;
             try {
-                await invokeAdminFunction('update-user-role', { userId: userTo.id, role: newRole });
+                await invokeAdminFunction('update-user-role', { userId: userToEdit.id, role: newRole });
                 showMessage(`使用者 ${userToEdit.nickname} 的角色已更新為 ${newRole}。`, false);
                 changeRoleModal.classList.add('hidden');
                 loadUsers();
@@ -475,21 +478,66 @@
             }
         }
         
-        // 渲染單個挑戰卡片 (管理員視角)
+        // 渲染單個挑戰卡片 (管理員視角) - 更新版
         function renderAdminChallengeCard(challenge) {
-            // (此處省略渲染邏輯的詳細註解，功能是將挑戰資料轉換成 HTML 卡片)
             const card = document.createElement('div');
             card.className = 'challenge-card p-4';
             card.id = `admin-challenge-${challenge.id}`;
+            
+            // 決定「開放報名中」/「已額滿」等狀態的樣式
             const statusClass = challenge.status === '開放報名中' ? 'bg-green-600' : (challenge.status === '已額滿' ? 'bg-red-600' : 'bg-yellow-600');
             const signupCount = challenge.signups ? challenge.signups.length : 0;
+
+            // --- ★ 新增邏輯：產生「待發」或「已發」的狀態標籤 ---
+            let dispatchTagHtml = '';
+            // 只有在有人報名時，才顯示這個標籤
+            if (signupCount > 0) {
+                // 從挑戰資料中讀取 dispatch_status，若無則預設為「待發」
+                const dispatchStatus = challenge.dispatch_status || '待發';
+                // 根據狀態設定對應的 Tailwind CSS 背景色，使其與 dashboard 頁面一致
+                const dispatchClass = dispatchStatus === '已發' ? 'bg-teal-500' : 'bg-gray-600';
+                // 組合出標籤的 HTML 字串
+                dispatchTagHtml = `<span class="text-xs font-bold px-2 py-1 rounded-full text-white ${dispatchClass}">${dispatchStatus}</span>`;
+            }
+
+            // 處理報名者列表的顯示
             let participantsHtml = '';
             if (signupCount > 0) {
                 const participantsList = challenge.signups.map((signup) => `<span class="text-xs bg-gray-700 px-2 py-1 rounded">${signup.profile?.nickname || '未知'}</span>`).join(' ');
                 participantsHtml = `<div class="mt-2 flex flex-wrap gap-2 items-center">${participantsList}</div>`;
             }
-            card.innerHTML = `<div><div class="flex justify-between items-start mb-2"><h3 class="text-lg font-bold text-gray-100">${challenge.mushroom_type}</h3><span class="text-xs font-bold px-2 py-1 rounded-full text-white ${statusClass}">${challenge.status}</span></div><div class="text-sm text-gray-400 space-y-1"><p><strong>發布者:</strong> ${challenge.host?.nickname || '未知'}</p><p><strong>名額:</strong> ${signupCount} / ${challenge.slots}</p><p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })}</p></div>${participantsHtml}</div><button data-id="${challenge.id}" class="delete-challenge-admin-button mt-4 w-full text-white font-bold py-2 px-4 rounded-lg bg-red-800 hover:bg-red-700 transition">刪除</button>`;
-            challengeListAdmin.appendChild(card);
+
+            // --- ★ 調整結構：將兩個狀態標籤用一個 div 包裹起來，並插入 dispatchTagHtml ---
+            card.innerHTML = `
+                <div>
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="text-lg font-bold text-gray-100">${challenge.mushroom_type}</h3>
+                        <div class="flex items-center space-x-2">
+                            ${dispatchTagHtml}
+                            <span class="text-xs font-bold px-2 py-1 rounded-full text-white ${statusClass}">${challenge.status}</span>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-400 space-y-1">
+                        <p><strong>發布者:</strong> ${challenge.host?.nickname || '未知'}</p>
+                        <p><strong>名額:</strong> ${signupCount} / ${challenge.slots}</p>
+                        <p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })}</p>
+                    </div>
+                    ${participantsHtml}
+                </div>
+                <button data-id="${challenge.id}" class="delete-challenge-admin-button mt-4 w-full text-white font-bold py-2 px-4 rounded-lg bg-red-800 hover:bg-red-700 transition">刪除</button>
+            `;
+            
+            // 將新建立的卡片附加到列表中
+            const existingCard = challengeListAdmin.querySelector(`#admin-challenge-${challenge.id}`);
+            if (existingCard) {
+                challengeListAdmin.replaceChild(card, existingCard);
+            } else {
+                // 如果是初次載入，清空「讀取中...」的提示
+                if (challengeListAdmin.querySelector('p')) {
+                    challengeListAdmin.innerHTML = '';
+                }
+                challengeListAdmin.appendChild(card);
+            }
         }
 
         // 監聽挑戰列表中的刪除按鈕
