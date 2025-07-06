@@ -187,6 +187,25 @@ serve(async (req) => {
         ({ data, error } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId));
         break;
 
+     // ★ 新增：獲取每日報名上限的 action
+     case 'get-daily-limit':
+       ({ data, error } = await adminSupabaseClient.from('daily_settings')
+           .select('setting_value')
+           .eq('setting_name', 'daily_signup_limit')
+           .single());
+       break;
+ 
+     // ★ 新增：更新每日報名上限的 action
+     case 'set-daily-limit':
+       ({ data, error } = await adminSupabaseClient.from('daily_settings')
+           .update({ setting_value: payload.value, updated_at: new Date().toISOString() })
+           .eq('setting_name', 'daily_signup_limit')
+           .select()
+           .single());
+       break;
+
+
+
       case 'ping':
         // 一個用來測試連線的空操作，不做任何事，能成功回傳即代表連線正常。
         break;

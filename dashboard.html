@@ -136,7 +136,7 @@
                     <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
                 </svg>
             </button>
-            <h1 class="text-2xl font-bold text-white flex items-center">
+            <h1 class="text-xl font-bold text-white flex items-center">
                 <img src="./mashroom.png" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
                 菇菇宅配網
             </h1>
@@ -154,7 +154,7 @@
 
         <div class="flex items-center gap-x-4">
             <span id="user-info" class="font-semibold text-gray-200 text-sm text-center">讀取中...</span>
-            
+            <span id="daily-quota-display" class="text-sm text-gray-400 border-l border-gray-600 pl-4 ml-2"></span>
             <div class="hidden md:flex items-center gap-x-4">
                 <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
                 <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🚚 菇菇宅配通</a>
@@ -379,7 +379,7 @@
         let activeFilter = 'all';
         let onlineNicknames = []; 
         let challengesData = {}; 
-
+        
         //蘑菇樣式對照表
         const mushroomStyles = {
         '巨菇':     { bg: 'bg-cyan-400',     text: 'text-black' },
@@ -403,10 +403,47 @@
         '大灰':     { bg: 'bg-gray-500',     text: 'text-white' },
         };
 
+        // ★ 修改：簡化函式，直接顯示從資料庫獲取的計數，不再進行任何日期判斷
+        function updateQuotaDisplay() {
+            const quotaEl = document.getElementById('daily-quota-display');
+            if (!currentUserProfile || !quotaEl) return;
+
+            const currentCount = currentUserProfile.daily_signup_count || 0;
+            quotaEl.textContent = `本日額度: ${currentCount} / ${window.dailySignupLimit}`;
+        }
+
+        // ★ 新增：從資料庫重新獲取並更新當前使用者的個人資料
+        async function refreshUserProfile() {
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUserProfile.id)
+                .single();
+            
+            if (error) {
+                console.error('刷新使用者資料失敗:', error);
+                return;
+            }
+            currentUserProfile = data;
+        }
+
         async function initializePage() {
 
             // 在頁面初始化時，靜默呼叫後端函式，更新自己的最後活躍時間
             await supabaseClient.rpc('update_last_active');
+
+            // ★ 修改：使用更穩健的方式獲取每日報名上限設定
+            const { data: settings, error: limitError } = await supabaseClient
+                .from('daily_settings')
+                .select('setting_value')
+                .eq('setting_name', 'daily_signup_limit');
+        
+            if (limitError || !settings || settings.length === 0) {
+                console.error('無法獲取每日報名上限設定，將使用預設值 3。', limitError);
+                window.dailySignupLimit = 3; // 若發生錯誤或找不到設定，使用預設值
+            } else {
+                window.dailySignupLimit = settings[0].setting_value; // 成功獲取，使用資料庫中的值
+            }
 
             supabaseClient.auth.onAuthStateChange((event, session) => {
                 if (event === 'SIGNED_OUT' || !session) {
@@ -446,7 +483,7 @@
 
             // 更新標題列中的歡迎訊息
             userInfoEl.textContent = `你好，${currentUserProfile.nickname}！`;
-            
+            updateQuotaDisplay(); // ★ 新增：在使用者資訊顯示時，更新額度顯示
             // 判斷是否為「管理者」或「發菇者」，以顯示發布相關按鈕
             if (currentUserProfile.role === '管理者' || currentUserProfile.role === '發菇者' || currentUserProfile.role === '發菇及報名者') {
                 postChallengeButton.classList.remove('hidden');
@@ -508,7 +545,9 @@
                 return;
             }
             challengesData[challenge.id] = challenge; 
-
+            // ★ 修改：簡化額度判斷邏輯，不再需要檢查日期
+            const dailyLimitReached = currentUserProfile && currentUserProfile.daily_signup_count >= window.dailySignupLimit;
+        
             const card = document.createElement('div');
             card.className = 'challenge-card bg-gray-800 rounded-xl shadow-md overflow-hidden p-6 flex flex-col justify-between';
             card.id = `challenge-${challenge.id}`;
@@ -545,6 +584,10 @@
                 actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>尚未開放</button>`;
             } else if (challenge.status === '已額滿') {
                 actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>已額滿</button>`;
+
+            } else if (dailyLimitReached) { // ★ 新增：如果已達每日上限，顯示提示按鈕
+                actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>報名額度已滿</button>`;
+
             } else {
                 // ★ 修改：增加判斷，若角色為「發菇者」，則無法報名
                 if (currentUserProfile.role === '發菇者') {
@@ -632,6 +675,23 @@
             applyFilter();
         }
         
+        // ★ 新增：一個專門用來刷新所有挑戰卡片狀態的函式
+        function refreshAllChallengeCards() {
+            // challengesData 是一個全域變數，儲存了從資料庫獲取的所有挑戰
+            if (!challengesData) return;
+
+            // 清空現有列表
+            challengesListEl.innerHTML = '';
+            
+            // 遍歷所有挑戰資料，並為每一筆重新渲染一次卡片
+            Object.values(challengesData).forEach(challenge => {
+                renderChallenge(challenge);
+            });
+
+            // 重新套用使用者當前的篩選條件
+            applyFilter();
+        }
+
         function setupRealtimeListeners() {
             supabaseClient.channel('public:challenges')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, payload => {
@@ -940,12 +1000,15 @@
             });
 
             if (error) {
-                showToast(`報名失敗: ${error.message.includes('full') ? '蘑菇已額滿！' : error.message}`, true);
-                reloadChallengeCard(challengeId);
+                showToast(`報名失敗: ${error.message.includes('Daily signup limit reached') ? '本日報名額度已滿！' : (error.message.includes('full') ? '蘑菇已額滿！' : error.message)}`, true);
+                reloadChallengeCard(challengeId); 
             } else {
                 showToast('報名成功！', false);
                 userSignedUpChallengeIds.add(numericChallengeId);
-                reloadChallengeCard(challengeId); 
+                // ★ 修改：改為從資料庫刷新使用者資料
+                await refreshUserProfile(); 
+                refreshAllChallengeCards();
+                updateQuotaDisplay();                 
             }
         }
 
@@ -963,7 +1026,10 @@
             } else {
                 showToast('已取消報名', false);
                 userSignedUpChallengeIds.delete(numericChallengeId);
-                reloadChallengeCard(challengeId);
+                // ★ 修改：改為從資料庫刷新使用者資料
+                await refreshUserProfile();
+                refreshAllChallengeCards();
+                updateQuotaDisplay();
             }
         }
 

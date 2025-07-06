@@ -67,12 +67,23 @@
             </div>
         </header>
 
+        <div id="global-settings-section" class="mb-8 admin-container rounded-2xl p-6">
+            <div class="flex items-center gap-4">
+                <label for="daily-limit-input" class="text-xl font-medium whitespace-nowrap">每日報名上限：</label>
+                <input type="number" id="daily-limit-input" min="1" class="dark-input w-24 rounded-md text-center" placeholder="讀取中...">
+                <button id="save-settings-button" class="admin-button px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50">儲存變更</button>
+                <span id="settings-status-text" class="text-sm text-gray-400"></span>
+            </div>
+        </div>
+
         <div class="mb-8 admin-container rounded-2xl p-6">
             <div class="flex items-center space-x-2 mb-4">
                 <h2 class="text-xl font-bold">蘑菇挑戰管理</h2>
-                <div id="db-status-light" class="status-light bg-gray-500" title="正在檢查資料庫連線..."></div> </div>
+                <div id="db-status-light" class="status-light bg-gray-500" title="正在檢查資料庫連線..."></div> 
+            </div>
             <div id="challenge-list-admin" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
-                <p>讀取中...</p> </div>
+                <p>讀取中...</p> 
+            </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -80,14 +91,12 @@
                 <h2 class="text-xl font-bold mb-4">現有使用者列表</h2>
                 <div class="overflow-x-auto max-h-[60vh]">
                     <table class="w-full text-left">
-                        <thead id="user-table-header" class="table-header sticky top-0">
+                        <thead id="user-table-header" class="table-header sticky top-0"> 
                             <tr>
                                 <th class="p-3 sortable-header" data-sort-key="nickname">暱稱<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header" data-sort-key="role">角色<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header text-center" data-sort-key="monthly_signup_count">參與度<span class="sort-indicator"></span></th>
-
                                 <th class="p-3 sortable-header" data-sort-key="last_active_at">最後活躍<span class="sort-indicator"></span></th>
-
                                 <th class="p-3 text-center">操作</th>
                             </tr>
                         </thead>
@@ -97,13 +106,13 @@
             </div>
             <div class="space-y-8">
                 <div class="admin-container rounded-2xl p-6">
-                     <h2 class="text-xl font-bold mb-4">新增使用者</h2>
-                     <form id="add-user-form" class="space-y-4">
+                    <h2 class="text-xl font-bold mb-4">新增使用者</h2>
+                    <form id="add-user-form" class="space-y-4">
                         <div><label for="new-nickname" class="text-sm font-medium">暱稱</label><input type="text" id="new-nickname" required class="dark-input mt-1 w-full rounded-md"></div>
                         <div><label for="new-password" class="text-sm font-medium">預設密碼</label><input type="text" id="new-password" required class="dark-input mt-1 w-full rounded-md" value="000000"></div>
-                        <div><label for="new-role" class="text-sm font-medium">角色</label><select id="new-role" required class="dark-input mt-1 w-full rounded-md"><option value="報名者">報名者</option><option value="發菇者">發菇者</option><option value="發菇及報名者">發菇及報名者</option><option value="管理者">管理者</option></select></div>
+                        <div><label for="new-role" class="text-sm font-medium">角色</label><select id="new-role" required class="dark-input mt-1 w-full rounded-md"><option value="報名者">報名者</option><option value="發菇者">發菇者 (僅發)</option><option value="發菇及報名者">發菇及報名者</option><option value="管理者">管理者</option></select></div>
                         <button type="submit" id="add-user-button" class="admin-button w-full py-2 rounded-lg font-bold disabled:opacity-50">確認新增</button>
-                     </form>
+                    </form>
                 </div>
             </div>
         </div>
@@ -169,6 +178,10 @@
         const challengeListAdmin = document.getElementById('challenge-list-admin');
         const dbStatusLight = document.getElementById('db-status-light');
         const userTableHeader = document.getElementById('user-table-header'); // ★ 新增：抓取整個表頭元素
+        // ★ 新增：抓取全域設定區塊的 UI 元素
+        const dailyLimitInput = document.getElementById('daily-limit-input');
+        const saveSettingsButton = document.getElementById('save-settings-button');
+        const settingsStatusText = document.getElementById('settings-status-text');
 
         // --- 3. 狀態變數 ---
         // 這些變數用來儲存整個頁面的狀態
@@ -352,6 +365,7 @@
 
         // 統一載入所有管理資料的函式
         function loadAllAdminData() {
+            loadGlobalSettings(); // ★ 新增：呼叫讀取設定函式
             loadUsers(); // 載入使用者列表
             loadChallenges(); // 載入挑戰列表
             setupAdminRealtime(); // 設定即時更新
@@ -568,6 +582,57 @@
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, loadUsers) // 監聽 profiles 表的變化
                 .subscribe();
         }
+
+        // 讀取全域設定的函式
+        async function loadGlobalSettings() {
+            settingsStatusText.textContent = '讀取中...';
+            try {
+                // 改為呼叫後端 Edge Function 來獲取資料
+                const { data, error } = await invokeAdminFunction('get-daily-limit', {});
+                
+                if (error) throw error;
+
+                if (data) {
+                    dailyLimitInput.value = data.setting_value;
+                    settingsStatusText.textContent = `上次更新於 ${new Date().toLocaleTimeString()}`;
+                } else {
+                    dailyLimitInput.placeholder = '未設定';
+                    settingsStatusText.textContent = '在資料庫中找不到設定值。';
+                }
+            } catch (error) {
+                dailyLimitInput.placeholder = '錯誤';
+                settingsStatusText.textContent = `讀取失敗: ${error.message}`;
+            }
+        }
+
+        // 儲存設定按鈕的事件監聽器
+        saveSettingsButton.addEventListener('click', async () => {
+            const newValue = parseInt(dailyLimitInput.value);
+            if (isNaN(newValue) || newValue < 0) {
+                showMessage('請輸入一個有效的正整數。', true);
+                return;
+            }
+
+            saveSettingsButton.disabled = true;
+            saveSettingsButton.textContent = '儲存中...';
+            settingsStatusText.textContent = '';
+
+            try {
+                // 改為呼叫後端 Edge Function 來更新資料
+                const { error } = await invokeAdminFunction('set-daily-limit', { value: newValue });
+                
+                if (error) throw error;
+
+                showMessage('每日報名上限已成功更新！', false);
+                settingsStatusText.textContent = `更新成功於 ${new Date().toLocaleTimeString()}`;
+            } catch (error) {
+                showMessage(`更新失敗: ${error.message}`, true);
+                settingsStatusText.textContent = `更新失敗。`;
+            } finally {
+                saveSettingsButton.disabled = false;
+                saveSettingsButton.textContent = '儲存變更';
+            }
+        });
 
         // 載入「管理者」角色的暱稱到登入選單
         async function populateNicknames() {
