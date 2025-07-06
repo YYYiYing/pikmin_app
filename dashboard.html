@@ -127,26 +127,33 @@
 </head>
 <body class="bg-gray-900">
 
-    <header class="header-gradient shadow-md sticky top-0 z-10">
-        <div class="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center">
-            <div class="flex items-center mb-2 md:mb-0">
-                <h1 class="text-2xl font-bold text-white flex items-center">
-                    <img src="./mashroom.png" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
-                    菇菇宅配網
-                </h1>
-                <div id="online-users-container" class="ml-4 flex items-center gap-2 text-sm text-white cursor-pointer hover:text-gray-300 transition" title="查看在線列表">
-                    <span></span>
-                    <button id="refresh-button" title="重新整理" class="hover:text-white transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                        </svg>
-                    </button>
-                </div>
+<header class="header-gradient shadow-md sticky top-0 z-20">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center relative">
+        
+        <div class="flex items-center gap-4">
+            <button id="hamburger-button" class="p-2 md:hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-list text-white" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
+                </svg>
+            </button>
+            <h1 class="text-2xl font-bold text-white flex items-center">
+                <img src="./mashroom.png" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
+                菇菇宅配網
+            </h1>
+        </div>
+
+        <div class="flex items-center gap-x-4">
+            <span id="user-info" class="font-semibold text-gray-200 text-sm text-center">讀取中...</span>
+            <div id="online-users-container" class="flex items-center gap-2 text-sm text-white cursor-pointer hover:text-gray-300 transition" title="查看在線列表">
+                <span></span>
+                <button id="refresh-button" title="重新整理" class="hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                </button>
             </div>
-             
-            <div class="flex items-center flex-wrap justify-center gap-x-4 gap-y-2">
-                <span id="user-info" class="font-semibold text-gray-200 text-sm order-first md:order-none w-full md:w-auto text-center">讀取中...</span>
+            <div class="hidden md:flex items-center gap-x-4">
                 <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
                 <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🚚 菇菇宅配通</a>
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
@@ -154,7 +161,25 @@
                 <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">登出</button>
             </div>
         </div>
-    </header>
+
+        <div id="mobile-menu" class="hidden absolute top-full left-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg p-2">
+            
+            <button id="leaderboard-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏆 排行榜</button>
+            <a href="./partner.html" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🚚 菇菇宅配通</a>
+            
+            <hr class="border-gray-600 my-2">
+            
+            <a id="admin-link-mobile" href="./admin.html" class="hidden text-orange-400 hover:bg-gray-700 p-2 rounded-md font-bold">⚙️ 管理後台</a>
+            
+            <hr class="border-gray-600 my-2">
+
+            <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">改密碼</button>
+            <button id="logout-button-mobile" class="w-full text-left text-red-400 hover:bg-gray-700 p-2 rounded-md">登出</button>
+
+        </div>
+        
+    </div>
+</header>
 
     <main class="container mx-auto p-4 md:p-8">
         <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -166,7 +191,7 @@
                 <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden">我的發布</button>
             </div>
             <button id="screenshot-button" class="text-gray-400 hover:text-white transition">📸 截圖</button>
-         </div>          
+        </div>          
             <button id="post-challenge-button" class="hidden bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 w-full md:w-auto">
                 🍄 發布新挑戰
             </button>
@@ -341,6 +366,8 @@
         const cancelEditModalButton = document.getElementById('cancel-edit-modal-button');
         const editSetTimeNowButton = document.getElementById('edit-set-time-now-button');
         const screenshotButton = document.getElementById('screenshot-button');
+        const hamburgerButton = document.getElementById('hamburger-button');
+        const mobileMenu = document.getElementById('mobile-menu');
         
         let currentUserProfile = null;
         let challengeToDeleteId = null;
@@ -411,16 +438,26 @@
         }
 
         function displayUserInfo() {
+            // 如果尚未讀取到使用者資料，則不執行
             if (!currentUserProfile) return;
+
+            // 更新標題列中的歡迎訊息
             userInfoEl.textContent = `你好，${currentUserProfile.nickname}！`;
             
+            // 判斷是否為「管理者」或「發菇者」，以顯示發布相關按鈕
             if (currentUserProfile.role === '管理者' || currentUserProfile.role === '發菇者') {
                 postChallengeButton.classList.remove('hidden');
                 hostedTab.classList.remove('hidden');
             }
             
+            // ------------------- ★ 這裡是核心修改處 ★ -------------------
+            // 判斷是否為「管理者」
             if (currentUserProfile.role === '管理者') {
+                // (原本就有的) 讓桌面版的「管理後台」連結顯示出來
                 adminLink.classList.remove('hidden');
+
+                // (我們新增的) 同步讓行動版漢堡選單中的「管理後台」連結也顯示出來
+                document.getElementById('admin-link-mobile').classList.remove('hidden');
             }
         }
         
@@ -1187,7 +1224,12 @@
                 challengesListEl.appendChild(p);
             }
         }
-        // ★ 新增：處理截圖功能的事件監聽器
+        // 複製桌面版按鈕事件到行動版
+        mobileMenu.querySelector('#leaderboard-button-mobile').addEventListener('click', () => leaderboardButton.click());
+        mobileMenu.querySelector('#change-password-button-mobile').addEventListener('click', () => changePasswordButton.click());
+        mobileMenu.querySelector('#logout-button-mobile').addEventListener('click', () => logoutButton.click());
+
+        // 處理截圖功能的事件監聽器
         screenshotButton.addEventListener('click', () => {
             const challengesListElement = document.getElementById('challenges-list');
             const originalButtonText = screenshotButton.innerHTML;
@@ -1215,6 +1257,19 @@
                 screenshotButton.disabled = false;
                 screenshotButton.innerHTML = originalButtonText;
             });
+        });
+
+        // ★ 新增：漢堡選單開關邏輯
+        hamburgerButton.addEventListener('click', (event) => {
+            event.stopPropagation(); // 防止事件冒泡到 window
+            mobileMenu.classList.toggle('hidden');
+        });
+        
+        // ★ 新增：點擊頁面其他地方時，自動關閉選單
+        window.addEventListener('click', (event) => {
+            if (!mobileMenu.classList.contains('hidden') && !mobileMenu.contains(event.target)) {
+                mobileMenu.classList.add('hidden');
+            }
         });
     </script>
 </body>
