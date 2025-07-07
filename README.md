@@ -1,133 +1,117 @@
 🍄 菇菇宅配網 - Pikmin Bloom 蘑菇報名系統 🍄
-這是一個專為 Pikmin Bloom 玩家設計的蘑菇挑戰報名與管理平台，旨在提供一個中心化的介面，方便玩家發布、報名蘑菇挑戰，以及管理好友碼。系統採用了現代化的網頁技術棧，提供即時的資料更新、多角色權限管理與活動控管功能。
+這是一個專為 Pikmin Bloom 玩家設計的蘑菇挑戰報名與管理平台，旨在提供一個中心化的介面，方便玩家發布、報名蘑菇挑戰，以及管理好友碼。系統採用了現代化的網頁技術棧，提供即時的資料更新、精細的角色權限管理與自動化的活動控管功能。
 
 專案概述
 本專案旨在解決遊戲中蘑菇挑戰協調的痛點，提供以下核心功能：
 
-使用者認證與多角色權限管理：
+精細角色權限管理：支援四種使用者角色：報名者、發菇者 (僅發布)、發菇及報名者、管理者。
 
-支援四種使用者角色：報名者、發菇者 (僅發布)、發菇及報名者、管理者。
+蘑菇挑戰發布與報名：具權限的使用者可發布各種類型、名額、開放時間的蘑菇挑戰；使用者可即時報名或取消報名。
 
-根據不同角色，提供精確的操作權限。
+每日限量報名機制：管理者可在後台設定全域的「每人每日報名次數上限」，並由資料庫於每日固定時間自動重置。
 
-蘑菇挑戰發布與報名：
+公平且穩健的排行榜：提供週/月排行的「報名王」與「最速傳說」。最速紀錄的取消操作具備**復歸(Rollback)**功能，能自動回溯至前一筆最佳成績，防止洗榜。
 
-具權限的使用者可發布各種類型、名額、開放時間的蘑菇挑戰。
+伺服器端自動化：關鍵的業務邏輯，如「挑戰開放狀態更新」與「排行榜計數器歸零」，皆由後端伺服器定時自動執行，確保了功能的絕對可靠性。
 
-具權限的使用者可即時報名或取消報名；挑戰卡片會顯示參與者列表與報名時間。
+響應式介面：前端介面經優化，在桌面與行動裝置上皆有良好的操作體驗，並採用漢堡選單收納次要功能。
 
-每日限量報名機制：
+管理後台：管理者專用的介面，用於使用者管理、挑戰管理、以及每日報名上限設定。
 
-管理者可在後台設定全域的「每人每日報名次數上限」。
+便利功能：動態截圖、好友碼聯絡簿、在線人數顯示等。
 
-系統會自動追蹤每位使用者當日的報名次數，並在額度用罄時限制其報名。
+核心架構與設計理念
+本專案在迭代過程中，確立了幾個核心的設計原則，以確保系統的穩健性與可維護性。
 
-使用者的報名次數會由資料庫於每日固定時間自動重置歸零。
+1. 後端驅動的業務邏輯
+所有核心且敏感的操作，如權限檢查、報名資格驗證、排行榜計分等，都封裝在 PostgreSQL 的資料庫函式 (RPC) 中。前端只負責呼叫這些函式，而不參與複雜的邏輯判斷。
 
-即時更新與響應式介面：
+2. 伺服器端自動化 (pg_cron)
+系統的「心跳」由 Supabase 內建的 pg_cron 排程工具驅動，它負責執行週期性任務，不受任何使用者行為影響。
 
-利用 Supabase Realtime 功能，確保挑戰列表、在線人數等資料即時同步。
-
-前端介面經優化，在桌面與行動裝置上皆有良好的操作體驗，並採用漢堡選單收納次要功能。
-
-管理後台：
-
-管理者專用的介面，用於使用者管理（新增、重設密碼、修改角色、刪除）、挑戰管理（刪除）、每日報名上限設定。
-
-即時監控資料庫連線狀態與使用者活躍度。
-
-便利功能：
-
-動態截圖：一鍵擷取當前可見的挑戰列表為圖片，方便分享。
-
-好友碼聯絡簿：提供共享的平台，方便玩家管理與複製好友碼。
+3. 數據完整性：永久成績日誌
+為實現公平的排行榜「復歸」功能，並應對「挑戰卡片會被清除」的業務規則，本專案採用了永久日誌表 (signup_history) 的架構。透過在 signups 表上設置觸發器 (Trigger)，在任何報名紀錄被刪除前，都會先將其成績自動存檔至 signup_history，確保排行榜的計算數據源永不遺失。
 
 技術棧
-前端:
+前端: HTML5, CSS3, JavaScript (ES6+), Tailwind CSS, Supabase JS Client, html2canvas
 
-HTML5 / CSS3 / JavaScript
+後端 (Supabase): PostgreSQL, pg_cron, Supabase Auth, Supabase Edge Functions (Deno/TypeScript), Supabase Realtime
 
-Tailwind CSS: 快速建構響應式 UI 的 CSS 框架。
+程式語言: JavaScript, TypeScript, SQL (PL/pgSQL)
 
-Supabase JS Client: 前端與 Supabase 後端服務互動的核心。
+後端架構與自動化詳解
+核心資料庫函式 (RPC)
+以下為系統中幾個最關鍵的資料庫函式說明：
 
-html2canvas: 用於實現將 HTML 元素轉換為圖片的功能。
+signup_for_challenge(challenge_id)
 
-後端 (Supabase):
+職責：處理單次報名的所有邏輯。
 
-PostgreSQL 資料庫: 儲存所有應用程式資料。
+執行步驟：
 
-pg_cron: PostgreSQL 的排程工具，用於執行每日計數器歸零等定時任務。
+時間驗證：檢查當前伺服器時間是否已晚於挑戰的 start_time，防止提前報名及產生負值的報名速度。
 
-Supabase Auth: 處理使用者註冊、登入與會話管理。
+每日額度檢查：查詢 daily_settings 表取得上限值，再比對 profiles 表中該使用者的 daily_signup_count，確認未達當日上限。
 
-Supabase Edge Functions (Deno/TypeScript): 部署客製化後端邏輯，處理管理員的敏感操作。
+名額檢查：鎖定要報名的挑戰，計算 signups 表中對應的現有報名人數，確認挑戰尚未額滿。
 
-Supabase Realtime: 提供資料庫變動的即時訂閱功能。
+執行報名：通過所有檢查後，將新的報名紀錄（包含計算出的 signup_speed）INSERT 到 signups 表。
 
-程式語言:
+更新統計：UPDATE profiles 表，將該使用者的 daily_signup_count, weekly_signup_count, monthly_signup_count 都加一，並更新其 weekly/monthly_fastest_time（如果本次成績更快）。
 
-JavaScript (ES6+): 前端邏輯實現。
+更新挑戰狀態：如果報名後額滿，則更新 challenges 表的狀態。
 
-TypeScript: 用於 Supabase Edge Functions (index.ts)，提供型別安全。
+cancel_signup_and_update_challenge(challenge_id)
 
-SQL (PostgreSQL): 資料庫結構定義與資料庫函式 (RPC)。
+職責：處理取消報名及其衍生的所有數據復歸。
 
-功能詳情與實作細節
-1. 權限與角色系統
-系統定義了四種角色，其權限劃分如下：
+執行步驟：
 
-報名者：僅能報名挑戰。
+事前查詢：在刪除前，先從 signups 表中獲取該筆報名的 signup_speed，並從 profiles 表取得使用者當前的最速紀錄。
 
-發菇者：僅能發布新挑戰，無法報名他人發布的挑戰。
+執行刪除：從 signups 表中 DELETE 該筆報名紀錄。（此動作會觸發 archive_signup_record 函式進行存檔）。
 
-發菇及報名者：可發布新挑戰，也可報名他人發布的挑戰。
+返還次數：UPDATE profiles 表，將 daily/weekly/monthly_signup_count 都減一。
 
-管理者：擁有所有前台功能，並可進入管理後台進行使用者與系統管理。
+最速時間復歸：判斷被取消的成績是否為當前的最速紀錄。如果是，則從永久的 signup_history 表中，重新查詢該使用者在當前時間區間內（本週/本月）所有剩下的紀錄，找出其中的最快成績 (MIN)，並用它來更新 profiles 表中的最速紀錄。如果已無其他紀錄，則更新為 NULL。
 
-2. 每日限量報名機制 (核心架構)
-為實現此功能，系統採用了「後端排程」與「獨立計數器」的穩健架構。
+更新挑戰狀態：如果挑戰先前為「已額滿」，則將其狀態更新回「開放報名中」。
 
-資料庫層級：
+archive_signup_record() (由觸發器呼叫)
 
-daily_settings 資料表：用於儲存全域設定，目前包含一筆 setting_name 為 daily_signup_limit 的紀錄，其 setting_value 即為每日上限次數。管理者可在後台修改此值。
+職責：這是一個觸發器函式，綁定在 signups 表的 BEFORE DELETE 事件上。
 
-profiles 資料表：每個使用者對應的資料列中，有一個 daily_signup_count 欄位，用來獨立記錄該使用者當日已成功報名的次數。
+執行步驟：在任何一筆 signups 紀錄被刪除之前，此函式會被自動觸發，將該筆紀錄的 user_id, signup_speed, signed_up_at 複製一份並 INSERT 到 signup_history 表中。
 
-後端自動化 (pg_cron)：
+自動化排程任務 (Cron Jobs)
+系統透過 pg_cron 設定了多個定時任務，以 UTC 時間為標準執行。
 
-系統設定了一個名為 daily-signup-reset 的定時任務。
+挑戰狀態自動更新
 
-時區與時間：此任務基於 UTC 時間執行。設定為 0 16 * * *，意即在每日的 UTC 時間 16:00 執行，這對應到台灣標準時間 (UTC+8) 的每日凌晨 00:00。
+任務名稱: challenge-opener
 
-執行內容：時間一到，任務會自動呼叫 reset_all_user_signup_counts() 這個資料庫函式，將 profiles 表中所有使用者的 daily_signup_count 欄位全部重設為 0。
+排程: * * * * * (每分鐘)
 
-操作邏輯 (RPC)：
+執行內容: 呼叫 open_due_challenges() 函式，將所有狀態為「預計開放」且 start_time 已到期的挑戰，自動更新為「開放報名中」。
 
-使用者點擊報名時，前端呼叫 signup_for_challenge 函式。此函式會先檢查使用者的 daily_signup_count 是否已達上限，通過後才會執行報名，並將計數加一。
+每日報名次數重置
 
-使用者取消報名時，cancel_signup_and_update_challenge 函式會將其 daily_signup_count 減一，實現額度返還。
+任務名稱: daily-signup-reset
 
-前端顯示：
+排程: 0 16 * * * (每日 UTC 16:00)
 
-dashboard.html 頁面載入時，會從 daily_settings 讀取當前的上限值。
+說明: 對應台灣時間 (UTC+8) 的每日凌晨 00:00。呼叫 reset_all_user_signup_counts() 函式，將 profiles 表中所有使用者的 daily_signup_count 欄位重設為 0。
 
-頁面頂部會顯示使用者個人的「本日額度：X / Y」。
+歷史紀錄月度清理
 
-每次報名或取消成功後，前端會重新從資料庫獲取最新的使用者資料，並即時更新此額度顯示。
+任務名稱: monthly-history-purge
 
-當使用者額度用罄，所有「報名」按鈕都會自動變為灰色不可點擊的「報名額度已滿」狀態。
+排程: 0 0 1 * * (每月 1 號 UTC 00:00)
 
-3. 前端頁面 (dashboard.html 等)
-響應式設計：header 區塊經過重構，在桌面版顯示完整選單，在行動版則自動切換為漢堡選單，並將次要功能收納其中，以優化畫面空間。
+說明: 對應台灣時間 (UTC+8) 的每月 1 號早上 8:00。呼叫 purge_old_signup_history() 函式，刪除 signup_history 表中所有「上上個月」及更早的舊紀錄，以節省資料庫空間。
 
-狀態同步：所有功能（如報名、取消、額度顯示）在操作後都會觸發對應的資料刷新與介面重繪，確保使用者看到的是最新的即時狀態。
+週/月排行榜計數重置 (既有)
 
-管理後台 (admin.html)：新增了「全域設定」區塊，讓管理者可以直接在此頁面修改每日報名上限，無需直接操作資料庫。
+週重置: jobid 4，排程為 0 16 * * 0 (每週日的 UTC 16:00)，對應台灣時間的週一凌晨 00:00，負責將 weekly_signup_count 等週計數歸零。
 
-4. 後端函式 (index.ts)
-安全性：所有管理員的敏感操作（使用者管理、挑戰刪除、全域設定讀寫）都統一由 admin-actions 這個 Edge Function 處理。
-
-權限旁路：此函式內部使用 adminSupabaseClient（初始化時帶有 service_role 金鑰），因此在執行操作時可以繞過所有 RLS 策略，確保管理者指令的絕對執行權。
-
-新增功能：為配合管理後台的新介面，index.ts 中已新增 get-daily-limit 和 set-daily-limit 兩個 case，專門處理每日上限的讀取與儲存。
+月重置: jobid 2，排程為 0 0 1 * * (每月 1 號的 UTC 00:00)，對應台灣時間的每月 1 號早上 8:00，負責將 monthly_signup_count 等月計數歸零。
