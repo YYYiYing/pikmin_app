@@ -270,7 +270,8 @@
                         <select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
                             <option value="宵夜" selected>宵夜</option>
                             <option value="早餐">早餐</option>
-                            <option value="滿人開">滿人開</option>
+                            <option value="下午茶">下午茶</option>
+                            <option value="滿人開">滿人發</option>
                         </select>
                     </div>
 
@@ -294,7 +295,26 @@
                     <div>
                         <label for="edit-mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
                         <select id="edit-mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="巨菇">巨菇</option><option value="活動菇">活動菇</option><option value="大晶">大晶</option><option value="大火">大火</option><option value="大水">大水</option><option value="大電">大電</option><option value="大毒">大毒</option><option value="大紅">大紅</option><option value="大黃">大黃</option><option value="大藍">大藍</option><option value="大紫">大紫</option><option value="大粉">大粉</option><option value="大灰">大灰</option><option value="大白">大白</option><option value="晶">晶</option><option value="水">水</option><option value="火">火</option><option value="電">電</option><option value="毒">毒</option>
+                            <option value="巨菇">巨菇</option>
+                            <option value="活動菇">活動菇</option>
+                            <option value="大晶">大晶</option>
+                            <option value="大火">大火</option>
+                            <option value="大水">大水</option>
+                            <option value="大電">大電</option>
+                            <option value="大毒">大毒</option>
+                            <option value="大紅">大紅</option>
+                            <option value="大黃">大黃</option>
+                            <option value="大藍">大藍</option>
+                            <option value="大紫">大紫</option>
+                            <option value="大粉">大粉</option>
+                            <option value="大灰">大灰</option>
+                            <option value="大白">大白</option>
+                            <option value="晶">晶</option>
+                            <option value="水">水</option>
+                            <option value="火">火</option>
+                            <option value="電">電</option>
+                            <option value="毒">毒</option>
+                            <option value="測試">測試</option>
                         </select>
                     </div>
                     <div>
@@ -1002,14 +1022,17 @@
 
             if (error) {
                 showToast(`報名失敗: ${error.message.includes('Daily signup limit reached') ? '本日報名額度已滿！' : (error.message.includes('full') ? '蘑菇已額滿！' : error.message)}`, true);
-                reloadChallengeCard(challengeId); 
+                // 如果報名失敗，只需復原被點擊的按鈕狀態即可
+                buttonEl.disabled = false;
+                buttonEl.textContent = '報名';
             } else {
                 showToast('報名成功！', false);
                 userSignedUpChallengeIds.add(numericChallengeId);
-                // ★ 修改：改為從資料庫刷新使用者資料
-                await refreshUserProfile(); 
-                refreshAllChallengeCards();
-                updateQuotaDisplay();                 
+                // ★ 修改：採用混合更新策略
+                await reloadChallengeCard(challengeId); // 1. 立即更新被點擊的卡片，提供最快速的回饋
+                await refreshUserProfile();           // 2. 獲取最新的使用者全域狀態
+                refreshAllChallengeCards();         // 3. 根據最新狀態，更新所有其他卡片
+                updateQuotaDisplay();                 // 4. 更新頂部的額度顯示             
             }
         }
 
@@ -1027,10 +1050,11 @@
             } else {
                 showToast('已取消報名', false);
                 userSignedUpChallengeIds.delete(numericChallengeId);
-                // ★ 修改：改為從資料庫刷新使用者資料
-                await refreshUserProfile();
-                refreshAllChallengeCards();
-                updateQuotaDisplay();
+                // ★ 修改：採用混合更新策略
+                await reloadChallengeCard(challengeId); // 1. 立即更新被點擊的卡片
+                await refreshUserProfile();           // 2. 獲取最新的使用者全域狀態
+                refreshAllChallengeCards();         // 3. 根據最新狀態，更新所有其他卡片
+                updateQuotaDisplay();                 // 4. 更新頂部的額度顯示
             }
         }
 
@@ -1206,38 +1230,25 @@
             const milliseconds = date.getMilliseconds().toString().padStart(3, '0');
             return `${timeString}.${milliseconds}`;
         }
-        
-        async function triggerChallengeOpening(challengeId, timerElement) {
-            if (!timerElement.classList.contains('countdown-timer')) {
-                return;
-            }
-            timerElement.classList.remove('countdown-timer');
-            timerElement.textContent = '開放中...';
-
-            const { error } = await supabaseClient
-                .from('challenges')
-                .update({ status: '開放報名中' })
-                .eq('id', challengeId)
-                .eq('status', '預計開放');
-            
-            reloadChallengeCard(challengeId);
-
-            if (error) {
-                console.log(`嘗試自動開啟挑戰 ${challengeId} 時，它可能已被其他使用者更新。錯誤訊息: ${error.message}`);
-            }
-        }
 
         function updateAllCountdowns() {
             document.querySelectorAll('.countdown-timer').forEach(el => {
                 const startTime = new Date(el.dataset.starttime);
                 const diff = startTime - new Date();
 
+                // ★ 修改：重新加入倒數結束時的處理邏輯
                 if (diff < 1000) {
+                    // 倒數結束，從 class 中移除 .countdown-timer，避免重複觸發
+                    el.classList.remove('countdown-timer');
+                    el.textContent = '即將開放...';
+
+                    // 找到這張卡片，並主動觸發一次刷新
                     const card = el.closest('.challenge-card');
                     if (card) {
                         const challengeId = parseInt(card.id.split('-')[1]);
                         if (challengeId) {
-                            triggerChallengeOpening(challengeId, el);
+                            // 呼叫 reloadChallengeCard 來獲取最新的卡片狀態
+                            reloadChallengeCard(challengeId);
                         }
                     }
                 } else {
