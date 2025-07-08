@@ -130,7 +130,7 @@
 <header class="header-gradient shadow-md sticky top-0 z-20">
     <div class="container mx-auto px-4 py-3 flex justify-between items-center relative">
         
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-4 flex-wrap">
             <button id="hamburger-button" class="p-2 md:hidden">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-list text-white" viewBox="0 0 16 16">
                     <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
@@ -138,18 +138,9 @@
             </button>
             <h1 class="text-xl font-bold text-white flex items-center">
                 <img src="./mashroom.png" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
-                <span class="hidden md:inline">菇菇宅配網</span>
+                <span class="hidden md:inline-block">菇菇宅配網</span>
             </h1>
-        </div>
-
-        <div class="flex items-center gap-x-3 md:gap-x-4">
-
-            <div class="flex flex-col md:flex-row items-end md:items-center gap-x-4">
-                <span id="user-info" class="font-semibold text-gray-200 text-sm text-center">讀取中...</span>
-                <span id="daily-quota-display" class="text-xs md:text-sm text-gray-400 md:border-l md:border-gray-600 md:pl-4 md:ml-2"></span>
-            </div>
-            
-            <div id="online-users-container" class="flex items-center gap-2 text-sm text-white cursor-pointer hover:text-gray-300 transition text-center" title="查看在線列表">
+            <div id="online-users-container" class="flex items-center gap-2 text-sm text-white cursor-pointer hover:text-gray-300 transition" title="查看在線列表">
                 <span></span>
                 <button id="refresh-button" title="重新整理" class="hover:text-white transition">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
@@ -158,18 +149,34 @@
                     </svg>
                 </button>
             </div>
+        </div>
+
+        <div class="flex items-center gap-x-4 flex-wrap justify-end">
+            <span id="user-info" class="font-semibold text-gray-200 text-sm text-center">讀取中...</span>
+            <span id="daily-quota-display" class="text-sm text-gray-400 border-l border-gray-600 pl-4 ml-2"></span>
             
             <div class="hidden md:flex items-center gap-x-4">
                 <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
-                <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🚚 菇菇宅配通</a>
+                <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🤝 村民好友碼</a>
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
-                <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">改密碼</button>
-                <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">登出</button>
+                <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">㊙️ 改密碼</button>
+                <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">🏃‍♂️ 登出</button>
             </div>
         </div>
 
         <div id="mobile-menu" class="hidden absolute top-full left-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg p-2">
+            <div class="space-y-1">
+                <button id="leaderboard-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏆 排行榜</button>
+                <a href="./partner.html" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🚚 菇菇宅配通</a>
             </div>
+            <hr class="border-gray-600 my-2">
+            <a id="admin-link-mobile" href="./admin.html" class="hidden text-orange-400 hover:bg-gray-700 p-2 rounded-md font-bold">⚙️ 管理後台</a>
+            <hr class="border-gray-600 my-2">
+            <div class="space-y-1">
+                <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">㊙️ 改密碼</button>
+                <button id="logout-button-mobile" class="w-full text-left text-red-400 hover:bg-gray-700 p-2 rounded-md">🏃‍♂️ 登出</button>
+            </div>
+        </div>
         
     </div>
 </header>
