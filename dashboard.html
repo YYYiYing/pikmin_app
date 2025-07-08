@@ -161,6 +161,8 @@
             <div class="hidden md:flex items-center gap-x-4">
                 <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
                 <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🤝 村民好友碼</a>
+                <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="text-gray-300 hover:text-white transition text-sm">🔃 路徑轉檔</a>
+                <a id="gpx-generator-link" href="./gpx_generator.html" class="hidden text-green-400 hover:text-green-300 font-bold transition text-sm">🗺️ 路徑生成</a>
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
                 <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">㊙️ 改密碼</button>
                 <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">🏃‍♂️ 登出</button>
@@ -170,10 +172,14 @@
         <div id="mobile-menu" class="hidden absolute top-full left-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg p-2">
             <div class="space-y-1">
                 <button id="leaderboard-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏆 排行榜</button>
-                <a href="./partner.html" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🚚 菇菇宅配通</a>
+                <a href="./partner.html" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🤝 村民好友碼</a>
+                <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🔃 路徑轉檔</a>
             </div>
             <hr class="border-gray-600 my-2">
-            <a id="admin-link-mobile" href="./admin.html" class="hidden text-orange-400 hover:bg-gray-700 p-2 rounded-md font-bold">⚙️ 管理後台</a>
+            <div class="space-y-1">
+                <a id="gpx-generator-link-mobile" href="./gpx_generator.html" class="hidden block text-green-400 hover:bg-gray-700 p-2 rounded-md font-bold">🗺️ 路徑生成</a>
+                <a id="admin-link-mobile" href="./admin.html" class="hidden block text-orange-400 hover:bg-gray-700 p-2 rounded-md font-bold">⚙️ 管理後台</a>
+            </div>
             <hr class="border-gray-600 my-2">
             <div class="space-y-1">
                 <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">㊙️ 改密碼</button>
@@ -522,6 +528,9 @@
 
                 // (我們新增的) 同步讓行動版漢堡選單中的「管理後台」連結也顯示出來
                 document.getElementById('admin-link-mobile').classList.remove('hidden');
+                // ★ 新增：同步顯示 GPX 生成器連結
+                document.getElementById('gpx-generator-link').classList.remove('hidden');
+                document.getElementById('gpx-generator-link-mobile').classList.remove('hidden');              
             }
         }
         
