@@ -971,14 +971,28 @@
             submitButton.textContent = '儲存中...';
 
             const challengeId = document.getElementById('edit-challenge-id').value;
+            const newSlots = parseInt(document.getElementById('edit-slots').value); // ★ 新增：先取得新的名額值
             const newStartTime = new Date(document.getElementById('edit-start-time').value);
-            
+
+            // ★ 新增：根據新名額與當前報名人數，決定新的狀態
+            const currentChallengeData = challengesData[challengeId];
+            const currentSignupCount = currentChallengeData?.signups?.length || 0;
+            let newStatus;
+
+            if (newStartTime > new Date()) {
+                newStatus = '預計開放';
+            } else if (currentSignupCount >= newSlots) {
+                newStatus = '已額滿';
+            } else {
+                newStatus = '開放報名中';
+            }
+
             const updatedData = {
                 mushroom_type: document.getElementById('edit-mushroom-type').value,
-                slots: parseInt(document.getElementById('edit-slots').value),
+                slots: newSlots, // ★ 修改：使用已取得的變數
                 start_time: newStartTime.toISOString(),
                 details: document.getElementById('edit-details').value,
-                status: newStartTime > new Date() ? '預計開放' : '開放報名中'
+                status: newStatus // ★ 修改：使用我們新判斷出的狀態
             };
 
             const { error } = await supabaseClient
