@@ -153,7 +153,8 @@
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let partnerToEditId = null;
-        let currentSort = { column: 'created_at', ascending: false };
+        // ★ 修改：將預設排序改為依名稱(name)升冪(ascending: true)
+        let currentSort = { column: 'name', ascending: true };
 
         const addPartnerForm = document.getElementById('add-partner-form');
         const addPartnerButton = document.getElementById('add-partner-button');
