@@ -132,8 +132,12 @@
             // Supabase 的認證系統是基於 Email 的，但我們的應用是使用暱稱登入。
             // 這裡我們用一個小技巧：將暱稱轉換成一個虛擬的、固定的 Email 格式，例如 "玩家A" -> "玩家A@pikmin.sys"。
             // 'encodeURIComponent' 能確保暱稱中的特殊字元（如空格）被正確處理。
-            const virtualEmail = `${encodeURIComponent(nickname)}@pikmin.sys`;
-            
+            //const virtualEmail = `${encodeURIComponent(nickname)}@pikmin.sys`;
+            // ★ 新增：解析暱稱，只取出符號與數字前的部分
+            const cleanNickname = (nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
+            // ★ 修改：使用處理過的乾淨暱稱來產生虛擬信箱
+            const virtualEmail = `${encodeURIComponent(cleanNickname)}@pikmin.sys`;            
+
             // 'try...catch' 結構用來處理可能發生的錯誤。程式會先嘗試執行 'try' 區塊內的程式碼。
             try {
                 // 這是核心的登入操作：呼叫 Supabase 的 signInWithPassword 方法，並傳入我們組合的虛擬 Email 和使用者輸入的密碼。

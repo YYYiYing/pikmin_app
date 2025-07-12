@@ -355,7 +355,14 @@
             e.preventDefault();
             adminLoginButton.disabled = true; adminLoginButton.textContent = '驗證中...';
             const { nickname, password } = e.target.elements;
-            const virtualEmail = `${encodeURIComponent(nickname.value)}@pikmin.sys`;
+            // ★ 新增：解析暱稱，只取出符號與數字前的部分，與 dashboard.html 同步
+            const cleanNickname = (nickname.value || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
+
+            // const virtualEmail = `${encodeURIComponent(nickname.value)}@pikmin.sys`;
+
+            // ★ 修改：使用處理過的乾淨暱稱來產生虛擬信箱
+            const virtualEmail = `${encodeURIComponent(cleanNickname)}@pikmin.sys`;
+
             try {
                 // 使用 Supabase 進行登入驗證
                 const { data: { user }, error } = await supabaseClient.auth.signInWithPassword({ email: virtualEmail, password: password.value });
