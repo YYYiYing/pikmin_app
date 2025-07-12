@@ -187,6 +187,28 @@ serve(async (req) => {
         ({ data, error } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId));
         break;
 
+      // ★ 新增：更新使用者暱稱的 action
+      case 'update-user-nickname':
+        {
+          if (!payload.userId || !payload.oldNickname || !payload.newNickname) {
+              throw new Error('缺少必要參數');
+          }
+          // 步驟 1: 更新 profiles 表中的暱稱
+          const { error: profileError } = await adminSupabaseClient.from('profiles')
+              .update({ nickname: payload.newNickname })
+              .eq('id', payload.userId);
+          if (profileError) throw profileError;
+          // 步驟 2: 同步更新 partners 表中對應的名稱
+          const { error: partnerError } = await adminSupabaseClient.from('partners')
+              .update({ name: payload.newNickname })
+              .eq('name', payload.oldNickname);
+          // 如果在 partners 表中更新失敗 (例如原先就沒有好友碼)，我們不將其視為致命錯誤，僅在後台印出訊息
+          if (partnerError) {
+              console.warn(`更新 partner 名稱時發生非致命錯誤: ${partnerError.message}`);
+          }
+        }
+        break;
+
      // ★ 新增：獲取每日報名上限的 action
      case 'get-daily-limit':
        ({ data, error } = await adminSupabaseClient.from('daily_settings')

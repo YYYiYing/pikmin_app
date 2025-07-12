@@ -149,6 +149,26 @@
         </div>
     </div>
 
+    <div id="edit-user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+            <div class="admin-container w-full max-w-sm p-8 rounded-2xl shadow-2xl">
+                <h2 class="text-xl font-bold mb-6 text-white">編輯使用者暱稱</h2>
+                <form id="edit-user-form">
+                    <input type="hidden" id="edit-user-id">
+                    <input type="hidden" id="edit-user-old-nickname">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="edit-nickname" class="text-sm font-medium">新暱稱</label>
+                            <input type="text" id="edit-nickname" required maxlength="50" class="dark-input mt-1 w-full rounded-md">
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3 mt-8">
+                        <button type="button" id="cancel-edit-user" class="secondary-button px-4 py-2 rounded-lg">取消</button>
+                        <button type="submit" id="submit-edit-user" class="admin-button px-4 py-2 rounded-lg font-bold">確認儲存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
     <script>
         // --- 1. 初始化設定 ---
         // 這部分和登入頁一樣，是設定與 Supabase 後端服務的連線資訊
@@ -175,6 +195,9 @@
         const changeRoleModal = document.getElementById('change-role-modal');
         const changeRoleForm = document.getElementById('change-role-form');
         const cancelChangeRoleButton = document.getElementById('cancel-change-role');
+        const editUserModal = document.getElementById('edit-user-modal');
+        const editUserForm = document.getElementById('edit-user-form');
+        const cancelEditUserButton = document.getElementById('cancel-edit-user');        
         const challengeListAdmin = document.getElementById('challenge-list-admin');
         const dbStatusLight = document.getElementById('db-status-light');
         const userTableHeader = document.getElementById('user-table-header'); // ★ 新增：抓取整個表頭元素
@@ -280,6 +303,7 @@
                         <td class="p-3 text-center">${user.monthly_signup_count ?? 0}</td>
                         <td class="p-3 text-sm text-gray-400">${lastSignIn}</td>
                         <td class="p-3 text-center space-x-2">
+                            <button data-id="${user.id}" data-nickname="${user.nickname}" class="edit-user-button text-xs px-2 py-1 bg-green-600 rounded hover:bg-green-500">編輯</button>
                             <button data-id="${user.id}" data-nickname="${user.nickname}" class="reset-password-button text-xs px-2 py-1 bg-blue-600 rounded hover:bg-blue-500">改密碼</button>
                             <button data-id="${user.id}" data-nickname="${user.nickname}" data-role="${user.role}" class="change-role-button text-xs px-2 py-1 bg-yellow-600 text-black rounded hover:bg-yellow-500">改角色</button>
                             <button data-id="${user.id}" data-nickname="${user.nickname}" class="delete-user-button text-xs px-2 py-1 bg-red-700 rounded hover:bg-red-600">刪除</button>
@@ -426,7 +450,13 @@
             if (!target) return;
             const userData = target.dataset;
             userToEdit = { id: userData.id, nickname: userData.nickname, role: userData.role };
-            if (target.classList.contains('reset-password-button')) {
+            if (target.classList.contains('edit-user-button')) {
+                // ★ 新增：處理編輯使用者按鈕點擊
+                document.getElementById('edit-user-id').value = userToEdit.id;
+                document.getElementById('edit-user-old-nickname').value = userToEdit.nickname;
+                document.getElementById('edit-nickname').value = userToEdit.nickname;
+                editUserModal.classList.remove('hidden');
+            } else if (target.classList.contains('reset-password-button')) {
                 // 處理改密碼
                 document.getElementById('reset-pw-nickname').textContent = userToEdit.nickname;
                 resetPasswordModal.classList.remove('hidden');
@@ -476,6 +506,31 @@
                 changeRoleModal.classList.add('hidden');
                 loadUsers();
             } catch(error) { showMessage(`角色變更失敗: ${error.message}`, true); }
+        });
+
+        // 處理編輯使用者表單的邏輯
+        cancelEditUserButton.addEventListener('click', () => editUserModal.classList.add('hidden'));
+        editUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitButton = document.getElementById('submit-edit-user');
+            submitButton.disabled = true; submitButton.textContent = '儲存中...';
+        
+            const payload = {
+                userId: document.getElementById('edit-user-id').value,
+                oldNickname: document.getElementById('edit-user-old-nickname').value,
+                newNickname: document.getElementById('edit-nickname').value,
+            };
+        
+            try {
+                await invokeAdminFunction('update-user-nickname', payload);
+                showMessage(`使用者暱稱已成功更新為 ${payload.newNickname}。`, false);
+                editUserModal.classList.add('hidden');
+                loadUsers(); // 重新載入使用者列表以顯示變更
+            } catch (error) {
+                showMessage(`更新失敗: ${error.message}`, true);
+            } finally {
+                submitButton.disabled = false; submitButton.textContent = '確認儲存';
+            }
         });
 
         // 載入與渲染蘑菇挑戰列表
