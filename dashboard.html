@@ -511,8 +511,9 @@
             // 如果尚未讀取到使用者資料，則不執行
             if (!currentUserProfile) return;
 
-            // 更新標題列中的歡迎訊息
-            userInfoEl.textContent = `你好，${currentUserProfile.nickname}！`;
+            // 更新標題列中的歡迎訊息，修改解析暱稱，只顯示符號與數字前的部分
+            const displayName = (currentUserProfile.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
+            userInfoEl.textContent = `你好，${displayName}！`;
             updateQuotaDisplay(); // ★ 新增：在使用者資訊顯示時，更新額度顯示
             // 判斷是否為「管理者」或「發菇者」，以顯示發布相關按鈕
             if (currentUserProfile.role === '管理者' || currentUserProfile.role === '發菇者' || currentUserProfile.role === '發菇及報名者') {
