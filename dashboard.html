@@ -1388,14 +1388,11 @@
         });
 
         // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-        // ★  Web Push Notification (瀏覽器推播通知) 相關邏輯
+        // ★  Web Push Notification (瀏覽器推播通知) 相關邏輯 (v2.0 最終版)
         // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-        
-        // 這是由您的後端伺服器產生的 VAPID 公鑰，用來驗證您的應用程式身份。
-        // 【重要】您需要先產生一組您自己的 VAPID 金鑰，然後將公鑰替換掉下面的字串。
-        const VAPID_PUBLIC_KEY = 'BG_U_y015cx5ZZhZpbEFmGxmijVEth8iupaPHSa1_tlnixhbqyjl-HeoCmNS3N8J-Wk0DMMKzGpoYkjjIo1anrM'; // 稍後會教您如何產生
 
-        // 將 base64 字串轉換為 Uint8Array，這是推播訂閱的必要格式。
+        const VAPID_PUBLIC_KEY = 'BG_U_y015cx5ZZhZpbEFmGxmijVEth8iupaPHSa1_tlnixhbqyjl-HeoCmNS3N8J-Wk0DMMKzGpoYkjjIo1anrM'; // 請確認此處已填入您自己的公鑰
+
         function urlBase64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
             const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -1407,71 +1404,131 @@
             return outputArray;
         }
 
-        // 註冊 Service Worker 的函式
+        // ★ 修改：註冊 Service Worker 的函式，加入動態路徑判斷
         async function registerServiceWorker() {
-            // 檢查瀏覽器是否支援 Service Worker
-            if ('serviceWorker' in navigator) {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                // 判斷當前是否為本地開發環境
+                const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+                // 根據環境設定正確的 Service Worker 檔案路徑
+                const swPath = isLocal ? './service-worker.js' : '/pikmin_app/service-worker.js';
+
                 try {
-                    // 註冊我們建立的 service-worker.js 檔案
-                    const registration = await navigator.serviceWorker.register('./service-worker.js');
-                    console.log('Service Worker 註冊成功:', registration);
+                    const registration = await navigator.serviceWorker.register(swPath);
+                    console.log('Service Worker 註冊成功，路徑為:', swPath);
+                    await updateNotificationButtonState(); // 等待按鈕狀態更新完成
                 } catch (error) {
                     console.error('Service Worker 註冊失敗:', error);
-                    showToast('無法啟用通知功能核心。', true);
+                    // 不再使用 showToast，避免在初始化早期跳出不必要的提示
                 }
-            } else {
-                showToast('您的瀏覽器不支援通知功能。', true);
             }
         }
 
-        // 處理訂閱按鈕點擊事件的函式
-        async function handleSubscription() {
-            // 檢查 Service Worker 是否已成功註冊
+        // 核心狀態更新函式
+        async function updateNotificationButtonState() {
             const registration = await navigator.serviceWorker.ready;
-            
-            // 檢查使用者是否已經訂閱過
-            const existingSubscription = await registration.pushManager.getSubscription();
-            if (existingSubscription) {
-                showToast('您已經開啟過通知功能了。', false);
-                return;
+            const subscription = await registration.pushManager.getSubscription();
+            const permission = Notification.permission;
+
+            const buttons = [
+                document.getElementById('subscribe-button-desktop'),
+                document.getElementById('subscribe-button-mobile')
+            ];
+
+            let text, disabled, title, action;
+
+            if (permission === 'denied') {
+                text = '❌ 權限已封鎖';
+                disabled = true;
+                title = '您已封鎖通知，請至瀏覽器設定中手動解除封鎖';
+                action = null;
+            } else if (subscription) {
+                text = '✅ 通知已開啟';
+                disabled = false; // 讓使用者可以點擊來取消
+                title = '點此關閉推播通知';
+                action = 'unsubscribe';
+            } else {
+                text = '🔔 通知已關閉';
+                disabled = false;
+                title = '點此開啟瀏覽器推播通知';
+                action = 'subscribe';
             }
 
+            buttons.forEach(btn => {
+                if (btn) {
+                    btn.textContent = text;
+                    btn.disabled = disabled;
+                    btn.title = title;
+                    btn.dataset.action = action; // 用 data-* 屬性來儲存按鈕的當前行為
+
+                    if (disabled) {
+                        btn.classList.add('opacity-60', 'cursor-not-allowed');
+                    } else {
+                        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    }
+                }
+            });
+        }
+
+        // 統一的點擊處理函式
+        async function handleSubscriptionClick(event) {
+            const action = event.target.dataset.action;
+            if (!action) return;
+
+            if (action === 'subscribe') {
+                await subscribe();
+            } else if (action === 'unsubscribe') {
+                await unsubscribe();
+            }
+        }
+
+        // 訂閱函式
+        async function subscribe() {
+            const registration = await navigator.serviceWorker.ready;
             try {
-                // 向使用者請求推播權限，並進行訂閱
                 const subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true, // 表示所有推播都會是使用者可見的
-                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) // 傳入轉換後的 VAPID 公鑰
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
                 });
                 
-                console.log('成功取得訂閱資訊:', subscription);
-
-                // 【下一步】將這個 subscription 物件傳送到後端並儲存
-                // 我們將在下一個步驟中，建立一個名為 'save_push_subscription' 的資料庫函式來處理此事。
                 const { error } = await supabaseClient.rpc('save_push_subscription', {
                     subscription_data: subscription
                 });
 
                 if (error) throw error;
-
                 showToast('已成功開啟推播通知！', false);
-
+                await updateNotificationButtonState();
             } catch (error) {
                 console.error('訂閱推播失敗:', error);
-                if (Notification.permission === 'denied') {
-                    showToast('您已封鎖通知權限，請至瀏覽器設定中手動開啟。', true);
-                } else {
-                    showToast(`啟用通知失敗: ${error.message}`, true);
-                }
+                showToast(`啟用通知失敗: ${error.message}`, true);
+                await updateNotificationButtonState();
             }
         }
 
-        // 為桌面版和行動版的訂閱按鈕加上事件監聽器
-        document.getElementById('subscribe-button-desktop').addEventListener('click', handleSubscription);
-        document.getElementById('subscribe-button-mobile').addEventListener('click', handleSubscription);
-        
-        // 在頁面初始化時，就先註冊 Service Worker
-        // 我們將這個呼叫加到 initializePage 函式的最開頭
-        // (請手動將 registerServiceWorker(); 加到 initializePage 的第一行)
+        // 取消訂閱函式
+        async function unsubscribe() {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            if (!subscription) return;
+
+            try {
+                const successful = await subscription.unsubscribe();
+                if (!successful) throw new Error('瀏覽器取消訂閱失敗。');
+
+                const { error } = await supabaseClient.rpc('delete_push_subscription');
+                if (error) throw error;
+
+                showToast('已關閉推播通知。', false);
+                await updateNotificationButtonState();
+            } catch (error) {
+                console.error('取消訂閱失敗:', error);
+                showToast(`關閉通知失敗: ${error.message}`, true);
+                await updateNotificationButtonState();
+            }
+        }
+
+        // 為桌面版和行動版的訂閱按鈕加上統一的事件監聽器
+        document.getElementById('subscribe-button-desktop').addEventListener('click', handleSubscriptionClick);
+        document.getElementById('subscribe-button-mobile').addEventListener('click', handleSubscriptionClick);
     </script>
 </body>
 </html>

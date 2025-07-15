@@ -5,6 +5,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // 'createClient' 是從 Supabase 官方函式庫引入的工具，用來建立與你的 Supabase 資料庫溝通的「客戶端物件」。
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as webpush from "web-push";
 
 // --- 2. 設定 CORS 跨來源資源共用標頭 ---
 // 這是一個重要的安全性設定。它像一張通行證，告訴瀏覽器，允許來自任何網域 ('*') 的前端網頁來請求這個後端函式的資料。
@@ -239,10 +240,51 @@ serve(async (req) => {
            .single());
        break;
 
-
-
       case 'ping':
         // 一個用來測試連線的空操作，不做任何事，能成功回傳即代表連線正常。
+        break;
+
+      // ★ 新增：發送 Web Push 通知的 action
+      case 'send-push-notification':
+        {
+          const { recipient_user_id, payload } = payload;
+          if (!recipient_user_id || !payload) throw new Error('缺少必要的推播參數');
+
+          // 1. 從資料庫中找出該使用者的所有訂閱資訊
+          const { data: subscriptions, error: subError } = await adminSupabaseClient
+            .from('push_subscriptions')
+            .select('subscription_data')
+            .eq('user_id', recipient_user_id);
+
+          if (subError) throw subError;
+          if (!subscriptions || subscriptions.length === 0) {
+            console.warn(`找不到使用者 ${recipient_user_id} 的訂閱資訊，略過通知。`);
+            break; // 結束此 case
+          }
+
+          // 2. 設定 VAPID 金鑰資訊
+          const vapidKeys = {
+            publicKey: Deno.env.get('VAPID_PUBLIC_KEY')!, // 公鑰也建議設為環境變數
+            privateKey: Deno.env.get('VAPID_PRIVATE_KEY')!,
+          };
+          webpush.setVapidDetails('mailto:your-email@example.com', vapidKeys.publicKey, vapidKeys.privateKey);
+
+          // 3. 遍歷所有訂閱，並發送推播
+          for (const sub of subscriptions) {
+            try {
+              await webpush.sendNotification(sub.subscription_data, JSON.stringify(payload));
+            } catch (pushError) {
+              console.error(`向使用者 ${recipient_user_id} 的某個訂閱發送推播失敗:`, pushError);
+              // 如果錯誤是 410 Gone，代表這個訂閱已失效，可以從資料庫中刪除
+              if (pushError.statusCode === 410) {
+                await adminSupabaseClient
+                  .from('push_subscriptions')
+                  .delete()
+                  .eq('subscription_data', sub.subscription_data);
+              }
+            }
+          }
+        }
         break;
 
       default:
