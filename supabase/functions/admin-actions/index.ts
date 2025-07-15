@@ -118,14 +118,14 @@ serve(async (req) => {
         }
         break; // 結束這個 case 的處理
 
-      // --- 其他操作的邏輯保持不變 ---
-      
-      // 在 index.ts 的 switch(action) 中，替換掉舊的 'create-user' case
-      case 'create-user':
-        {
-          // 【核心修正】為確保 Email 格式絕對一致，我們在後端這裡，
-          // 根據傳入的原始 nickname，統一生成標準的虛擬 Email。
-          const virtualEmail = `${encodeURIComponent(payload.nickname)}@pikmin.sys`;
+        // --- 其他操作的邏輯保持不變 ---
+        
+        // 在 index.ts 的 switch(action) 中，替換掉舊的 'create-user' case
+        case 'create-user':
+          {
+        // ★ 修改：先解析出乾淨的暱稱，再用它來生成虛擬信箱
+        const cleanNickname = (payload.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
+        const virtualEmail = `${encodeURIComponent(cleanNickname)}@pikmin.sys`;
 
           // 使用 admin 權限的 client，以剛生成的虛擬 Email 建立認證使用者。
           // 我們也加上 email_confirm: true，這是管理員建立帳號時的最佳實踐。
@@ -142,7 +142,8 @@ serve(async (req) => {
           if (created.user) {
               const { error: profileErr } = await adminSupabaseClient.from('profiles').insert({
                   id: created.user.id,
-                  nickname: payload.nickname, // 這裡依然使用未經編碼的原始 nickname
+                  // ★ 修改：儲存的依然是包含圖示與數字的完整暱稱
+                  nickname: payload.nickname,
                   role: payload.role
               });
               
@@ -187,27 +188,39 @@ serve(async (req) => {
         ({ data, error } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId));
         break;
 
-      // ★ 新增：更新使用者暱稱的 action
+      // ★ 修改：更新使用者暱稱的 action，增加同步更新 auth.email 的步驟
       case 'update-user-nickname':
         {
           if (!payload.userId || !payload.oldNickname || !payload.newNickname) {
               throw new Error('缺少必要參數');
           }
-          // 步驟 1: 更新 profiles 表中的暱稱
+
+          // 步驟 1: 解析新暱稱，產生新的虛擬信箱
+          const cleanNickname = (payload.newNickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
+          const newVirtualEmail = `${encodeURIComponent(cleanNickname)}@pikmin.sys`;
+
+          // 步驟 2: 使用管理者權限，更新 auth.users 表中的 email
+          const { error: authError } = await adminSupabaseClient.auth.admin.updateUserById(
+              payload.userId,
+              { email: newVirtualEmail }
+          );
+          if (authError) throw new Error(`更新認證 Email 失敗: ${authError.message}`);
+
+          // 步驟 3: 更新 profiles 表中的暱稱
           const { error: profileError } = await adminSupabaseClient.from('profiles')
               .update({ nickname: payload.newNickname })
               .eq('id', payload.userId);
           if (profileError) throw profileError;
-          // 步驟 2: 同步更新 partners 表中對應的名稱
+
+          // 步驟 4: 同步更新 partners 表中對應的名稱
           const { error: partnerError } = await adminSupabaseClient.from('partners')
               .update({ name: payload.newNickname })
               .eq('name', payload.oldNickname);
-          // 如果在 partners 表中更新失敗 (例如原先就沒有好友碼)，我們不將其視為致命錯誤，僅在後台印出訊息
           if (partnerError) {
               console.warn(`更新 partner 名稱時發生非致命錯誤: ${partnerError.message}`);
           }
         }
-        break;
+      break;
 
      // ★ 新增：獲取每日報名上限的 action
      case 'get-daily-limit':

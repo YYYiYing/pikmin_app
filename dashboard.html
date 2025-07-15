@@ -164,6 +164,7 @@
                 <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="text-gray-300 hover:text-white transition text-sm">🔃 路徑轉檔</a>
                 <a id="gpx-generator-link" href="./gpx_generator.html" class="hidden text-green-400 hover:text-green-300 font-bold transition text-sm">🗺️ 路徑生成</a>
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
+                <button id="subscribe-button-desktop" class="text-gray-300 hover:text-white transition text-sm">🔔 開啟通知</button>
                 <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">㊙️ 改密碼</button>
                 <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">🏃‍♂️ 登出</button>
             </div>
@@ -183,6 +184,7 @@
             <hr class="border-gray-600 my-2">
             <div class="space-y-1">
                 <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">㊙️ 改密碼</button>
+                <button id="subscribe-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🔔 開啟通知</button>
                 <button id="logout-button-mobile" class="w-full text-left text-red-400 hover:bg-gray-700 p-2 rounded-md">🏃‍♂️ 登出</button>
             </div>
         </div>
@@ -458,7 +460,7 @@
         }
 
         async function initializePage() {
-
+            registerServiceWorker(); // ★ 新增：在頁面初始化時，就先註冊 Service Worker
             // 在頁面初始化時，靜默呼叫後端函式，更新自己的最後活躍時間
             await supabaseClient.rpc('update_last_active');
 
@@ -1384,6 +1386,92 @@
                 mobileMenu.classList.add('hidden');
             }
         });
+
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+        // ★  Web Push Notification (瀏覽器推播通知) 相關邏輯
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+        
+        // 這是由您的後端伺服器產生的 VAPID 公鑰，用來驗證您的應用程式身份。
+        // 【重要】您需要先產生一組您自己的 VAPID 金鑰，然後將公鑰替換掉下面的字串。
+        const VAPID_PUBLIC_KEY = 'BG_U_y015cx5ZZhZpbEFmGxmijVEth8iupaPHSa1_tlnixhbqyjl-HeoCmNS3N8J-Wk0DMMKzGpoYkjjIo1anrM'; // 稍後會教您如何產生
+
+        // 將 base64 字串轉換為 Uint8Array，這是推播訂閱的必要格式。
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        // 註冊 Service Worker 的函式
+        async function registerServiceWorker() {
+            // 檢查瀏覽器是否支援 Service Worker
+            if ('serviceWorker' in navigator) {
+                try {
+                    // 註冊我們建立的 service-worker.js 檔案
+                    const registration = await navigator.serviceWorker.register('./service-worker.js');
+                    console.log('Service Worker 註冊成功:', registration);
+                } catch (error) {
+                    console.error('Service Worker 註冊失敗:', error);
+                    showToast('無法啟用通知功能核心。', true);
+                }
+            } else {
+                showToast('您的瀏覽器不支援通知功能。', true);
+            }
+        }
+
+        // 處理訂閱按鈕點擊事件的函式
+        async function handleSubscription() {
+            // 檢查 Service Worker 是否已成功註冊
+            const registration = await navigator.serviceWorker.ready;
+            
+            // 檢查使用者是否已經訂閱過
+            const existingSubscription = await registration.pushManager.getSubscription();
+            if (existingSubscription) {
+                showToast('您已經開啟過通知功能了。', false);
+                return;
+            }
+
+            try {
+                // 向使用者請求推播權限，並進行訂閱
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true, // 表示所有推播都會是使用者可見的
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) // 傳入轉換後的 VAPID 公鑰
+                });
+                
+                console.log('成功取得訂閱資訊:', subscription);
+
+                // 【下一步】將這個 subscription 物件傳送到後端並儲存
+                // 我們將在下一個步驟中，建立一個名為 'save_push_subscription' 的資料庫函式來處理此事。
+                const { error } = await supabaseClient.rpc('save_push_subscription', {
+                    subscription_data: subscription
+                });
+
+                if (error) throw error;
+
+                showToast('已成功開啟推播通知！', false);
+
+            } catch (error) {
+                console.error('訂閱推播失敗:', error);
+                if (Notification.permission === 'denied') {
+                    showToast('您已封鎖通知權限，請至瀏覽器設定中手動開啟。', true);
+                } else {
+                    showToast(`啟用通知失敗: ${error.message}`, true);
+                }
+            }
+        }
+
+        // 為桌面版和行動版的訂閱按鈕加上事件監聽器
+        document.getElementById('subscribe-button-desktop').addEventListener('click', handleSubscription);
+        document.getElementById('subscribe-button-mobile').addEventListener('click', handleSubscription);
+        
+        // 在頁面初始化時，就先註冊 Service Worker
+        // 我們將這個呼叫加到 initializePage 函式的最開頭
+        // (請手動將 registerServiceWorker(); 加到 initializePage 的第一行)
     </script>
 </body>
 </html>
