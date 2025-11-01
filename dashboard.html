@@ -613,6 +613,8 @@
 
             const isHost = challenge.host && challenge.host.id === currentUserProfile.id;
             const isSignedUp = userSignedUpChallengeIds.has(challenge.id);
+            const signupCount = challenge.signups ? challenge.signups.length : 0;
+            const dispatchStatus = challenge.dispatch_status || '待發';
 
             if (isHost) card.dataset.isHosted = 'true';
             if (isSignedUp) card.dataset.isSignedUp = 'true';
@@ -624,7 +626,18 @@
 
             let actionButtonHtml;
             if (isHost) {
-                actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default">您是發菇者</button>`;
+                if (signupCount > 0) {
+                    // 如果有人報名，才讓按鈕有切換功能
+                    actionButtonHtml = `<button 
+                        class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition cursor-pointer dispatch-status-tag" 
+                        data-id="${challenge.id}" 
+                        data-current-status="${dispatchStatus}">
+                        您是發菇者 (切換狀態)
+                    </button>`;
+                } else {
+                    // 如果沒人報名，維持原本的禁用狀態
+                    actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default">您是發菇者</button>`;
+                }
             } else if (isSignedUp) {
                 actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名</button>`;
             } else if (challenge.status === '預計開放') {
@@ -644,8 +657,6 @@
                 }
             }
 
-            const signupCount = challenge.signups ? challenge.signups.length : 0;
-            
             let participantsHtml = '';
             if (signupCount > 0) {
                 const sortedSignups = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
@@ -668,7 +679,6 @@
 
             let dispatchTagHtml = '';
             if (signupCount > 0) {
-                const dispatchStatus = challenge.dispatch_status || '待發';
                 const dispatchClass = dispatchStatus === '已發' ? 'dispatch-sent' : 'dispatch-pending';
                 const isClickable = isHost ? 'cursor-pointer' : '';
                 dispatchTagHtml = `<span class="status-badge ${dispatchClass} ${isClickable} dispatch-status-tag" data-id="${challenge.id}" data-current-status="${dispatchStatus}">${dispatchStatus}</span>`;
