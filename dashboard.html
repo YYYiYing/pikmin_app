@@ -627,9 +627,12 @@
             let actionButtonHtml;
             if (isHost) {
                 if (signupCount > 0) {
-                    // 如果有人報名，才讓按鈕有切換功能
+                    const btnBgClass = dispatchStatus === '已發' 
+                        ? 'bg-teal-600 hover:bg-teal-700' 
+                        : 'bg-gray-700 hover:bg-gray-600';
+
                     actionButtonHtml = `<button 
-                        class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition cursor-pointer dispatch-status-tag" 
+                        class="w-full ${btnBgClass} text-white font-bold py-2 px-4 rounded-lg transition cursor-pointer dispatch-status-tag" 
                         data-id="${challenge.id}" 
                         data-current-status="${dispatchStatus}">
                         更新發菇狀態
@@ -846,6 +849,8 @@
             // --- 以下是讀取時間的核心邏輯 ---
             const rememberTimeCheckbox = document.getElementById('remember-time-checkbox');
             const rememberedTime = localStorage.getItem('rememberedChallengeTime');
+            // ▼▼▼ 【新增】讀取記憶的用餐時段 ▼▼▼
+            const rememberedDetails = localStorage.getItem('rememberedChallengeDetails'); 
             
             const now = new Date();
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -854,6 +859,12 @@
             if (rememberedTime) {
                 // 如果 localStorage 中有記憶的時間，就使用它
                 challengeForm['start-time'].value = `${datePart}T${rememberedTime}`;
+                
+                // ▼▼▼ 【新增】如果有記憶的時段，也一併帶入 ▼▼▼
+                if (rememberedDetails) {
+                    challengeForm['details'].value = rememberedDetails;
+                }
+
                 rememberTimeCheckbox.checked = true; // 並將核取框打勾
             } else {
                 // 否則，使用當前時間
@@ -886,8 +897,14 @@
             if (rememberTimeCheckbox.checked && timeValue) {
                 const timePart = timeValue.split('T')[1]; // e.g., "14:30"
                 localStorage.setItem('rememberedChallengeTime', timePart);
+                
+                // ▼▼▼ 【新增】儲存用餐時段到 localStorage ▼▼▼
+                localStorage.setItem('rememberedChallengeDetails', form['details'].value);
+
             } else {
                 localStorage.removeItem('rememberedChallengeTime');
+                // ▼▼▼ 【新增】移除記憶的用餐時段 ▼▼▼
+                localStorage.removeItem('rememberedChallengeDetails');
             }
 
             const startTime = new Date(timeValue);
