@@ -68,11 +68,43 @@
         </header>
 
         <div id="global-settings-section" class="mb-8 admin-container rounded-2xl p-6">
-            <div class="flex items-center gap-4">
-                <label for="daily-limit-input" class="text-xl font-medium whitespace-nowrap">每日報名上限：</label>
-                <input type="number" id="daily-limit-input" min="1" class="dark-input w-24 rounded-md text-center" placeholder="讀取中...">
-                <button id="save-settings-button" class="admin-button px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50">儲存變更</button>
-                <span id="settings-status-text" class="text-sm text-gray-400"></span>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <div>
+                    <div class="flex items-center gap-4 mb-4">
+                        <h2 class="text-xl font-bold">📧 通知與發信測試</h2>
+                        <span id="sub-count" class="text-sm bg-indigo-600 text-white px-2 py-1 rounded-full">0 人</span>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <button id="copy-subs-button" class="admin-button px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
+                                📋 複製名單
+                            </button>
+                            <button id="send-test-email-button" class="secondary-button px-4 py-2 rounded-lg font-bold text-sm border border-gray-500 hover:bg-gray-600">
+                                📨 發送測試信
+                            </button>
+                        </div>
+
+                        <div class="pt-4 border-t border-gray-700">
+                            <label class="block text-sm font-medium text-gray-400 mb-2">手動執行排程檢查 (立即掃描)</label>
+                            <button id="trigger-check-button" class="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg font-bold text-sm w-full md:w-auto flex items-center justify-center gap-2">
+                                <span>⚡ 立即檢查蘑菇狀態</span>
+                            </button>
+                            <p class="text-xs text-gray-500 mt-1">說明：點擊此按鈕等同於系統在 08:01, 08:31... 自動觸發的行為。若有蘑菇開放，將會發信。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col justify-start">
+                    <h2 class="text-xl font-bold mb-4">⚙️ 系統全域設定</h2>
+                    <div class="flex items-center gap-4 pt-2">
+                        <label for="daily-limit-input" class="text-lg font-medium whitespace-nowrap">每日報名上限：</label>
+                        <input type="number" id="daily-limit-input" min="1" class="dark-input w-24 rounded-md text-center" placeholder="讀取中...">
+                        <button id="save-settings-button" class="admin-button px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50">儲存</button>
+                    </div>
+                    <span id="settings-status-text" class="text-sm text-gray-400 mt-2 block"></span>
+                </div>
             </div>
         </div>
 
@@ -150,35 +182,48 @@
     </div>
 
     <div id="edit-user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-            <div class="admin-container w-full max-w-sm p-8 rounded-2xl shadow-2xl">
-                <h2 class="text-xl font-bold mb-6 text-white">編輯使用者暱稱</h2>
-                <form id="edit-user-form">
-                    <input type="hidden" id="edit-user-id">
-                    <input type="hidden" id="edit-user-old-nickname">
-                    <div class="space-y-4">
-                        <div>
-                            <label for="edit-nickname" class="text-sm font-medium">新暱稱</label>
-                            <input type="text" id="edit-nickname" required maxlength="50" class="dark-input mt-1 w-full rounded-md">
-                        </div>
+        <div class="admin-container w-full max-w-sm p-8 rounded-2xl shadow-2xl">
+            <h2 class="text-xl font-bold mb-6 text-white">編輯使用者暱稱</h2>
+            <form id="edit-user-form">
+                <input type="hidden" id="edit-user-id">
+                <input type="hidden" id="edit-user-old-nickname">
+                <div class="space-y-4">
+                    <div>
+                        <label for="edit-nickname" class="text-sm font-medium">新暱稱</label>
+                        <input type="text" id="edit-nickname" required maxlength="50" class="dark-input mt-1 w-full rounded-md">
                     </div>
-                    <div class="flex justify-end space-x-3 mt-8">
-                        <button type="button" id="cancel-edit-user" class="secondary-button px-4 py-2 rounded-lg">取消</button>
-                        <button type="submit" id="submit-edit-user" class="admin-button px-4 py-2 rounded-lg font-bold">確認儲存</button>
-                    </div>
-                </form>
+                </div>
+                <div class="flex justify-end space-x-3 mt-8">
+                    <button type="button" id="cancel-edit-user" class="secondary-button px-4 py-2 rounded-lg">取消</button>
+                    <button type="submit" id="submit-edit-user" class="admin-button px-4 py-2 rounded-lg font-bold">確認儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="copy-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="admin-container w-full max-w-2xl p-6 rounded-2xl shadow-xl flex flex-col gap-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xl font-bold text-white">📋 訂閱信箱清單</h3>
+                <button type="button" id="close-copy-modal-x" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <p class="text-gray-400 text-sm">系統已自動全選，請直接按下 <strong>Ctrl+C</strong> (或是右鍵複製) 即可。</p>
+            
+            <textarea id="copy-textarea" class="dark-input w-full h-64 p-4 rounded-lg font-mono text-sm leading-relaxed focus:ring-2 focus:ring-orange-500" readonly></textarea>
+            
+            <div class="flex justify-end">
+                <button type="button" id="close-copy-modal" class="secondary-button px-6 py-2 rounded-lg font-bold">關閉</button>
             </div>
         </div>
-
+    </div>
     <script>
         // --- 1. 初始化設定 ---
-        // 這部分和登入頁一樣，是設定與 Supabase 後端服務的連線資訊
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
         const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, PUBLIC_KEY);
         
         // --- 2. 抓取所有會用到的 HTML 元素 ---
-        // 預先將所有需要操作的網頁元素抓取出來，存成變數，方便後續程式碼使用。
         const adminLoginSection = document.getElementById('admin-login-section');
         const adminDashboardSection = document.getElementById('admin-dashboard-section');
         const adminLoginForm = document.getElementById('admin-login-form');
@@ -200,98 +245,95 @@
         const cancelEditUserButton = document.getElementById('cancel-edit-user');        
         const challengeListAdmin = document.getElementById('challenge-list-admin');
         const dbStatusLight = document.getElementById('db-status-light');
-        const userTableHeader = document.getElementById('user-table-header'); // ★ 新增：抓取整個表頭元素
-        // ★ 新增：抓取全域設定區塊的 UI 元素
+        const userTableHeader = document.getElementById('user-table-header');
+        // 全域設定
         const dailyLimitInput = document.getElementById('daily-limit-input');
         const saveSettingsButton = document.getElementById('save-settings-button');
         const settingsStatusText = document.getElementById('settings-status-text');
+        // Email訂閱
+        const subCountEl = document.getElementById('sub-count');
+        const subStatusDot = document.getElementById('sub-status-dot');
+        const copySubsButton = document.getElementById('copy-subs-button');
+        const subLastUpdateEl = document.getElementById('sub-last-update');
+        // 複製 Modal 相關變數
+        const copyModal = document.getElementById('copy-modal');
+        const copyTextarea = document.getElementById('copy-textarea');
+        const closeCopyModalButton = document.getElementById('close-copy-modal');
+        const closeCopyModalX = document.getElementById('close-copy-modal-x');
+        // ★ 新增通知信變數
+        const sendTestEmailButton = document.getElementById('send-test-email-button');
+        const triggerCheckButton = document.getElementById('trigger-check-button');
 
         // --- 3. 狀態變數 ---
-        // 這些變數用來儲存整個頁面的狀態
-        let userToEdit = null; // 暫存正在被編輯（改密碼/改角色）的使用者資訊
-        let dbConnectionInterval = null; // 用於存放計時器，定期檢查資料庫連線
-        let allUsersData = []; // ★ 新增：用來「快取」所有從資料庫下載的使用者資料。這樣排序時就不用重新跟資料庫要資料，速度會快很多。
-        let currentSortColumn = 'nickname'; // ★ 新增：記錄目前是依據哪個欄位排序，預設是 'nickname'
-        let currentSortDirection = 'asc'; // ★ 新增：記錄目前的排序方向 ('asc' 為升冪，'desc' 為降冪)，預設是升冪
+        let userToEdit = null;
+        let dbConnectionInterval = null;
+        let allUsersData = [];
+        let currentSortColumn = 'nickname';
+        let currentSortDirection = 'asc';
 
         // --- 4. 核心功能函式 ---
 
-        // ★ 修改：此函式現在只負責從後端「獲取」資料，並觸發第一次的畫面渲染
         async function loadUsers() {
-            userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4">讀取中...</td></tr>`; // 顯示讀取中訊息
+            userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4">讀取中...</td></tr>`;
             try {
-                // 'invokeAdminFunction' 是一個自訂的輔助函式，用來呼叫 Supabase 的後端函式(Edge Function)
-                // 這裡呼叫名為 'list-users-with-details' 的後端函式來取得所有使用者的詳細資料
                 const { data, error } = await invokeAdminFunction('list-users-with-details', {});
-                if (error) throw error; // 如果出錯，拋出錯誤
+                if (error) throw error;
                 
-                allUsersData = data.users || []; // 將獲取到的使用者資料存入 'allUsersData' 這個快取變數中
-                renderUserList(); // ★ 呼叫新的渲染函式來顯示列表
+                allUsersData = data.users || []; 
+                renderUserList();
+                
+                // 資料載入完成後，立即計算並更新訂閱人數 UI
+                updateSubscriptionUI(); 
+                
             } catch (error) {
                 userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-400">無法載入使用者列表: ${error.message}</td></tr>`;
             }
         }
 
-        // ★ 新增的核心函式：此函式專門負責「渲染」(畫出)使用者列表
-        // 它不直接跟後端溝通，而是使用 'allUsersData' 快取中的資料來產生畫面
         function renderUserList() {
-            updateSortIndicators(); // 首先，更新表頭的排序箭頭（▲▼）
+            updateSortIndicators();
 
             if (!allUsersData || allUsersData.length === 0) {
                 userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4">目前沒有任何使用者。</td></tr>`;
                 return;
             }
 
-            // 這一步是排序的核心。
-            // `[...allUsersData]` 創建一個 'allUsersData' 的淺拷貝(copy)，確保我們不會修改到原始的快取資料。
-            // `.sort((a, b) => { ... })` 會對這個拷貝的陣列進行排序。
             const sortedUsers = [...allUsersData].sort((a, b) => {
-                const valA = a[currentSortColumn]; // 取得 a 物件中，目前要排序欄位的值
-                const valB = b[currentSortColumn]; // 取得 b 物件中，目前要排序欄位的值
+                const valA = a[currentSortColumn];
+                const valB = b[currentSortColumn];
 
-                let comparison = 0; // 排序比較的結果
+                let comparison = 0;
                 
-                // --- ★ 核心修改：針對「暱稱」欄位的特殊排序邏輯 ---
                 if (currentSortColumn === 'nickname') {
-                    // 定義一個內部函式，用來判斷字串是英文還是中文（或其他）
                     const getStringType = (str) => {
-                        if (!str) return 2; // 如果是空字串，歸為非英文
-                        if (/^[a-zA-Z]/.test(str)) { // 使用正規表達式檢查是否為英文字母開頭
-                            return 1; // 英文的優先級設為 1
-                        }
-                        return 2; // 其他（中文、數字等）的優先級設為 2
+                        if (!str) return 2;
+                        if (/^[a-zA-Z]/.test(str)) return 1;
+                        return 2;
                     };
 
                     const typeA = getStringType(valA);
                     const typeB = getStringType(valB);
 
                     if (typeA !== typeB) {
-                        // 如果類型不同（一個英文，一個中文），直接用優先級排序（1 會排在 2 前面）
                         comparison = typeA - typeB;
                     } else {
-                        // 如果類型相同（都是英文或都是中文），則使用 'localeCompare' 進行標準的字母或筆劃排序
                         comparison = String(valA || '').localeCompare(String(valB || ''));
                     }
                 } else {
-                    // --- 對於「非暱稱」的其他欄位，維持原有的排序邏輯 ---
-                    if (valA == null) return 1; // 讓沒有資料(null)的排在最後面
+                    if (valA == null) return 1;
                     if (valB == null) return -1;
                     
                     if (currentSortColumn === 'monthly_signup_count') {
-                        comparison = valA - valB; // 數字直接相減排序
+                        comparison = valA - valB;
                     } else if (currentSortColumn === 'last_active_at') {
-                        comparison = new Date(valA).getTime() - new Date(valB).getTime(); // 日期轉換成時間戳(毫秒數)後再相減排序
-                    } else { // 'role' 角色欄位
-                        comparison = String(valA).localeCompare(String(valB)); // 字串使用標準方法排序
+                        comparison = new Date(valA).getTime() - new Date(valB).getTime();
+                    } else {
+                        comparison = String(valA).localeCompare(String(valB));
                     }
                 }
-
-                // 最後，根據目前的排序方向 ('asc' 或 'desc') 來決定最終結果
-                // 如果是升冪('asc')，直接回傳比較結果；如果是降冪('desc')，則將結果乘以 -1 來反轉順序
                 return currentSortDirection === 'asc' ? comparison : -comparison;
             });
 
-            // 將排序完成的 `sortedUsers` 陣列，透過 `.map()` 轉換成 HTML 字串，再用 `.join('')` 組合成單一的長字串，最後塞入 `userListBody`
             userListBody.innerHTML = sortedUsers.map(user => {
                 const lastSignIn = user.last_active_at
                     ? new Date(user.last_active_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
@@ -313,64 +355,46 @@
             }).join('');
         }
         
-        // ★ 新增：更新排序指示箭頭（▲▼）的函式
         function updateSortIndicators() {
-            // 尋找所有 class 為 'sortable-header' 的表頭元素
             document.querySelectorAll('.sortable-header').forEach(header => {
-                const indicator = header.querySelector('.sort-indicator'); // 找到該表頭內的指示符號<span>
+                const indicator = header.querySelector('.sort-indicator');
                 if (indicator) {
-                    // 如果這個表頭就是當前正在排序的欄位
                     if (header.dataset.sortKey === currentSortColumn) {
-                        // 根據排序方向顯示對應的箭頭
                         indicator.textContent = currentSortDirection === 'asc' ? '▲' : '▼';
                     } else {
-                        // 其他非排序欄位的表頭，清空箭頭
                         indicator.textContent = '';
                     }
                 }
             });
         }
         
-        // ★ 新增：監聽整個表頭區域的點擊事件
         userTableHeader.addEventListener('click', (e) => {
-            const header = e.target.closest('.sortable-header'); // 找到被點擊的、且可排序的表頭元素
-            if (!header) return; // 如果點擊的不是可排序的表頭，就什麼都不做
+            const header = e.target.closest('.sortable-header');
+            if (!header) return;
 
-            const sortKey = header.dataset.sortKey; // 獲取點擊欄位的 sortKey
+            const sortKey = header.dataset.sortKey;
             if (sortKey === currentSortColumn) {
-                // 如果點擊的欄位就是目前正在排序的欄位，則切換排序方向
                 currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             } else {
-                // 如果點擊的是新的欄位，則將該欄位設為新的排序欄位，並預設為升冪排序
                 currentSortColumn = sortKey;
                 currentSortDirection = 'asc';
             }
-            renderUserList(); // ★ 設定完新的排序狀態後，呼叫渲染函式，用新的排序方式重新畫出列表
+            renderUserList();
         });
-
-        // --- 以下為您原本可正常運作的程式碼，此處僅加上簡易註解說明其功能 ---
 
         // 監聽管理者登入表單提交事件
         adminLoginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             adminLoginButton.disabled = true; adminLoginButton.textContent = '驗證中...';
             const { nickname, password } = e.target.elements;
-            // ★ 新增：解析暱稱，只取出符號與數字前的部分，與 dashboard.html 同步
             const cleanNickname = (nickname.value || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
-
-            // const virtualEmail = `${encodeURIComponent(nickname.value)}@pikmin.sys`;
-
-            // ★ 修改：使用處理過的乾淨暱稱來產生虛擬信箱
             const virtualEmail = `${encodeURIComponent(cleanNickname)}@pikmin.sys`;
 
             try {
-                // 使用 Supabase 進行登入驗證
                 const { data: { user }, error } = await supabaseClient.auth.signInWithPassword({ email: virtualEmail, password: password.value });
                 if (error) throw error;
-                // 從 'profiles' 表中查詢該使用者的角色
                 const { data: profile } = await supabaseClient.from('profiles').select('role, nickname').eq('id', user.id).single();
                 if (profile.role !== '管理者') throw new Error('權限不足，僅限管理者登入。');
-                // 如果是管理者，則顯示主控台
                 authorizeAndShowDashboard(profile);
             } catch (error) {
                 showMessage(error.message.includes('Invalid') ? '暱稱或密碼錯誤。' : error.message, true);
@@ -379,44 +403,39 @@
             }
         });
 
-        // 授權並顯示主控台的函式
         function authorizeAndShowDashboard(profile) {
-            adminUserInfo.textContent = `管理員：${profile.nickname}`; // 顯示歡迎訊息
-            adminLoginSection.classList.add('hidden'); // 隱藏登入畫面
-            adminDashboardSection.classList.remove('hidden'); // 顯示管理主控台
-            loadAllAdminData(); // 載入所有管理資料
+            adminUserInfo.textContent = `管理員：${profile.nickname}`;
+            adminLoginSection.classList.add('hidden');
+            adminDashboardSection.classList.remove('hidden');
+            loadAllAdminData();
         }
 
-        // 登出按鈕事件
         adminLogoutButton.addEventListener('click', async () => {
-            if (dbConnectionInterval) clearInterval(dbConnectionInterval); // 清除計時器
-            await supabaseClient.auth.signOut(); // 執行登出
-            window.location.reload(); // 重新整理頁面
+            if (dbConnectionInterval) clearInterval(dbConnectionInterval);
+            await supabaseClient.auth.signOut();
+            window.location.reload();
         });
 
-        // 統一載入所有管理資料的函式
         function loadAllAdminData() {
-            loadGlobalSettings(); // ★ 新增：呼叫讀取設定函式
-            loadUsers(); // 載入使用者列表
-            loadChallenges(); // 載入挑戰列表
-            setupAdminRealtime(); // 設定即時更新
-            checkDbConnection(); // 首次檢查資料庫連線
-            dbConnectionInterval = setInterval(checkDbConnection, 30000); // 每 30 秒檢查一次
+            loadGlobalSettings();
+            loadUsers();
+            loadChallenges();
+            setupAdminRealtime();
+            checkDbConnection();
+            dbConnectionInterval = setInterval(checkDbConnection, 30000);
         }
 
-        // 檢查資料庫連線狀態並更新指示燈
         async function checkDbConnection() {
             try {
-                await invokeAdminFunction('ping', {}); // 呼叫一個空的後端函式來測試連線
-                dbStatusLight.className = 'status-light bg-green-500'; // 成功則亮綠燈
+                await invokeAdminFunction('ping', {});
+                dbStatusLight.className = 'status-light bg-green-500';
                 dbStatusLight.title = `資料庫連線正常 (上次檢查於 ${new Date().toLocaleTimeString()})`;
             } catch (error) {
-                dbStatusLight.className = 'status-light bg-red-500'; // 失敗則亮紅燈
+                dbStatusLight.className = 'status-light bg-red-500';
                 dbStatusLight.title = `資料庫連線異常 (上次檢查於 ${new Date().toLocaleTimeString()})\n錯誤: ${error.message}`;
             }
         }
         
-        // 呼叫後端 Edge Function 的輔助函式
         async function invokeAdminFunction(action, payload) {
             try {
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
@@ -431,7 +450,6 @@
             }
         }
 
-        // 新增使用者表單提交事件
         addUserForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             addUserButton.disabled = true; addUserButton.textContent = '新增中...';
@@ -439,11 +457,10 @@
             const password = document.getElementById('new-password').value;
             const role = document.getElementById('new-role').value;
             try {
-                // 呼叫後端函式 'create-user' 「問題根源」
                 await invokeAdminFunction('create-user', { nickname, password, role });
                 showMessage(`使用者 ${nickname} 新增成功！`, false);
                 addUserForm.reset();
-                loadUsers(); // 重新載入使用者列表
+                loadUsers();
             } catch (error) {
                 showMessage(`新增失敗: ${error.message}`, true);
             } finally {
@@ -451,29 +468,24 @@
             }
         });
 
-        // 使用者列表中的按鈕點擊事件 (改密碼、改角色、刪除)
         userListBody.addEventListener('click', async (e) => {
             const target = e.target.closest('button');
             if (!target) return;
             const userData = target.dataset;
             userToEdit = { id: userData.id, nickname: userData.nickname, role: userData.role };
             if (target.classList.contains('edit-user-button')) {
-                // ★ 新增：處理編輯使用者按鈕點擊
                 document.getElementById('edit-user-id').value = userToEdit.id;
                 document.getElementById('edit-user-old-nickname').value = userToEdit.nickname;
                 document.getElementById('edit-nickname').value = userToEdit.nickname;
                 editUserModal.classList.remove('hidden');
             } else if (target.classList.contains('reset-password-button')) {
-                // 處理改密碼
                 document.getElementById('reset-pw-nickname').textContent = userToEdit.nickname;
                 resetPasswordModal.classList.remove('hidden');
             } else if (target.classList.contains('change-role-button')) {
-                // 處理改角色
                 document.getElementById('change-role-nickname').textContent = userToEdit.nickname;
                 document.getElementById('change-role-select').value = userToEdit.role;
                 changeRoleModal.classList.remove('hidden');
             } else if (target.classList.contains('delete-user-button')) {
-                // 處理刪除使用者
                 const confirmationMessage = `【高風險管理員操作】\n\n您確定要永久刪除使用者「${userToEdit.nickname}」嗎？\n\n此操作會將其帳號及所有相關資料從系統中移除，且無法復原。`;
                 if (confirm(confirmationMessage)) {
                     target.disabled = true; target.textContent = '刪除中';
@@ -489,7 +501,6 @@
             }
         });
 
-        // 處理重設密碼彈窗的邏輯
         cancelResetPwButton.addEventListener('click', () => resetPasswordModal.classList.add('hidden'));
         resetPasswordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -502,7 +513,6 @@
             } catch(error) { showMessage(`密碼重設失敗: ${error.message}`, true); }
         });
 
-        // 處理變更角色彈窗的邏輯
         cancelChangeRoleButton.addEventListener('click', () => changeRoleModal.classList.add('hidden'));
         changeRoleForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -515,7 +525,6 @@
             } catch(error) { showMessage(`角色變更失敗: ${error.message}`, true); }
         });
 
-        // 處理編輯使用者表單的邏輯
         cancelEditUserButton.addEventListener('click', () => editUserModal.classList.add('hidden'));
         editUserForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -532,7 +541,7 @@
                 await invokeAdminFunction('update-user-nickname', payload);
                 showMessage(`使用者暱稱已成功更新為 ${payload.newNickname}。`, false);
                 editUserModal.classList.add('hidden');
-                loadUsers(); // 重新載入使用者列表以顯示變更
+                loadUsers();
             } catch (error) {
                 showMessage(`更新失敗: ${error.message}`, true);
             } finally {
@@ -540,7 +549,6 @@
             }
         });
 
-        // 載入與渲染蘑菇挑戰列表
         async function loadChallenges() {
             challengeListAdmin.innerHTML = '<p>讀取中...</p>';
             try {
@@ -554,39 +562,29 @@
             }
         }
         
-        // 渲染單個挑戰卡片 (管理員視角) - 更新版
         function renderAdminChallengeCard(challenge) {
             const card = document.createElement('div');
             card.className = 'challenge-card p-4';
             card.id = `admin-challenge-${challenge.id}`;
             
-            // 決定「開放報名中」/「已額滿」等狀態的樣式
             const statusClass = challenge.status === '開放報名中' ? 'bg-green-600' : (challenge.status === '已額滿' ? 'bg-red-600' : 'bg-yellow-600');
             const signupCount = challenge.signups ? challenge.signups.length : 0;
 
-            // --- ★ 新增邏輯：產生「待發」或「已發」的狀態標籤 ---
             let dispatchTagHtml = '';
-            // 只有在有人報名時，才顯示這個標籤
             if (signupCount > 0) {
-                // 從挑戰資料中讀取 dispatch_status，若無則預設為「待發」
                 const dispatchStatus = challenge.dispatch_status || '待發';
-                // 根據狀態設定對應的 Tailwind CSS 背景色，使其與 dashboard 頁面一致
                 const dispatchClass = dispatchStatus === '已發' ? 'bg-teal-500' : 'bg-gray-600';
-                // 組合出標籤的 HTML 字串
                 dispatchTagHtml = `<span class="text-xs font-bold px-2 py-1 rounded-full text-white ${dispatchClass}">${dispatchStatus}</span>`;
             }
 
-            // 處理報名者列表的顯示
             let participantsHtml = '';
             if (signupCount > 0) {
                 const participantsList = challenge.signups.map((signup) => `<span class="text-xs bg-gray-700 px-2 py-1 rounded">${signup.profile?.nickname || '未知'}</span>`).join(' ');
                 participantsHtml = `<div class="mt-2 flex flex-wrap gap-2 items-center">${participantsList}</div>`;
             }
 
-            // --- ★ 調整結構：將兩個狀態標籤用一個 div 包裹起來，並插入 dispatchTagHtml ---
             card.innerHTML = `
             <div class="flex flex-col justify-between h-full">
-                
                 <div>
                 <div class="flex justify-between items-start mb-2">
                     <h3 class="text-lg font-bold text-gray-100">${challenge.mushroom_type}</h3>
@@ -597,29 +595,23 @@
                     </span>
                     </div>
                 </div>
-
                 <div class="text-sm text-gray-400 space-y-1">
                     <p><strong>發布者:</strong> ${challenge.host?.nickname || '未知'}</p>
                     <p><strong>名額:</strong> ${signupCount} / ${challenge.slots}</p>
                     <p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
-
                 ${participantsHtml}
                 </div>
-
                 <div>
                 <button data-id="${challenge.id}" class="delete-challenge-admin-button mt-4 w-full text-white font-bold py-2 px-4 rounded-lg bg-red-800 hover:bg-red-700 transition">
                     刪除
                 </button>
                 </div>
-                
             </div>
             `;
-            
-            challengeListAdmin.appendChild(card); // ★ 修改：簡化函式，只負責建立並附加卡片到 DOM
+            challengeListAdmin.appendChild(card); 
         }
 
-        // 監聽挑戰列表中的刪除按鈕
         challengeListAdmin.addEventListener('click', async (e) => {
             const button = e.target.closest('.delete-challenge-admin-button');
             if(!button) return;
@@ -637,23 +629,18 @@
             }
         });
 
-        // 設定 Supabase Realtime 即時資料庫，當資料有變動時自動更新畫面
         function setupAdminRealtime() {
             supabaseClient.channel('admin-realtime')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, loadChallenges) // 監聽 challenges 表的變化
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, loadUsers) // 監聽 profiles 表的變化
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, loadChallenges)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, loadUsers) 
                 .subscribe();
         }
 
-        // 讀取全域設定的函式
         async function loadGlobalSettings() {
             settingsStatusText.textContent = '讀取中...';
             try {
-                // 改為呼叫後端 Edge Function 來獲取資料
                 const { data, error } = await invokeAdminFunction('get-daily-limit', {});
-                
                 if (error) throw error;
-
                 if (data) {
                     dailyLimitInput.value = data.setting_value;
                     settingsStatusText.textContent = `上次更新於 ${new Date().toLocaleTimeString()}`;
@@ -667,24 +654,18 @@
             }
         }
 
-        // 儲存設定按鈕的事件監聽器
         saveSettingsButton.addEventListener('click', async () => {
             const newValue = parseInt(dailyLimitInput.value);
             if (isNaN(newValue) || newValue < 0) {
                 showMessage('請輸入一個有效的正整數。', true);
                 return;
             }
-
             saveSettingsButton.disabled = true;
             saveSettingsButton.textContent = '儲存中...';
             settingsStatusText.textContent = '';
-
             try {
-                // 改為呼叫後端 Edge Function 來更新資料
                 const { error } = await invokeAdminFunction('set-daily-limit', { value: newValue });
-                
                 if (error) throw error;
-
                 showMessage('每日報名上限已成功更新！', false);
                 settingsStatusText.textContent = `更新成功於 ${new Date().toLocaleTimeString()}`;
             } catch (error) {
@@ -696,7 +677,6 @@
             }
         });
 
-        // 載入「管理者」角色的暱稱到登入選單
         async function populateNicknames() {
             const nicknameSelect = document.getElementById('admin-nickname-select');
             try {
@@ -709,7 +689,6 @@
             }
         }
         
-        // 顯示訊息的輔助函式，5秒後自動消失
         function showMessage(text, isError) {
             adminMessageBox.textContent = text;
             adminMessageBox.className = `p-4 text-center text-sm rounded-xl ${isError ? 'bg-red-500/50 text-red-300' : 'bg-green-500/50 text-green-300'}`;
@@ -718,7 +697,6 @@
             }, 5000);
         }
         
-        // 檢查初始 session，如果已經是登入的管理者，直接顯示主控台
         async function checkInitialSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
@@ -729,11 +707,101 @@
             }
         }
         
-        // 當 DOM 載入完成後，執行初始化函式
+        let cachedSubscriberEmails = [];
+
+        function updateSubscriptionUI() {
+            if (!allUsersData) return;
+            cachedSubscriberEmails = allUsersData
+                .map(user => user.notification_email)
+                .filter(email => email && email.includes('@'))
+                .sort();
+            subCountEl.textContent = `${cachedSubscriberEmails.length} 人`;
+            subLastUpdateEl.textContent = `(資料同步於: ${new Date().toLocaleTimeString()})`;
+            subStatusDot.classList.add('hidden');
+        }
+
+        // 關閉視窗邏輯
+        function hideCopyModal() {
+            copyModal.classList.add('hidden');
+        }
+        closeCopyModalButton.addEventListener('click', hideCopyModal);
+        closeCopyModalX.addEventListener('click', hideCopyModal);
+
+        function handleCopySubscribers() {
+            // 使用本地快取 (allUsersData 已經在 loadUsers 中載入)
+            const emails = allUsersData
+                .map(user => user.notification_email)
+                .filter(email => email && email.includes('@'))
+                .sort();
+
+            if (emails.length === 0) {
+                showMessage('目前沒有人訂閱。', true);
+                return;
+            }
+
+            // 填入 Textarea 並顯示 Modal
+            copyTextarea.value = emails.join(', ');
+            copyModal.classList.remove('hidden');
+
+            // 自動聚焦並全選文字
+            copyTextarea.focus();
+            copyTextarea.select();
+            
+            try {
+                document.execCommand('copy'); // 嘗試自動複製
+                showMessage('已自動複製到剪貼簿！若失敗請手動按下 Ctrl+C', false);
+            } catch (e) {
+                // 失敗也不報錯，使用者看得到視窗即可
+            }
+        }
+
+        copySubsButton.addEventListener('click', handleCopySubscribers);
+
         document.addEventListener('DOMContentLoaded', () => {
             populateNicknames();
             checkInitialSession();
         });
+
+        // ★ 新增功能：發送測試信
+        if (sendTestEmailButton) {
+            sendTestEmailButton.addEventListener('click', async () => {
+                if (!confirm('確定要發送一封測試信給中繼站嗎？')) return;
+                
+                sendTestEmailButton.disabled = true;
+                sendTestEmailButton.textContent = '發送中...';
+                try {
+                    await invokeAdminFunction('send-test-email', {});
+                    showMessage('測試信已發送！請檢查 Gmail。', false);
+                } catch (error) {
+                    showMessage(`發送失敗: ${error.message}`, true);
+                } finally {
+                    sendTestEmailButton.disabled = false;
+                    sendTestEmailButton.textContent = '📨 發送測試信';
+                }
+            });
+        }
+
+        // ★ 新增功能：手動觸發檢查
+        if (triggerCheckButton) {
+            triggerCheckButton.addEventListener('click', async () => {
+                triggerCheckButton.disabled = true;
+                triggerCheckButton.innerHTML = '<span>🔄 檢查中...</span>';
+                try {
+                    const { data } = await invokeAdminFunction('trigger-check-now', {});
+                    // 根據回傳結果顯示不同訊息
+                    if (data && data.sent) {
+                        showMessage(`檢查完成：${data.message}`, false);
+                    } else {
+                        showMessage(`檢查完成：${data.message || '無符合條件的蘑菇'}`, false);
+                    }
+                } catch (error) {
+                    showMessage(`檢查失敗: ${error.message}`, true);
+                } finally {
+                    triggerCheckButton.disabled = false;
+                    triggerCheckButton.innerHTML = '<span>⚡ 立即檢查蘑菇狀態</span>';
+                }
+            });
+        }
     </script>
 </body>
 </html>

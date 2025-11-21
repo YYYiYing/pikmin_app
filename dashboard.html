@@ -162,7 +162,7 @@
                 <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
                 <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🤝 村民好友碼</a>
                 <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="text-gray-300 hover:text-white transition text-sm">🔃 路徑轉檔</a>
-                <a id="gpx-generator-link" href="./gpx_generator.html" class="hidden text-green-400 hover:text-green-300 font-bold transition text-sm">🗺️ 路徑生成</a>
+                <a id="gpx-generator-link" href="./gpx_generator.html" class="text-green-400 hover:text-green-300 font-bold transition text-sm">🗺️ 路徑生成</a>
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
                 <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">㊙️ 改密碼</button>
                 <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">🏃‍♂️ 登出</button>
@@ -174,10 +174,10 @@
                 <button id="leaderboard-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏆 排行榜</button>
                 <a href="./partner.html" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🤝 村民好友碼</a>
                 <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🔃 路徑轉檔</a>
+                <a id="gpx-generator-link-mobile" href="./gpx_generator.html" class="block text-green-400 hover:bg-gray-700 p-2 rounded-md font-bold">🗺️ 路徑生成</a>
             </div>
             <hr class="border-gray-600 my-2">
             <div class="space-y-1">
-                <a id="gpx-generator-link-mobile" href="./gpx_generator.html" class="hidden block text-green-400 hover:bg-gray-700 p-2 rounded-md font-bold">🗺️ 路徑生成</a>
                 <a id="admin-link-mobile" href="./admin.html" class="hidden block text-orange-400 hover:bg-gray-700 p-2 rounded-md font-bold">⚙️ 管理後台</a>
             </div>
             <hr class="border-gray-600 my-2">
@@ -194,13 +194,16 @@
         <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-4 flex-wrap justify-center">
                 
-                <div id="filter-tabs" class="flex space-x-2">
+               <div id="filter-tabs" class="flex space-x-2">
                     <button data-filter="all" class="filter-tab active text-xs md:text-base">全部挑戰</button>
                     <button data-filter="full" class="filter-tab text-xs md:text-base">已額滿</button>
                     <button data-filter="signed-up" class="filter-tab text-xs md:text-base">我的報名</button>
                     <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden text-xs md:text-base">我的發布</button>
                 </div>
                 
+                <button id="email-sub-button" class="text-gray-400 hover:text-indigo-400 transition text-xs md:text-base flex items-center gap-1 ml-2">
+                    <span id="email-icon">📧</span> <span id="email-text" class="hidden md:inline">訂閱通知</span>
+                </button>
                 <button id="screenshot-button" class="text-gray-400 hover:text-white transition text-xs md:text-base">📸 截圖</button>
             
             </div>
@@ -412,7 +415,13 @@
         const screenshotButton = document.getElementById('screenshot-button');
         const hamburgerButton = document.getElementById('hamburger-button');
         const mobileMenu = document.getElementById('mobile-menu');
-        
+
+        // ▼▼▼ 【新增】Email 訂閱相關變數 ▼▼▼
+        const emailSubButton = document.getElementById('email-sub-button');
+        const emailIcon = document.getElementById('email-icon');
+        const emailText = document.getElementById('email-text');
+        // ▲▲▲ 【新增結束】 ▲▲▲
+
         let currentUserProfile = null;
         let challengeToDeleteId = null;
         let userSignedUpChallengeIds = new Set(); 
@@ -543,9 +552,13 @@
                 // (我們新增的) 同步讓行動版漢堡選單中的「管理後台」連結也顯示出來
                 document.getElementById('admin-link-mobile').classList.remove('hidden');
                 // ★ 新增：同步顯示 GPX 生成器連結
-                document.getElementById('gpx-generator-link').classList.remove('hidden');
-                document.getElementById('gpx-generator-link-mobile').classList.remove('hidden');              
+                //document.getElementById('gpx-generator-link').classList.remove('hidden');
+                //document.getElementById('gpx-generator-link-mobile').classList.remove('hidden');              
+                
             }
+            // ▼▼▼ 【新增】檢查並顯示訂閱狀態 ▼▼▼
+            checkSubscriptionStatus();
+            // ▲▲▲ 【新增結束】 ▲▲▲
         }
         
         async function fetchUserSignups() {
@@ -1377,6 +1390,101 @@
                 challengesListEl.appendChild(p);
             }
         }
+
+        // ▼▼▼ 【新版 v3】Gmail 訂閱功能核心邏輯 ▼▼▼
+        
+        function checkSubscriptionStatus() {
+            if (!currentUserProfile) return;
+            
+            const hasEmail = !!currentUserProfile.notification_email;
+
+            if (!hasEmail) {
+                // 未訂閱
+                emailIcon.textContent = '📧';
+                emailText.textContent = '訂閱通知';
+                emailSubButton.className = 'text-gray-400 hover:text-indigo-400 transition text-xs md:text-base flex items-center gap-1 ml-2';
+                emailSubButton.title = '點擊訂閱 Google Groups 通知';
+            } else {
+                // 已訂閱
+                emailIcon.textContent = '📭';
+                emailText.textContent = '已訂閱';
+                emailSubButton.className = 'text-green-500 hover:text-green-400 transition text-xs md:text-base flex items-center gap-1 ml-2';
+                emailSubButton.title = `接收信箱: ${currentUserProfile.notification_email} (點擊可取消訂閱)`;
+            }
+        }
+
+        // ▼▼▼ 【修改】訂閱按鈕 (含 Gmail 自動補全功能) ▼▼▼
+        emailSubButton.addEventListener('click', async () => {
+            const hasEmail = !!currentUserProfile.notification_email;
+
+            if (!hasEmail) {
+                // --- 訂閱流程 ---
+                let email = prompt('請輸入您的 Gmail 帳號：\n(若未輸入 @gmail.com 系統將自動補上)');
+                
+                if (email) {
+                    email = email.trim(); // 去除前後空白
+
+                    // ★ 自動補全邏輯：如果沒有 @ 符號，預設補上 @gmail.com
+                    if (!email.includes('@')) {
+                        email += '@gmail.com';
+                    }
+                    
+                    // 強制檢查是否為 gmail
+                    if (!email.toLowerCase().endsWith('@gmail.com')) {
+                        alert('格式錯誤！為了配合 Google 群組功能，請務必使用 @gmail.com 信箱。');
+                        return;
+                    }
+
+                    await updateEmailSubscription(email);
+                }
+            } else {
+                // --- 取消訂閱流程 ---
+                if (confirm(`目前的訂閱信箱：${currentUserProfile.notification_email}\n\n確定要取消訂閱嗎？`)) {
+                    await updateEmailSubscription(null); 
+                }
+            }
+        });
+        // ▲▲▲ 【修改結束】 ▲▲▲
+
+        async function updateEmailSubscription(email) {
+            emailSubButton.disabled = true;
+            const originalText = emailText.textContent;
+            emailText.textContent = '處理中...';
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: { 
+                        action: 'update-subscription', 
+                        payload: { 
+                            userId: currentUserProfile.id, 
+                            email: email 
+                        } 
+                    }
+                });
+
+                if (error) throw error;
+                if (data.error) throw new Error(data.error);
+
+                // 更新本地狀態
+                currentUserProfile.notification_email = email; 
+                checkSubscriptionStatus();
+                
+                if (email) {
+                    showToast('訂閱成功！請等待管理員將您加入群組。', false);
+                } else {
+                    showToast('已取消訂閱。', false);
+                }
+
+            } catch (err) {
+                console.error(err);
+                showToast('操作失敗，請稍後再試。', true);
+                emailText.textContent = originalText;
+            } finally {
+                emailSubButton.disabled = false;
+            }
+        }
+        // ▲▲▲ 【新版 v3】結束 ▲▲▲
+        
         // 複製桌面版按鈕事件到行動版
         mobileMenu.querySelector('#leaderboard-button-mobile').addEventListener('click', () => leaderboardButton.click());
         mobileMenu.querySelector('#change-password-button-mobile').addEventListener('click', () => changePasswordButton.click());
