@@ -1,4 +1,5 @@
-// 【最終整合版 v4】index.ts - 加入測試信與手動觸發檢查功能
+// 【最終整合修復版 v7】index.ts
+// 結合權威版使用者管理邏輯 + 最新版通知系統
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -8,9 +9,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// 設定接收通知的中繼信箱 (Resend 測試模式請務必設為您的註冊信箱)
 const RELAY_TARGET_EMAIL = 'secretsoulful@gmail.com';
 
-// --- 核心邏輯函式：檢查蘑菇並發信 ---
+// --- 核心函式：檢查蘑菇並發信 (來自最新版通知邏輯) ---
 async function checkAndSendNotification(supabase: any, resendApiKey: string, isTest = false) {
     // 1. 查詢目前「開放中」且「未額滿」的挑戰
     const { data: challenges, error: dbError } = await supabase
@@ -25,7 +27,7 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         return signupCount < c.slots;
     });
 
-    // 如果沒有開放中的挑戰，且不是測試模式，直接回傳
+    // 如果沒有開放中的挑戰，且不是手動觸發，則不發信直接結束
     if (activeChallenges.length === 0 && !isTest) {
         return { sent: false, message: '無開放中的挑戰，不需發信' };
     }
@@ -61,16 +63,19 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
             <p style="margin-top: 20px;">
                 <a href="https://yyyiying.github.io/pikmin_app/dashboard.html" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">👉 點此前往報名</a>
             </p>
-            <p style="font-size: 0.8em; color: #888;">本郵件由系統自動發送至群組。</p>
+            <p style="margin-top: 10px;">
+                <a href="https://groups.google.com/g/mushroom_notify/membership" style="font-size: 0.85em; color: #6b7280; text-decoration: underline;">🔕 暫時不需要通知？點此前往 Google Groups 設定</a>
+            </p>
+            <p style="font-size: 0.8em; color: #888; margin-top: 20px;">本郵件由系統自動發送至群組。</p>
         </div>`;
 
-    // 3. 發送
+    // 3. 發送 (為了測試模式穩定，簡化收件人設定)
     const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
         body: JSON.stringify({
-            from: 'Mushroom Bot <onboarding@resend.dev>', 
-            to: [RELAY_TARGET_EMAIL],
+            from: 'Mushroom Bot <onboarding@resend.dev>',
+            to: [RELAY_TARGET_EMAIL], 
             subject: `[蘑菇快訊] ${activeChallenges.length > 0 ? activeChallenges.length + ' 朵蘑菇開放中！' : '目前無新挑戰'}`,
             html: emailHtml,
         }),
@@ -78,7 +83,7 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
 
     if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(`Resend API Error: ${errorText}`);
+        throw new Error(`Resend API Error (${res.status}): ${errorText}`);
     }
 
     return { sent: true, message: `通知已發送 (含 ${activeChallenges.length} 筆挑戰)` };
@@ -88,9 +93,10 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    // 初始化 Admin Client (使用 Service Role Key)
     const adminSupabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SECRET_KEY') ?? ''
+      Deno.env.get('SECRET_KEY') ?? '' 
     );
 
     const requestText = await req.text();
@@ -100,11 +106,11 @@ serve(async (req) => {
     let data: unknown = null;
 
     // ============================================================
-    // 第一區：系統排程發信 (Cron Job 用)
+    // 區塊 A：系統自動化 (不需要 Auth Header)
     // ============================================================
     if (action === 'scheduled-email-notify') {
         if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
-        const result = await checkAndSendNotification(adminSupabaseClient, RESEND_API_KEY);
+        const result = await checkAndSendNotification(adminSupabaseClient, RESEND_API_KEY, false);
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
@@ -112,7 +118,7 @@ serve(async (req) => {
     }
 
     // ============================================================
-    // 第二區：使用者驗證
+    // 區塊 B：使用者驗證 (需要 Authorization Header)
     // ============================================================
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('缺少 Authorization Header');
@@ -126,9 +132,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await userSupabaseClient.auth.getUser();
     if (userError || !user) throw new Error('無效的使用者或 Token');
 
-    // ============================================================
-    // 第三區：一般使用者功能
-    // ============================================================
+    // --- B1. 一般使用者功能 ---
     if (action === 'update-subscription') {
         if (payload.userId !== user.id) throw new Error('權限不足');
         const { error } = await adminSupabaseClient.from('profiles').update({ notification_email: payload.email }).eq('id', user.id);
@@ -136,14 +140,44 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { message: payload.email ? '訂閱成功' : '已取消訂閱' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // ============================================================
-    // 第四區：管理員功能
-    // ============================================================
+    // --- B2. 管理員專屬功能 (檢查 role) ---
     const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
     if (profile?.role !== '管理者') return new Response(JSON.stringify({ error: '權限不足' }), { status: 403, headers: corsHeaders });
 
     switch (action) {
-        // ★ 新增功能 1：純測試信
+        // ★★★ 這裡完整恢復了「權威版」的使用者列表邏輯 (RPC) ★★★
+        case 'list-users-with-details':
+            // 1. 獲取所有使用者 Profile
+            const { data: profiles, error: profilesError } = await adminSupabaseClient.from('profiles').select('*');
+            if (profilesError) throw profilesError;
+            if (!profiles || profiles.length === 0) { data = { users: [] }; break; }
+            
+            // 2. 準備 ID 列表
+            const userIds = profiles.map((p: any) => p.id);
+
+            // 3. 呼叫 RPC (資料庫函式)
+            const { data: authData, error: rpcError } = await adminSupabaseClient
+                .rpc('get_users_signin_data', { user_ids: userIds });
+            
+            if (rpcError) {
+                 console.error("RPC call failed:", rpcError); 
+                 throw rpcError; 
+            }
+
+            // 4. 建立 Map 加速查找
+            const authMap = new Map(authData.map((u: any) => [u.id, u.last_sign_in_at]));
+            
+            // 5. 合併資料
+            const combinedUsers = profiles.map((profile: any) => ({
+                ...profile,
+                last_sign_in_at: authMap.get(profile.id) || null
+            }));
+            
+            data = { users: combinedUsers };
+            break;
+
+        // --- 以下為其他標準管理員功能 (保持不變) ---
+        
         case 'send-test-email':
             if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
             const testRes = await fetch('https://api.resend.com/emails', {
@@ -157,31 +191,21 @@ serve(async (req) => {
                 }),
             });
             if (!testRes.ok) throw new Error(await testRes.text());
-            data = { message: '測試信已發送至中繼站' };
+            data = { message: '測試信已發送' };
             break;
 
-        // ★ 新增功能 2：手動觸發檢查 (模擬排程)
         case 'trigger-check-now':
             if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
-            // 第三個參數 true 代表手動模式，即使沒蘑菇也會顯示訊息
+            // 手動觸發，強制顯示結果 (true)
             data = await checkAndSendNotification(adminSupabaseClient, RESEND_API_KEY, true);
             break;
 
         case 'get-subscriber-emails': 
-            const { data: subscribers, error } = await adminSupabaseClient.from('profiles').select('notification_email').not('notification_email', 'is', null).order('notification_email');
-            if (error) throw error;
+            const { data: subscribers, error: subErr } = await adminSupabaseClient.from('profiles').select('notification_email').not('notification_email', 'is', null).order('notification_email');
+            if (subErr) throw subErr;
             data = { emails: subscribers.map((p: any) => p.notification_email).filter((e: string) => e && e.includes('@')) };
             break;
-        case 'list-users-with-details':
-            const { data: profiles, error: profilesError } = await adminSupabaseClient.from('profiles').select('*');
-            if (profilesError) throw profilesError;
-            if (!profiles || profiles.length === 0) { data = { users: [] }; break; }
-            const userIds = profiles.map((p: any) => p.id);
-            const { data: authData, error: rpcError } = await adminSupabaseClient.rpc('get_users_signin_data', { user_ids: userIds });
-            if (rpcError) { console.error("RPC failed:", rpcError); throw rpcError; }
-            const authMap = new Map(authData.map((u: any) => [u.id, u.last_sign_in_at]));
-            data = { users: profiles.map((profile: any) => ({ ...profile, last_sign_in_at: authMap.get(profile.id) || null })) };
-            break;
+
         case 'create-user':
              const virtualEmail = `${encodeURIComponent(payload.nickname)}@pikmin.sys`;
              const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({ email: virtualEmail, password: payload.password, email_confirm: true });
@@ -192,18 +216,41 @@ serve(async (req) => {
                   data = created;
              }
              break;
-        case 'update-user-role': ({ data } = await adminSupabaseClient.from('profiles').update({ role: payload.role }).eq('id', payload.userId).select()); break;
-        case 'reset-user-password': ({ data } = await adminSupabaseClient.auth.admin.updateUserById(payload.userId, { password: payload.password })); break;
-        case 'delete-challenge': await adminSupabaseClient.from('challenges').delete().eq('id', payload.challengeId); break;
-        case 'delete-user': if (!payload.userId) throw new Error('缺少 userId'); ({ data } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId)); break;
+             
+        case 'update-user-role': 
+            ({ data } = await adminSupabaseClient.from('profiles').update({ role: payload.role }).eq('id', payload.userId).select()); 
+            break;
+            
+        case 'reset-user-password': 
+            ({ data } = await adminSupabaseClient.auth.admin.updateUserById(payload.userId, { password: payload.password })); 
+            break;
+            
+        case 'delete-user': 
+            if (!payload.userId) throw new Error('缺少 userId'); 
+            ({ data } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId)); 
+            break;
+            
         case 'update-user-nickname': 
             const { error: pErr } = await adminSupabaseClient.from('profiles').update({ nickname: payload.newNickname }).eq('id', payload.userId);
             if (pErr) throw pErr;
             await adminSupabaseClient.from('partners').update({ name: payload.newNickname }).eq('name', payload.oldNickname);
             break;
-        case 'get-daily-limit': ({ data } = await adminSupabaseClient.from('daily_settings').select('setting_value').eq('setting_name', 'daily_signup_limit').single()); break;
-        case 'set-daily-limit': ({ data } = await adminSupabaseClient.from('daily_settings').update({ setting_value: payload.value, updated_at: new Date().toISOString() }).eq('setting_name', 'daily_signup_limit').select().single()); break;
-        case 'ping': break;
+
+        case 'delete-challenge': 
+            await adminSupabaseClient.from('challenges').delete().eq('id', payload.challengeId); 
+            break;
+            
+        case 'get-daily-limit': 
+            ({ data } = await adminSupabaseClient.from('daily_settings').select('setting_value').eq('setting_name', 'daily_signup_limit').single()); 
+            break;
+            
+        case 'set-daily-limit': 
+            ({ data } = await adminSupabaseClient.from('daily_settings').update({ setting_value: payload.value, updated_at: new Date().toISOString() }).eq('setting_name', 'daily_signup_limit').select().single()); 
+            break;
+            
+        case 'ping': 
+            break;
+            
         default: throw new Error(`未知的操作: ${action}`);
     }
 

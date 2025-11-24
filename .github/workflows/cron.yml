@@ -1,0 +1,26 @@
+name: Mushroom Check Cron
+
+on:
+  schedule:
+    # 設定排程時間 (UTC 時間)
+    # 說明：台灣是 UTC+8。
+    # 我們設定 UTC 0點到15點 (即台灣 08:00 到 23:00)
+    # 分鐘設為 1 (即整點過1分執行)
+    - cron: '1 0-15 * * *'
+    
+    # 如果您也想在半點 (31分) 檢查，可以取消下一行的註解：
+    # - cron: '31 0-15 * * *'
+
+  # 允許在 GitHub 網頁上按按鈕手動測試
+  workflow_dispatch:
+
+jobs:
+  trigger-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Supabase Edge Function
+        run: |
+          curl -X POST 'https://htdddmoclmhqebyvzean.supabase.co/functions/v1/admin-actions' \
+          -H "Authorization: Bearer ${{ secrets.SECRET_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"action": "scheduled-email-notify"}'
