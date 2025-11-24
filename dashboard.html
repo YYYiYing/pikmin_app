@@ -324,10 +324,23 @@
                             <option value="滿人開">滿人開</option>
                         </select>
                     </div>
+                    <div>
+                        <label for="cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
+                        <select id="cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="快炒(火力全開)">快炒 (火力全開)</option>
+                            <option value="慢燉(控制火侯)">慢燉 (控制火侯)</option>
+                            <option value="亂炒(不限)"selected>亂炒 (不限)</option>
+                        </select>
+                    </div>
 
-                </div>
+                    <div>
+                        <label for="challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
+                        <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 mt-1"/>
+                        <p class="text-xs text-gray-500 mt-1">支援 jpg, png 格式，建議不要太大。</p>
+                    </div>
+                    </div>
 
-                <div class="mt-8 flex justify-end space-x-4">
+                <div class="mt-8 flex justify-end space-x-4">       
                     <button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
                     <button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button>
                 </div>
@@ -391,7 +404,20 @@
                             <option value="滿人開">滿人開</option>                
                         </select>
                     </div>
-                </div>
+                    <div>
+                        <label for="cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
+                        <select id="cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="快炒(火力全開)">快炒 (火力全開)</option>
+                            <option value="慢燉(控制火侯)">慢燉 (控制火侯)</option>
+                            <option value="亂炒(不限)">亂炒 (不限)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
+                        <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 mt-1"/>
+                        <p class="text-xs text-gray-500 mt-1">支援 jpg, png 格式，建議不要太大。</p>
+                    </div>
+                    </div>
                 <div class="mt-8 flex justify-end space-x-4">
                     <button type="button" id="cancel-edit-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
                     <button type="submit" id="submit-edit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認儲存</button>
@@ -438,6 +464,13 @@
                     <p class="text-center text-gray-500 mt-8">讀取中...</p>
                 </div>
             </div>
+        </div>
+
+        <div id="image-viewer-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" onclick="closeImageViewer()">
+        <div class="relative max-w-3xl w-full max-h-[90vh] flex justify-center p-2" onclick="event.stopPropagation()">
+            <button type="button" onclick="closeImageViewer()" class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300 font-bold bg-black/50 rounded-full w-10 h-10 flex items-center justify-center">&times;</button>
+            <img id="viewer-image" src="" alt="蘑菇美片" class="rounded-lg shadow-2xl max-h-[85vh] object-contain bg-gray-900">
+        </div>
         </div>
 
         <div id="password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
@@ -870,6 +903,18 @@
                 startTimeHtml = `<p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false })}</p>`;
             }
 
+            let imageBtnHtml = '';
+            // 檢查挑戰物件中是否有有效的 image_url
+            if (challenge.image_url && challenge.image_url.startsWith('http')) {
+                // 使用 onclick 事件直接呼叫開啟視窗的函式
+                imageBtnHtml = `
+                <div class="mt-3 pt-3 border-t border-gray-700">
+                    <button onclick="openImageViewer('${challenge.image_url}')" class="text-indigo-400 hover:text-indigo-300 transition text-sm flex items-center gap-2 font-bold">
+                        📷 查看蘑菇美片
+                    </button>
+                </div>`;
+            }
+
             let dispatchTagHtml = '';
             if (signupCount > 0) {
                 const dispatchClass = dispatchStatus === '已發' ? 'dispatch-sent' : 'dispatch-pending';
@@ -892,6 +937,7 @@
                         <p><strong>用餐時段:</strong> ${challenge.details || '未指定'}</p>
                         <p><strong>名額:</strong> <span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}</p>
                         ${startTimeHtml}
+                        ${imageBtnHtml}
                     </div>
                     ${participantsHtml}
                 </div>
@@ -994,6 +1040,34 @@
                 });
         }
 
+        // ▼▼▼ 新增：圖片視窗控制邏輯 (掛載到 window 以便 HTML onclick 呼叫) ▼▼▼
+        
+        // 開啟圖片視窗，接收圖片 URL 作為參數
+        window.openImageViewer = function(url) {
+            const modal = document.getElementById('image-viewer-modal');
+            const img = document.getElementById('viewer-image');
+            if (modal && img) {
+                // 設定圖片來源
+                img.src = url;
+                // 顯示 Modal
+                modal.classList.remove('hidden');
+            }
+        };
+
+        // 關閉圖片視窗
+        window.closeImageViewer = function() {
+            const modal = document.getElementById('image-viewer-modal');
+            if (modal) {
+                // 隱藏 Modal
+                modal.classList.add('hidden');
+                // 延遲清空 src，避免下次打開時瞬間閃爍舊圖，並釋放記憶體
+                setTimeout(() => { 
+                    const img = document.getElementById('viewer-image');
+                    if(img) img.src = ''; 
+                }, 300);
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', initializePage);
         
         refreshButton.addEventListener('click', () => {
@@ -1041,7 +1115,9 @@
             const rememberedTime = localStorage.getItem('rememberedChallengeTime');
             // ▼▼▼ 【新增】讀取記憶的用餐時段 ▼▼▼
             const rememberedDetails = localStorage.getItem('rememberedChallengeDetails'); 
-            
+            // ▼▼▼ 【新增】讀取記憶的火侯 ▼▼▼
+            const rememberedStyle = localStorage.getItem('rememberedCookingStyle');
+
             const now = new Date();
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             const datePart = now.toISOString().split('T')[0];
@@ -1054,14 +1130,21 @@
                 if (rememberedDetails) {
                     challengeForm['details'].value = rememberedDetails;
                 }
-
+                // ▼▼▼ 【新增】如果有記憶的火侯，也一併帶入 ▼▼▼
+                if (rememberedStyle) {
+                    document.getElementById('cooking-style').value = rememberedStyle;
+                }
+                
                 rememberTimeCheckbox.checked = true; // 並將核取框打勾
             } else {
                 // 否則，使用當前時間
                 challengeForm['start-time'].value = now.toISOString().slice(0, 16);
                 rememberTimeCheckbox.checked = false; // 並取消核取框打勾
             }
-            
+
+            // ▼▼▼ 【新增】清空檔案輸入框 (避免殘留上次選擇的檔案) ▼▼▼
+            document.getElementById('challenge-image').value = '';
+
             challengeModal.classList.remove('hidden');
         });
 
@@ -1080,23 +1163,65 @@
 
             const form = e.target;
             
-            // 【新增】在提交表單時，根據 checkbox 狀態儲存或移除時間
+            // --- 1. 處理記憶功能 (時間、時段、火侯) ---
             const rememberTimeCheckbox = document.getElementById('remember-time-checkbox');
-            const timeValue = form['start-time'].value; // e.g., "2025-06-22T14:30"
+            const timeValue = form['start-time'].value; 
+            // ▼▼▼ 【新增】取得火侯選單的值 ▼▼▼
+            const cookingStyleVal = document.getElementById('cooking-style').value;
 
             if (rememberTimeCheckbox.checked && timeValue) {
-                const timePart = timeValue.split('T')[1]; // e.g., "14:30"
+                const timePart = timeValue.split('T')[1]; 
                 localStorage.setItem('rememberedChallengeTime', timePart);
-                
-                // ▼▼▼ 【新增】儲存用餐時段到 localStorage ▼▼▼
                 localStorage.setItem('rememberedChallengeDetails', form['details'].value);
+                
+                // ▼▼▼ 【新增】一併儲存火侯到 localStorage ▼▼▼
+                localStorage.setItem('rememberedCookingStyle', cookingStyleVal);
 
             } else {
                 localStorage.removeItem('rememberedChallengeTime');
-                // ▼▼▼ 【新增】移除記憶的用餐時段 ▼▼▼
                 localStorage.removeItem('rememberedChallengeDetails');
+                
+                // ▼▼▼ 【新增】移除火侯記憶 ▼▼▼
+                localStorage.removeItem('rememberedCookingStyle');
             }
 
+            // --- 2. 處理圖片上傳 (核心新增功能) ---
+            // ▼▼▼ 【新增】圖片上傳邏輯 ▼▼▼
+            let publicImageUrl = null;
+            const fileInput = document.getElementById('challenge-image');
+            
+            // 檢查使用者是否有選取檔案
+            if (fileInput.files && fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                // 取得副檔名並產生不重複的檔名 (時間戳記_隨機數)
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.${fileExt}`;
+                
+                try {
+                    // 上傳到 challenge-images 儲存桶
+                    const { data: uploadData, error: uploadError } = await supabaseClient
+                        .storage
+                        .from('challenge-images') 
+                        .upload(fileName, file);
+
+                    if (uploadError) throw uploadError;
+
+                    // 上傳成功後，取得公開連結
+                    const { data: publicUrlData } = supabaseClient
+                        .storage
+                        .from('challenge-images')
+                        .getPublicUrl(fileName);
+                    
+                    publicImageUrl = publicUrlData.publicUrl;
+                } catch (err) {
+                    console.error('圖片上傳失敗:', err);
+                    // 如果上傳失敗，顯示黃色警告，但程式繼續往下跑 (允許發布無圖挑戰)
+                    showToast('圖片上傳失敗，挑戰將不含圖片發布。', true);
+                }
+            }
+            // ▲▲▲ 圖片處理結束 ▲▲▲
+
+            // --- 3. 準備寫入資料庫 ---
             const startTime = new Date(timeValue);
             const newChallengeData = {
                 host_id: currentUserProfile.id,
@@ -1104,21 +1229,28 @@
                 slots: parseInt(form['slots'].value),
                 start_time: startTime.toISOString(),
                 details: form['details'].value,
-                status: startTime > new Date() ? '預計開放' : '開放報名中'
+                status: startTime > new Date() ? '預計開放' : '開放報名中',
+                
+                // ▼▼▼ 【新增】將火侯與圖片網址寫入資料庫欄位 ▼▼▼
+                cooking_style: cookingStyleVal,
+                image_url: publicImageUrl
             };
 
+            // --- 4. 執行資料庫寫入 ---
             const { data: insertedChallenge, error } = await supabaseClient
                 .from('challenges')
                 .insert(newChallengeData)
                 .select()
                 .single(); 
             
+            // --- 5. 處理結果與 UI 更新 ---
             if (error) {
                 showToast(`發布失敗: ${error.message}`, true);
             } else {
                 showToast('新挑戰已成功發布！', false);
                 challengeModal.classList.add('hidden');
                 
+                // 手動組合完整的挑戰物件 (包含 host 資訊) 以便立即渲染
                 const fullChallengeObject = {
                     ...insertedChallenge,
                     host: { id: currentUserProfile.id, nickname: currentUserProfile.nickname },
