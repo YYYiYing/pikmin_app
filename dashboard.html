@@ -438,33 +438,36 @@
         </div>
 
         <div id="leaderboard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-            <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8 flex flex-col max-h-[90vh]">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-100">🏆 榮譽榜</h2>
-                        <p class="text-xs text-gray-400 mt-1">每 30 分鐘更新一次數據</p>
-                    </div>
-                    <button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white text-2xl leading-none">&times;</button>
+        <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8 flex flex-col max-h-[90vh]">
+            
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-100">🏆 榮譽榜</h2>
+                    <p class="text-xs text-gray-400 mt-1">每 30 分鐘更新一次數據</p>
                 </div>
-                
-                <div class="flex justify-center mb-6">
-                    <div class="bg-gray-700 p-1 rounded-lg inline-flex">
-                        <button id="period-week-btn" class="px-6 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm">本週排行</button>
-                        <button id="period-month-btn" class="px-6 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition">本月排行</button>
-                    </div>
-                </div>
-
-                <div id="leaderboard-tabs" class="flex border-b border-gray-600 mb-4 overflow-x-auto space-x-4">
-                    <button data-type="host" class="leaderboard-tab active whitespace-nowrap flex-1 text-center pb-2">🍄 發菇王</button>
-                    <button data-type="count" class="leaderboard-tab whitespace-nowrap flex-1 text-center pb-2">📝 報名王</button>
-                    <button data-type="speed" class="leaderboard-tab whitespace-nowrap flex-1 text-center pb-2">⚡ 最速傳說</button>
-                </div>
-
-                <div id="leaderboard-content" class="space-y-2 overflow-y-auto flex-grow min-h-[200px]">
-                    <p class="text-center text-gray-500 mt-8">讀取中...</p>
+                <button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div class="flex justify-center mb-4">
+                <div class="bg-gray-700 p-1 rounded-lg inline-flex w-full sm:w-auto">
+                    <button id="period-week-btn" class="flex-1 sm:flex-none px-6 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm">本週排行</button>
+                    <button id="period-month-btn" class="flex-1 sm:flex-none px-6 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition">本月排行</button>
                 </div>
             </div>
+
+            <div class="flex justify-center mb-4">
+                <div id="leaderboard-tabs" class="bg-gray-700 p-1 rounded-lg inline-flex w-full sm:w-auto">
+                    <button data-type="host" class="flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm">🍄 發菇王</button>
+                    <button data-type="count" class="flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition">📝 報名王</button>
+                    <button data-type="speed" class="flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition">⚡ 最速傳說</button>
+                </div>
+            </div>
+
+            <div id="leaderboard-content" class="space-y-2 overflow-y-auto flex-grow min-h-[200px]">
+                <p class="text-center text-gray-500 mt-8">讀取中...</p>
+            </div>
         </div>
+    </div>
 
         <div id="image-viewer-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" onclick="closeImageViewer()">
         <div class="relative max-w-3xl w-full max-h-[90vh] flex justify-center p-2" onclick="event.stopPropagation()">
@@ -1643,129 +1646,159 @@ function renderChallenge(challenge) {
             updateLeaderboardUI();
         });
 
-        // 監聽：分類 Tab 點擊 (發菇/報名/最速)
+        // ▼▼▼ 【修正 1】監聽分類按鈕點擊 (改為偵測 button 標籤) ▼▼▼
         leaderboardTabs.addEventListener('click', (e) => {
-            const tab = e.target.closest('.leaderboard-tab');
-            if (tab) {
-                currentLeaderboardType = tab.dataset.type;
+            // 這裡改成抓取 closest('button')，因為我們 HTML 裡已經沒有 .leaderboard-tab class 了
+            const btn = e.target.closest('button');
+            
+            // 確保有點到按鈕，且按鈕上有 data-type 屬性
+            if (btn && btn.dataset.type) {
+                currentLeaderboardType = btn.dataset.type;
                 updateLeaderboardUI();
             }
         });
 
         // 核心 UI 更新函式：負責切換按鈕樣式並呼叫資料抓取
         function updateLeaderboardUI() {
-            // 1. 更新週期按鈕樣式 (Highlight 當前選中的週期)
+            // 定義兩種樣式 (Active: 藍底白字 / Inactive: 灰字)
+            const activeClass = 'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm';
+            const inactiveClass = 'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition';
+
+            // 1. 更新週期按鈕樣式 (本週 / 本月)
             if (currentLeaderboardPeriod === 'week') {
-                periodWeekBtn.className = 'px-6 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm';
-                periodMonthBtn.className = 'px-6 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition';
+                periodWeekBtn.className = activeClass;
+                periodMonthBtn.className = inactiveClass;
             } else {
-                periodWeekBtn.className = 'px-6 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition';
-                periodMonthBtn.className = 'px-6 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm';
+                periodWeekBtn.className = inactiveClass;
+                periodMonthBtn.className = activeClass;
             }
 
-            // 2. 更新下方分類 Tab 樣式 (Highlight 當前選中的類型)
-            leaderboardTabs.querySelectorAll('.leaderboard-tab').forEach(tab => {
-                if (tab.dataset.type === currentLeaderboardType) {
-                    tab.classList.add('active');
-                    tab.classList.add('text-indigo-400'); // 增加顏色強調
+            // 2. 更新下方類型按鈕樣式 (發菇 / 報名 / 最速)
+            // 選取 #leaderboard-tabs 容器內的所有 button
+            const typeButtons = document.querySelectorAll('#leaderboard-tabs button');
+            
+            typeButtons.forEach(btn => {
+                if (btn.dataset.type === currentLeaderboardType) {
+                    btn.className = activeClass;
                 } else {
-                    tab.classList.remove('active');
-                    tab.classList.remove('text-indigo-400');
+                    btn.className = inactiveClass;
                 }
             });
 
             // 3. 根據當前狀態抓取資料
             fetchLeaderboard(currentLeaderboardType, currentLeaderboardPeriod);
         }
+        // ▲▲▲ 修正結束 ▲▲▲
     
         async function fetchLeaderboard(type, period) {
-            leaderboardContent.innerHTML = '<p>讀取中...</p>';
+            const leaderboardContent = document.getElementById('leaderboard-content');
+            leaderboardContent.innerHTML = '<p class="text-center text-gray-400 py-8">讀取中...</p>';
             
-            // --- 加入 host (發菇王) 的判斷 ---
             let functionName;
+            // 根據類型選擇對應的 RPC 函式
             if (type === 'count') functionName = 'get_leaderboard_from_profiles';
             else if (type === 'speed') functionName = 'get_speed_leaderboard_from_profiles';
-            else if (type === 'host') functionName = 'get_host_leaderboard'; // 對應 SQL 新增的函數
+            else if (type === 'host') functionName = 'get_host_leaderboard';
 
-            const { data, error } = await supabaseClient.rpc(functionName, {
-                period_type: period
-            });
+            try {
+                const { data, error } = await supabaseClient.rpc(functionName, {
+                    period_type: period
+                });
 
-            if (error) {
-                console.error(`獲取 ${type} (${period}) 排行榜失敗:`, error);
-                leaderboardContent.innerHTML = `<p class="text-red-400">無法載入排行榜資料。</p>`;
-                return;
-            }
-            
-            if (type === 'count') {
-                renderCountLeaderboard(data);
-            } else if (type === 'speed') {
-                renderSpeedLeaderboard(data);
-            } else if (type === 'host') {
-                renderHostLeaderboard(data);
+                if (error) {
+                    console.error(`獲取 ${type} (${period}) 排行榜失敗:`, error);
+                    leaderboardContent.innerHTML = `<p class="text-center text-red-400 py-8">無法載入數據 (${error.message})</p>`;
+                    return;
+                }
+                
+                // 根據類型呼叫對應的渲染函式
+                if (type === 'count') renderCountLeaderboard(data);
+                else if (type === 'speed') renderSpeedLeaderboard(data);
+                else if (type === 'host') renderHostLeaderboard(data);
+
+            } catch (err) {
+                console.error("執行 fetchLeaderboard 時發生未預期的錯誤:", err);
+                leaderboardContent.innerHTML = '<p class="text-center text-red-400 py-8">發生系統錯誤</p>';
             }
         }
+
+        // 1. 渲染「報名王」
         function renderCountLeaderboard(data) {
+            const leaderboardContent = document.getElementById('leaderboard-content');
             if (!data || data.length === 0) {
-                leaderboardContent.innerHTML = '<p>目前沒有紀錄。</p>'; 
+                leaderboardContent.innerHTML = '<p class="text-center text-gray-500 py-8">目前沒有紀錄。</p>'; 
                 return;
             }
 
             let rank = 0;
             let lastScore = -1;
 
-            const listHtml = data.map((item, index) => {
-                // 如果當前分數與上一位不同，則名次+1
+            const listHtml = data.map((item) => {
                 if (item.signup_count !== lastScore) {
                     rank++;
                 }
                 lastScore = item.signup_count;
 
                 let rankDisplay;
-                if (rank === 1) { rankDisplay = '🥇'; }
-                else if (rank === 2) { rankDisplay = '🥈'; }
-                else if (rank === 3) { rankDisplay = '🥉'; }
-                else { rankDisplay = rank; }
+                if (rank === 1) rankDisplay = '🥇';
+                else if (rank === 2) rankDisplay = '🥈';
+                else if (rank === 3) rankDisplay = '🥉';
+                else rankDisplay = rank;
 
-                return `<div class="leaderboard-item"><span class="leaderboard-rank">${rankDisplay}</span><span class="leaderboard-nickname">${item.nickname}</span><span class="leaderboard-count">${item.signup_count} 次</span></div>`;
+                // ★ 修正結構：使用 flex, w-12, flex-1, w-24 確保對齊與不破版
+                return `
+                    <div class="flex items-center py-3 border-b border-gray-700 hover:bg-gray-800/50 transition">
+                        <span class="w-12 text-center font-bold text-lg text-gray-300 flex-shrink-0">${rankDisplay}</span>
+                        <span class="flex-1 min-w-0 px-3 truncate text-gray-200">${item.nickname || '未知'}</span>
+                        <span class="w-24 text-right font-bold text-indigo-400 flex-shrink-0">${item.signup_count} 次</span>
+                    </div>`;
             }).join('');
             leaderboardContent.innerHTML = listHtml;
         }
 
+        // 2. 渲染「最速傳說」
         function renderSpeedLeaderboard(data) {
+            const leaderboardContent = document.getElementById('leaderboard-content');
             if (!data || data.length === 0) {
-                leaderboardContent.innerHTML = '<p>目前沒有紀錄。</p>'; 
+                leaderboardContent.innerHTML = '<p class="text-center text-gray-500 py-8">目前沒有紀錄。</p>'; 
                 return;
             }
             
             let rank = 0;
             let lastTime = -1.0;
 
-            const listHtml = data.map((item, index) => {
+            const listHtml = data.map((item) => {
                 const currentTime = parseFloat(item.fastest_time_seconds);
 
-                // 如果當前時間與上一位不同，則名次+1
                 if (currentTime !== lastTime) {
                     rank++;
                 }
                 lastTime = currentTime;
 
                 let rankDisplay;
-                if (rank === 1) { rankDisplay = '🥇'; }
-                else if (rank === 2) { rankDisplay = '🥈'; }
-                else if (rank === 3) { rankDisplay = '🥉'; }
-                else { rankDisplay = rank; }
+                if (rank === 1) rankDisplay = '🥇';
+                else if (rank === 2) rankDisplay = '🥈';
+                else if (rank === 3) rankDisplay = '🥉';
+                else rankDisplay = rank;
                 
-                const timeInSeconds = currentTime.toFixed(3);
-                return `<div class="leaderboard-item"><span class="leaderboard-rank">${rankDisplay}</span><span class="leaderboard-nickname">${item.nickname}</span><span class="leaderboard-count">${timeInSeconds} s</span></div>`;
+                const timeInSeconds = !isNaN(currentTime) ? currentTime.toFixed(3) : 'N/A';
+                
+                // ★ 修正結構：確保與報名王一致
+                return `
+                    <div class="flex items-center py-3 border-b border-gray-700 hover:bg-gray-800/50 transition">
+                        <span class="w-12 text-center font-bold text-lg text-gray-300 flex-shrink-0">${rankDisplay}</span>
+                        <span class="flex-1 min-w-0 px-3 truncate text-gray-200">${item.nickname || '未知'}</span>
+                        <span class="w-24 text-right font-bold text-yellow-400 flex-shrink-0">${timeInSeconds} s</span>
+                    </div>`;
             }).join('');
             leaderboardContent.innerHTML = listHtml;
         }
 
-        // --- 渲染發菇王排行榜 ---
+        // 3. 渲染「發菇王」
         function renderHostLeaderboard(data) {
+            const leaderboardContent = document.getElementById('leaderboard-content');
             if (!data || data.length === 0) {
-                leaderboardContent.innerHTML = '<p>目前沒有紀錄。</p>'; 
+                leaderboardContent.innerHTML = '<p class="text-center text-gray-500 py-8">目前沒有紀錄。</p>'; 
                 return;
             }
 
@@ -1784,7 +1817,13 @@ function renderChallenge(challenge) {
                 else if (rank === 3) rankDisplay = '🥉'; 
                 else rankDisplay = rank;
 
-                return `<div class="leaderboard-item"><span class="leaderboard-rank">${rankDisplay}</span><span class="leaderboard-nickname">${item.nickname}</span><span class="leaderboard-count">${item.host_count} 菇</span></div>`;
+                // ★ 修正結構：確保三者風格統一
+                return `
+                    <div class="flex items-center py-3 border-b border-gray-700 hover:bg-gray-800/50 transition">
+                        <span class="w-12 text-center font-bold text-lg text-gray-300 flex-shrink-0">${rankDisplay}</span>
+                        <span class="flex-1 min-w-0 px-3 truncate text-gray-200">${item.nickname || '未知'}</span>
+                        <span class="w-24 text-right font-bold text-green-400 flex-shrink-0">${item.host_count} 菇</span>
+                    </div>`;
             }).join('');
             leaderboardContent.innerHTML = listHtml;
         }
