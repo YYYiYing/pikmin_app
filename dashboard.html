@@ -266,7 +266,6 @@
                 <h2 class="text-2xl font-bold mb-6 text-gray-100">發布一個新挑戰</h2>
                 <form id="challenge-form">
                 <div class="space-y-4">
-
                     <div>
                         <label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
                         <select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
@@ -277,7 +276,7 @@
                             <option value="大水">大水</option>
                             <option value="大電">大電</option>
                             <option value="大毒">大毒</option>
-                            <option value="大冰">大冰</option>
+                            <option value="大冰藍">大冰藍</option>
                             <option value="大紅">大紅</option>
                             <option value="大黃">大黃</option>
                             <option value="大藍">大藍</option>
@@ -290,7 +289,6 @@
                             <option value="火">火</option>
                             <option value="電">電</option>
                             <option value="毒">毒</option>
-                            <option value="冰">冰</option>
                             <option value="測試">測試</option>
                         </select>
                     </div>
@@ -327,9 +325,9 @@
                     <div>
                         <label for="cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
                         <select id="cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="快炒(火力全開)">快炒 (火力全開)</option>
-                            <option value="慢燉(控制火侯)">慢燉 (控制火侯)</option>
-                            <option value="亂炒(不限)"selected>亂炒 (不限)</option>
+                            <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
+                            <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
+                            <option value="隨便亂炒（不限戰力）"selected>隨便亂炒（不限戰力）</option>
                         </select>
                     </div>
 
@@ -365,7 +363,7 @@
                             <option value="大水">大水</option>
                             <option value="大電">大電</option>
                             <option value="大毒">大毒</option>
-                            <option value="大冰">大冰</option>
+                            <option value="大冰藍">大冰藍</option>
                             <option value="大紅">大紅</option>
                             <option value="大黃">大黃</option>
                             <option value="大藍">大藍</option>
@@ -378,7 +376,6 @@
                             <option value="火">火</option>
                             <option value="電">電</option>
                             <option value="毒">毒</option>
-                            <option value="冰">冰</option>
                             <option value="測試">測試</option>
                         </select>
                     </div>
@@ -407,9 +404,9 @@
                     <div>
                         <label for="cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
                         <select id="cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="快炒(火力全開)">快炒 (火力全開)</option>
-                            <option value="慢燉(控制火侯)">慢燉 (控制火侯)</option>
-                            <option value="亂炒(不限)">亂炒 (不限)</option>
+                            <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
+                            <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
+                            <option value="隨便亂炒（不限戰力）">隨便亂炒（不限戰力）</option>
                         </select>
                     </div>
                     <div>
@@ -579,8 +576,7 @@
         '大藍':     { bg: 'bg-blue-600',     text: 'text-white' },
         '大晶':     { bg: 'bg-sky-300',      text: 'text-black' },
         '晶':       { bg: 'bg-sky-300',      text: 'text-black' },
-        '大冰':     { bg: 'bg-sky-300',      text: 'text-black' },
-        '冰':       { bg: 'bg-sky-300',      text: 'text-black' },
+        '大冰藍':     { bg: 'bg-sky-300',      text: 'text-black' },
         '大毒':     { bg: 'bg-green-700',    text: 'text-white' },
         '毒':       { bg: 'bg-green-700',    text: 'text-white' },
         '大白':     { bg: 'bg-white',        text: 'text-black' },
@@ -807,7 +803,7 @@
                 return;
             }
             challengesData[challenge.id] = challenge; 
-            // ★ 修改：簡化額度判斷邏輯，不再需要檢查日期
+            // ★ 額度判斷邏輯 (保留原功能)
             const dailyLimitReached = currentUserProfile && currentUserProfile.daily_signup_count >= window.dailySignupLimit;
         
             const card = document.createElement('div');
@@ -819,11 +815,8 @@
 
             // 1. 根據蘑菇類型從對照表取得對應的樣式
             const type = challenge.mushroom_type;
-            // 若找不到對應類型，則使用預設樣式
             const defaultStyle = { bg: 'bg-transparent', text: 'text-gray-100' };
             const style = mushroomStyles[type] || defaultStyle;
-
-            // 2. 組合出完整的標題 CSS 樣式字串 (加上內距 padding 和圓角，使其像個標籤)
             const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text}`;
 
             const isHost = challenge.host && challenge.host.id === currentUserProfile.id;
@@ -834,11 +827,13 @@
             if (isHost) card.dataset.isHosted = 'true';
             if (isSignedUp) card.dataset.isSignedUp = 'true';
             
+            // Host 控制按鈕 (保留原功能)
             const hostControlsHtml = isHost ? `
                 <button data-id="${challenge.id}" class="edit-challenge-button text-gray-500 hover:text-yellow-400 transition" title="編輯">✏️</button>
                 <button data-id="${challenge.id}" class="delete-challenge-button text-gray-500 hover:text-red-500 transition" title="刪除">🗑️</button>
             ` : '';
 
+            // 4. 準備主操作按鈕 (報名/取消/更新狀態) - (完全保留您提供的邏輯，含冷卻時間)
             let actionButtonHtml;
             if (isHost) {
                 if (signupCount > 0) {
@@ -853,7 +848,6 @@
                         更新發菇狀態
                     </button>`;
                 } else {
-                    // 如果沒人報名，維持原本的禁用狀態
                     actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default">您是發菇者</button>`;
                 }
             } else if (isSignedUp) {
@@ -862,27 +856,23 @@
                 actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>尚未開放</button>`;
             } else if (challenge.status === '已額滿') {
                 actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>已額滿</button>`;
-
-            } else if (dailyLimitReached) { // ★ 新增：如果已達每日上限，顯示提示按鈕
+            } else if (dailyLimitReached) { 
                 actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>報名額度已滿</button>`;
-
             } else {
-                // ★ 修改：增加判斷，若角色為「發菇者」，則無法報名
                 if (currentUserProfile.role === '發菇者') {
                     actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default" disabled>僅發布權限</button>`;
                 } else {
-                    // ▼▼▼ 修改：加入冷卻時間檢查 ▼▼▼
+                    // 冷卻檢查 (保留原功能)
                     const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
                     if (cooldownLeft > 0) {
-                        // 如果還在冷卻時間內，直接生成灰色的按鈕
                         actionButtonHtml = `<button class="signup-button w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
                     } else {
-                        // 否則生成正常的藍色按鈕
                         actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
                     }
                 }
             }
 
+            // 5. 準備參加者名單 (保留原功能)
             let participantsHtml = '';
             if (signupCount > 0) {
                 const sortedSignups = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
@@ -896,6 +886,7 @@
                 participantsHtml = `<div class="participant-list">${participantsList}</div>`;
             }
 
+            // 6. 準備時間顯示
             let startTimeHtml;
             if (challenge.status === '預計開放' && new Date(challenge.start_time) > new Date()) { 
                 startTimeHtml = `<p><strong>等待時間:</strong> <span class="countdown-timer" data-starttime="${challenge.start_time}">計算中...</span></p>`;
@@ -903,17 +894,17 @@
                 startTimeHtml = `<p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false })}</p>`;
             }
 
+            // ▼▼▼ 【修改】圖片按鈕生成 (調整為更緊湊的樣式) ▼▼▼
             let imageBtnHtml = '';
-            // 檢查挑戰物件中是否有有效的 image_url
             if (challenge.image_url && challenge.image_url.startsWith('http')) {
-                // 使用 onclick 事件直接呼叫開啟視窗的函式
                 imageBtnHtml = `
-                <div class="mt-3 pt-3 border-t border-gray-700">
-                    <button onclick="openImageViewer('${challenge.image_url}')" class="text-indigo-400 hover:text-indigo-300 transition text-sm flex items-center gap-2 font-bold">
+                <div class="mt-2">
+                    <button onclick="openImageViewer('${challenge.image_url}')" class="text-xs bg-gray-700 text-indigo-300 px-3 py-1.5 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-2 transition">
                         📷 查看蘑菇美片
                     </button>
                 </div>`;
             }
+            // ▲▲▲ 修改結束 ▲▲▲
 
             let dispatchTagHtml = '';
             if (signupCount > 0) {
@@ -922,6 +913,7 @@
                 dispatchTagHtml = `<span class="status-badge ${dispatchClass} ${isClickable} dispatch-status-tag" data-id="${challenge.id}" data-current-status="${dispatchStatus}">${dispatchStatus}</span>`;
             }
 
+            // ▼▼▼ 【修改】卡片內容 HTML 組合 (加入火侯與調整順序) ▼▼▼
             card.innerHTML = `
                 <div>
                     <div class="flex justify-between items-start mb-4">
@@ -936,13 +928,23 @@
                         <p><strong>發菇者:</strong> ${challenge.host ? challenge.host.nickname : '未知'}</p>
                         <p><strong>用餐時段:</strong> ${challenge.details || '未指定'}</p>
                         <p><strong>名額:</strong> <span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}</p>
+                        
                         ${startTimeHtml}
+                        
+                        <div class="flex items-center mt-1">
+                            <strong class="mr-2">火侯:</strong>
+                            <span class="text-orange-400 border border-orange-400/30 px-2 py-0.5 rounded text-sm font-bold">
+                                🔥 ${challenge.cooking_style || '未指定'}
+                            </span>
+                        </div>
+
                         ${imageBtnHtml}
                     </div>
                     ${participantsHtml}
                 </div>
                 <div class="mt-4">${actionButtonHtml}</div>
             `;
+            // ▲▲▲ 修改結束 ▲▲▲
             
             const existingCard = document.getElementById(card.id);
             if(existingCard) {
@@ -951,6 +953,7 @@
                 challengesListEl.prepend(card);
             }
         }
+
         async function reloadChallengeCard(challengeId) {
             const { data: challenge, error } = await supabaseClient
                 .from('challenges')
@@ -1375,21 +1378,64 @@
             submitButton.textContent = '確認儲存';
         });
 
+        // 刪除挑戰的核心函式
         async function deleteChallenge(id) {
             confirmDeleteButton.disabled = true;
             confirmDeleteButton.textContent = '刪除中...';
-            const { error } = await supabaseClient.from('challenges').delete().eq('id', id);
-            
-            if (error) {
-                showToast(`刪除失敗: ${error.message}`, true);
-            } else {
-                showToast('挑戰已成功刪除！', false);
+
+            try {
+                // 1. 先查詢該挑戰的資料，取得照片網址 (image_url)
+                const { data: challengeData, error: fetchError } = await supabaseClient
+                    .from('challenges')
+                    .select('image_url')
+                    .eq('id', id)
+                    .single();
+
+                if (fetchError) throw fetchError;
+
+                // 2. 如果有照片，先執行檔案刪除
+                if (challengeData && challengeData.image_url) {
+                    try {
+                        // 從完整 URL 中提取檔案名稱
+                        // 假設 URL 是 .../challenge-images/1732443xxx.png
+                        const fileName = challengeData.image_url.split('/').pop();
+                        
+                        // 呼叫 Storage API 刪除檔案
+                        const { error: storageError } = await supabaseClient
+                            .storage
+                            .from('challenge-images')
+                            .remove([fileName]);
+
+                        if (storageError) {
+                            console.warn('照片刪除失敗 (可能是檔案已不存在)，繼續刪除資料:', storageError);
+                        } else {
+                            console.log('對應照片已刪除');
+                        }
+                    } catch (err) {
+                        console.warn('解析照片路徑時發生錯誤:', err);
+                    }
+                }
+
+                // 3. 照片處理完畢後，才刪除資料庫中的挑戰
+                const { error: deleteError } = await supabaseClient
+                    .from('challenges')
+                    .delete()
+                    .eq('id', id);
+                
+                if (deleteError) throw deleteError;
+
+                // 4. 成功後的 UI 更新
+                showToast('挑戰及對應照片已成功刪除！', false);
                 const cardToRemove = document.getElementById(`challenge-${id}`);
                 if (cardToRemove) {
                     cardToRemove.remove();
                 }
+
+            } catch (error) {
+                showToast(`刪除失敗: ${error.message}`, true);
+            } finally {
+                hideDeleteConfirmModal();
             }
-            hideDeleteConfirmModal();
         }
         
         cancelDeleteButton.addEventListener('click', () => hideDeleteConfirmModal());

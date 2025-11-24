@@ -236,8 +236,34 @@ serve(async (req) => {
             await adminSupabaseClient.from('partners').update({ name: payload.newNickname }).eq('name', payload.oldNickname);
             break;
 
+        // ★★★ 完整恢復刪除挑戰時同步刪除圖片的邏輯 ★★★
         case 'delete-challenge': 
-            await adminSupabaseClient.from('challenges').delete().eq('id', payload.challengeId); 
+            // 1. 先查詢挑戰資料以取得圖片路徑
+            const { data: challengeToDelete, error: fetchErr } = await adminSupabaseClient
+                .from('challenges')
+                .select('image_url')
+                .eq('id', payload.challengeId)
+                .single();
+            
+            if (fetchErr) throw fetchErr;
+
+            // 2. 如果有圖片，執行刪除
+            if (challengeToDelete?.image_url) {
+                const fileName = challengeToDelete.image_url.split('/').pop();
+                // 使用 Storage API 刪除檔案
+                await adminSupabaseClient
+                    .storage
+                    .from('challenge-images')
+                    .remove([fileName]);
+            }
+
+            // 3. 最後刪除資料庫紀錄
+            const { error: delErr } = await adminSupabaseClient
+                .from('challenges')
+                .delete()
+                .eq('id', payload.challengeId);
+                
+            if (delErr) throw delErr;
             break;
             
         case 'get-daily-limit': 
