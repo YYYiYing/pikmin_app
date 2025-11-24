@@ -22,3 +22,11 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.SECRET_KEY }}" \
           -H "Content-Type: application/json" \
           -d '{"action": "scheduled-email-notify"}'
+
+  # ▼▼▼ 新增：觸發逾時清理 ▼▼▼
+      - name: Cleanup Expired Challenges
+        run: |
+          curl -X POST 'https://htdddmoclmhqebyvzean.supabase.co/functions/v1/admin-actions' \
+          -H "Authorization: Bearer ${{ secrets.SECRET_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"action": "cleanup-expired"}'
