@@ -127,15 +127,19 @@
             background-color: #4b5563;
         }
         
-        /* 新增：跑馬燈動畫 */
+        /* 修改：跑馬燈動畫 (改為由 JS 控制重播) */
         @keyframes marquee {
             0% { transform: translateX(100%); }
             100% { transform: translateX(-100%); }
         }
         .animate-marquee {
-            animation: marquee 30s linear infinite;
-            padding-left: 100%; /* 確保從最右邊開始 */
+            /* 這裡的時間 20s 是預設值，稍後 JS 會動態覆寫 */
+            animation: marquee 20s linear forwards; 
+            padding-left: 0; /* 移除之前的 padding，由 transform 控制位置 */
+            display: inline-block;
+            white-space: nowrap;
         }
+
         /* 新增：冷卻中的按鈕樣式 */
         .btn-cooldown {
             background-color: #4b5563 !important; /* 灰色 */
@@ -408,24 +412,30 @@
         </div>
 
         <div id="leaderboard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-            <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-gray-100">🏆 排行榜</h2>
-                    <button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white">&times;</button>
+            <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8 flex flex-col max-h-[90vh]">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-100">🏆 榮譽榜</h2>
+                        <p class="text-xs text-gray-400 mt-1">每 30 分鐘更新一次數據</p>
+                    </div>
+                    <button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white text-2xl leading-none">&times;</button>
                 </div>
                 
-                <div id="leaderboard-tabs" class="flex border-b border-gray-600 mb-4 overflow-x-auto">
-                    <button data-type="count" data-period="week" class="leaderboard-tab active whitespace-nowrap">本週報名王</button>
-                    <button data-type="count" data-period="month" class="leaderboard-tab whitespace-nowrap">本月報名王</button>
-                    <button data-type="speed" data-period="week" class="leaderboard-tab whitespace-nowrap">本週最速</button>
-                    <button data-type="speed" data-period="month" class="leaderboard-tab whitespace-nowrap">本月最速</button>
-                    
-                    <button data-type="host" data-period="week" class="leaderboard-tab whitespace-nowrap">本週發菇王</button>
-                    <button data-type="host" data-period="month" class="leaderboard-tab whitespace-nowrap">本月發菇王</button>
+                <div class="flex justify-center mb-6">
+                    <div class="bg-gray-700 p-1 rounded-lg inline-flex">
+                        <button id="period-week-btn" class="px-6 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm">本週排行</button>
+                        <button id="period-month-btn" class="px-6 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition">本月排行</button>
                     </div>
+                </div>
 
-                <div id="leaderboard-content" class="space-y-2 max-h-96 overflow-y-auto">
-                    <p>讀取中...</p>
+                <div id="leaderboard-tabs" class="flex border-b border-gray-600 mb-4 overflow-x-auto space-x-4">
+                    <button data-type="host" class="leaderboard-tab active whitespace-nowrap flex-1 text-center pb-2">🍄 發菇王</button>
+                    <button data-type="count" class="leaderboard-tab whitespace-nowrap flex-1 text-center pb-2">📝 報名王</button>
+                    <button data-type="speed" class="leaderboard-tab whitespace-nowrap flex-1 text-center pb-2">⚡ 最速傳說</button>
+                </div>
+
+                <div id="leaderboard-content" class="space-y-2 overflow-y-auto flex-grow min-h-[200px]">
+                    <p class="text-center text-gray-500 mt-8">讀取中...</p>
                 </div>
             </div>
         </div>
@@ -513,9 +523,13 @@
         let onlineNicknames = []; 
         let challengesData = {}; 
         
-        /* ▼▼▼ 新增：冷卻時間控制變數 ▼▼▼ */
-        let globalCooldownUntil = 0; // 記錄冷卻結束的時間戳記
-        let globalCooldownTimer = null; // 記錄計時器 ID
+       /* ▼▼▼ 新增：冷卻時間控制變數 ▼▼▼ */
+        let globalCooldownUntil = 0; 
+        let globalCooldownTimer = null;
+        
+        /* ▼▼▼ 新增：排行榜狀態變數 ▼▼▼ */
+        let currentLeaderboardPeriod = 'week'; // 預設看本週
+        let currentLeaderboardType = 'host';   // 預設看發菇王
 
         //蘑菇樣式對照表
         const mushroomStyles = {
@@ -618,35 +632,63 @@
         }
 
         // --- 新增開始：跑馬燈邏輯 ---
+        // --- 修改：跑馬燈邏輯 (單次循環 + 延遲重播) ---
         async function updateMarquee() {
             const marqueeEl = document.getElementById('marquee-content');
+            // 設定跑馬燈速度 (秒)，您可以在此調整
+            const duration = 20; 
+            // 設定跑完後的休息時間 (毫秒)
+            const delay = 1000;
+
             try {
-                // 平行撈取三種數據
+                // 平行撈取數據
                 const [signUpData, speedData, hostData] = await Promise.all([
                     supabaseClient.rpc('get_leaderboard_from_profiles', { period_type: 'month' }),
                     supabaseClient.rpc('get_speed_leaderboard_from_profiles', { period_type: 'month' }),
-                    supabaseClient.rpc('get_host_leaderboard', { period_type: 'week' })
+                    supabaseClient.rpc('get_host_leaderboard', { period_type: 'month' }) 
                 ]);
 
                 let textParts = [];
-
+                
+                // 依序顯示：發菇(週) -> 報名(月) -> 最速(月)
+                if (hostData.data && hostData.data.length > 0) {
+                    const top = hostData.data[0];
+                    textParts.push(`★&nbsp;&nbsp;&nbsp;🍄 本月發菇王：${top.nickname} (${top.host_count}朵)`);
+                }
                 if (signUpData.data && signUpData.data.length > 0) {
                     const top = signUpData.data[0];
                     textParts.push(`🏆 本月報名王：${top.nickname} (${top.signup_count}次)`);
                 }
                 if (speedData.data && speedData.data.length > 0) {
                     const top = speedData.data[0];
-                    textParts.push(`⚡ 本月最速傳說：${top.nickname} (${parseFloat(top.fastest_time_seconds).toFixed(2)}秒)`);
-                }
-                if (hostData.data && hostData.data.length > 0) {
-                    const top = hostData.data[0];
-                    textParts.push(`🍄 本週發菇王：${top.nickname} (${top.host_count}菇)`);
+                    textParts.push(`⚡ 本月最速傳說：${top.nickname} (${parseFloat(top.fastest_time_seconds).toFixed(2)}秒)&nbsp;&nbsp;&nbsp;★`);
                 }
 
                 if (textParts.length > 0) {
-                    // 重複三次字串以確保跑馬燈銜接流暢
-                    const fullText = textParts.join(' &nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp; ');
-                    marqueeEl.innerHTML = `${fullText} &nbsp; | &nbsp; ${fullText} &nbsp; | &nbsp; ${fullText}`;
+                    // 只組合一次，不重複
+                    const fullText = textParts.join(' &nbsp;&nbsp; ★ &nbsp; ');
+                    marqueeEl.innerHTML = fullText;
+                    
+                    // 設定 CSS 動畫時間
+                    marqueeEl.style.animationDuration = `${duration}s`;
+                    
+                    // 定義重播函式
+                    const runAnimation = () => {
+                        marqueeEl.classList.remove('animate-marquee');
+                        // 強制瀏覽器重繪 (Reflow)，這樣移除 class 再加回去才會有動畫效果
+                        void marqueeEl.offsetWidth; 
+                        marqueeEl.classList.add('animate-marquee');
+                    };
+
+                    // 監聽動畫結束事件
+                    marqueeEl.addEventListener('animationend', () => {
+                        // 動畫結束後，等待 delay 時間，再重新執行
+                        setTimeout(runAnimation, delay);
+                    });
+
+                    // 啟動第一次動畫
+                    runAnimation();
+
                 } else {
                     marqueeEl.textContent = '目前尚無挑戰紀錄，快來搶頭香！';
                 }
@@ -1334,31 +1376,72 @@
             }
         }
         
+        // ▼▼▼ 請將這整段程式碼，替換掉您原本提供的那一段舊監聽器 ▼▼▼
+
+        // 取得週期切換按鈕元素
+        const periodWeekBtn = document.getElementById('period-week-btn');
+        const periodMonthBtn = document.getElementById('period-month-btn');
+
+        // 開啟 Modal
         leaderboardButton.addEventListener('click', () => {
             leaderboardModal.classList.remove('hidden');
-            const firstTab = leaderboardTabs.querySelector('.leaderboard-tab');
-            if(firstTab) {
-                switchLeaderboardTab(firstTab);
-            }
+            // 每次開啟時，重置回預設狀態 (週排行 / 發菇王)
+            currentLeaderboardPeriod = 'week';
+            currentLeaderboardType = 'host';
+            updateLeaderboardUI();
         });
+
         closeLeaderboardButton.addEventListener('click', () => {
             leaderboardModal.classList.add('hidden');
         });
+
+        // 監聽：週期切換按鈕 (本週)
+        periodWeekBtn.addEventListener('click', () => {
+            currentLeaderboardPeriod = 'week';
+            updateLeaderboardUI();
+        });
+
+        // 監聽：週期切換按鈕 (本月)
+        periodMonthBtn.addEventListener('click', () => {
+            currentLeaderboardPeriod = 'month';
+            updateLeaderboardUI();
+        });
+
+        // 監聽：分類 Tab 點擊 (發菇/報名/最速)
         leaderboardTabs.addEventListener('click', (e) => {
             const tab = e.target.closest('.leaderboard-tab');
-            if (tab && !tab.classList.contains('active')) {
-                switchLeaderboardTab(tab);
+            if (tab) {
+                currentLeaderboardType = tab.dataset.type;
+                updateLeaderboardUI();
             }
         });
-        function switchLeaderboardTab(tab) {
-            leaderboardTabs.querySelectorAll('.leaderboard-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            const type = tab.dataset.type;
-            const period = tab.dataset.period;
-            
-            fetchLeaderboard(type, period);
+
+        // 核心 UI 更新函式：負責切換按鈕樣式並呼叫資料抓取
+        function updateLeaderboardUI() {
+            // 1. 更新週期按鈕樣式 (Highlight 當前選中的週期)
+            if (currentLeaderboardPeriod === 'week') {
+                periodWeekBtn.className = 'px-6 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm';
+                periodMonthBtn.className = 'px-6 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition';
+            } else {
+                periodWeekBtn.className = 'px-6 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition';
+                periodMonthBtn.className = 'px-6 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm';
+            }
+
+            // 2. 更新下方分類 Tab 樣式 (Highlight 當前選中的類型)
+            leaderboardTabs.querySelectorAll('.leaderboard-tab').forEach(tab => {
+                if (tab.dataset.type === currentLeaderboardType) {
+                    tab.classList.add('active');
+                    tab.classList.add('text-indigo-400'); // 增加顏色強調
+                } else {
+                    tab.classList.remove('active');
+                    tab.classList.remove('text-indigo-400');
+                }
+            });
+
+            // 3. 根據當前狀態抓取資料
+            fetchLeaderboard(currentLeaderboardType, currentLeaderboardPeriod);
         }
+    
         async function fetchLeaderboard(type, period) {
             leaderboardContent.innerHTML = '<p>讀取中...</p>';
             

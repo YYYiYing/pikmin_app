@@ -404,7 +404,7 @@
                     if (valB == null) return -1;
                     
                     if (currentSortColumn === 'monthly_signup_count') {
-                        // --- 修改開始：排序改為依據「總參與度」 (報名+發菇) ---
+                        // --- 修改：排序改為依據「總參與度」 (報名+發菇) ---
                         const totalA = (valA ?? 0) + (a.monthly_host_count ?? 0);
                         const totalB = (valB ?? 0) + (b.monthly_host_count ?? 0);
                         comparison = totalA - totalB;
@@ -422,18 +422,30 @@
                 const lastSignIn = user.last_active_at
                     ? new Date(user.last_active_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
                     : '從未';
-
-                // --- 計算綜合參與度 (報名 + 發菇) ---
-                const signupCount = user.monthly_signup_count ?? 0;
-                const hostCount = user.monthly_host_count ?? 0;
+                
+                // --- 修改開始：計算綜合參與度 (報名 + 發菇) ---
+                // 1. 讀取數值，若為 null 則視為 0
+                const signupCount = user.monthly_signup_count || 0;
+                const hostCount = user.monthly_host_count || 0;
+                
+                // 2. 計算總分
                 const totalParticipation = signupCount + hostCount;
-                const participationDisplay = `${totalParticipation} (報${signupCount}/發${hostCount})`;
+                
+                // 3. 設定顯示樣式 (區分顏色方便閱讀)
+                const signupClass = signupCount > 0 ? 'text-blue-400' : 'text-gray-500';
+                const hostClass = hostCount > 0 ? 'text-green-400' : 'text-gray-500';
+                
+                // 4. 組合顯示字串： "總分 (報X/發Y)"
+                const participationDisplay = `<span class="font-bold text-white">${totalParticipation}</span> <span class="text-xs text-gray-400">(<span class="${signupClass}">報${signupCount}</span>/<span class="${hostClass}">發${hostCount}</span>)</span>`;
+                // --- 修改結束 ---
 
                 return `
                     <tr class="border-b border-gray-700 hover:bg-gray-800/50">
                         <td class="p-3">${user.nickname || 'N/A'}</td>
                         <td class="p-3">${user.role || '未知'}</td>
-                        <td class="p-3 text-center">${user.monthly_signup_count ?? 0}</td>
+                        
+                        <td class="p-3 text-center">${participationDisplay}</td>
+                        
                         <td class="p-3 text-sm text-gray-400">${lastSignIn}</td>
                         <td class="p-3 text-center space-x-2">
                             <button data-id="${user.id}" data-nickname="${user.nickname}" class="edit-user-button text-xs px-2 py-1 bg-green-600 rounded hover:bg-green-500">編輯</button>
@@ -443,8 +455,8 @@
                         </td>
                     </tr>
                 `;
-            }).join('');
-        }
+                }).join('');
+            }
         
         function updateSortIndicators() {
             document.querySelectorAll('.sortable-header').forEach(header => {
