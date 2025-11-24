@@ -335,7 +335,7 @@
                     <div>
                         <label for="challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
                         <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 mt-1"/>
-                        <p class="text-xs text-gray-500 mt-1">支援 jpg, png 格式，檔案別太大。</p>
+                        <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，支援jpg, png格式，檔案別太大。</p>
                     </div>
                     </div>
 
@@ -415,7 +415,7 @@
                     <div>
                         <label for="edit-challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
                         <input type="file" id="edit-challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 mt-1"/>
-                        <p class="text-xs text-gray-500 mt-1">支援 jpg, png 格式，建議不要太大。</p>
+                        <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，支援jpg, png格式，檔案別太大。</p>
                     </div>
                     </div>
                 <div class="mt-8 flex justify-end space-x-4">
@@ -905,7 +905,7 @@ function renderChallenge(challenge) {
                 imageBtnHtml = `
                 <div class="mt-2">
                     <button onclick="openImageViewer('${challenge.image_url}')" class="text-xs bg-gray-700 text-indigo-300 px-3 py-1.5 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-2 transition">
-                        📷 查看蘑菇美片
+                        📷 查看明信片
                     </button>
                 </div>`;
             }
@@ -1347,6 +1347,7 @@ function renderChallenge(challenge) {
             document.getElementById('edit-start-time').value = now.toISOString().slice(0, 16);
         });
 
+        // 編輯挑戰表單提交監聽器
         editChallengeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const submitButton = document.getElementById('submit-edit-challenge-button');
@@ -1354,10 +1355,10 @@ function renderChallenge(challenge) {
             submitButton.textContent = '儲存中...';
 
             const challengeId = document.getElementById('edit-challenge-id').value;
-            const newSlots = parseInt(document.getElementById('edit-slots').value); // ★ 新增：先取得新的名額值
+            const newSlots = parseInt(document.getElementById('edit-slots').value); 
             const newStartTime = new Date(document.getElementById('edit-start-time').value);
 
-            // ★ 新增：根據新名額與當前報名人數，決定新的狀態
+            // 1. 狀態判斷邏輯 (保持不變)
             const currentChallengeData = challengesData[challengeId];
             const currentSignupCount = currentChallengeData?.signups?.length || 0;
             let newStatus;
@@ -1370,17 +1371,52 @@ function renderChallenge(challenge) {
                 newStatus = '開放報名中';
             }
 
+            // 2. 準備基本的更新資料 (先不含圖片)
             const updatedData = {
                 mushroom_type: document.getElementById('edit-mushroom-type').value,
-                slots: newSlots, // ★ 修改：使用已取得的變數
+                slots: newSlots, 
                 start_time: newStartTime.toISOString(),
                 details: document.getElementById('edit-details').value,
-                status: newStatus, // ★ 修改：使用我們新判斷出的狀態
-
-                // ▼▼▼ 修改處：從新的 ID (edit-cooking-style) 讀取選中的值 ▼▼▼
+                status: newStatus, 
+                // 從新的 ID (edit-cooking-style) 讀取選中的值
                 cooking_style: document.getElementById('edit-cooking-style').value
             };
 
+            // ▼▼▼ 【新增】編輯模式的圖片上傳邏輯 ▼▼▼
+            const fileInput = document.getElementById('edit-challenge-image');
+            
+            // 只有當使用者「真的選了新檔案」時，才執行上傳並更新欄位
+            if (fileInput.files && fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}_edit_${Math.floor(Math.random()*1000)}.${fileExt}`;
+                
+                try {
+                    // 上傳新圖片
+                    const { error: uploadError } = await supabaseClient
+                        .storage
+                        .from('challenge-images') 
+                        .upload(fileName, file);
+
+                    if (uploadError) throw uploadError;
+
+                    // 取得新圖片網址
+                    const { data: publicUrlData } = supabaseClient
+                        .storage
+                        .from('challenge-images')
+                        .getPublicUrl(fileName);
+                    
+                    // 將新網址加入更新清單 (這會覆蓋舊圖連結)
+                    updatedData.image_url = publicUrlData.publicUrl;
+
+                } catch (err) {
+                    console.error('編輯圖片上傳失敗:', err);
+                    showToast('圖片上傳失敗，本次修改將不包含新圖片。', true);
+                }
+            }
+            // ▲▲▲ 新增結束 (若沒選檔案，updatedData 就不會有 image_url，舊圖會被保留) ▲▲▲
+
+            // 3. 執行資料庫更新
             const { error } = await supabaseClient
                 .from('challenges')
                 .update(updatedData)
@@ -1391,6 +1427,11 @@ function renderChallenge(challenge) {
             } else {
                 showToast('挑戰已成功更新！', false);
                 editChallengeModal.classList.add('hidden');
+                
+                // 清空檔案輸入框，避免下次打開還留著
+                fileInput.value = '';
+                
+                // 重新載入卡片
                 reloadChallengeCard(challengeId);
             }
 
