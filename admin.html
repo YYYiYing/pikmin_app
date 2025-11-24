@@ -404,7 +404,10 @@
                     if (valB == null) return -1;
                     
                     if (currentSortColumn === 'monthly_signup_count') {
-                        comparison = valA - valB;
+                        // --- 修改開始：排序改為依據「總參與度」 (報名+發菇) ---
+                        const totalA = (valA ?? 0) + (a.monthly_host_count ?? 0);
+                        const totalB = (valB ?? 0) + (b.monthly_host_count ?? 0);
+                        comparison = totalA - totalB;
                     } else if (currentSortColumn === 'last_active_at') {
                         comparison = new Date(valA).getTime() - new Date(valB).getTime();
                     } else {
@@ -419,6 +422,13 @@
                 const lastSignIn = user.last_active_at
                     ? new Date(user.last_active_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
                     : '從未';
+
+                // --- 計算綜合參與度 (報名 + 發菇) ---
+                const signupCount = user.monthly_signup_count ?? 0;
+                const hostCount = user.monthly_host_count ?? 0;
+                const totalParticipation = signupCount + hostCount;
+                const participationDisplay = `${totalParticipation} (報${signupCount}/發${hostCount})`;
+
                 return `
                     <tr class="border-b border-gray-700 hover:bg-gray-800/50">
                         <td class="p-3">${user.nickname || 'N/A'}</td>

@@ -123,6 +123,26 @@
         .filter-tab:not(.active):hover {
             background-color: #4b5563;
         }
+        .filter-tab:not(.active):hover {
+            background-color: #4b5563;
+        }
+        
+        /* 新增：跑馬燈動畫 */
+        @keyframes marquee {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+        .animate-marquee {
+            animation: marquee 30s linear infinite;
+            padding-left: 100%; /* 確保從最右邊開始 */
+        }
+        /* 新增：冷卻中的按鈕樣式 */
+        .btn-cooldown {
+            background-color: #4b5563 !important; /* 灰色 */
+            cursor: not-allowed !important;
+            filter: grayscale(100%);
+            transform: none !important;
+        }
     </style>
 </head>
 <body class="bg-gray-900">
@@ -189,6 +209,17 @@
         
     </div>
 </header>
+
+    <div class="bg-gray-800 border-b border-gray-700 py-2 overflow-hidden">
+        <div class="container mx-auto px-4 relative flex items-center">
+            <span class="text-xs font-bold text-yellow-400 mr-2 flex-shrink-0">⚡ 快訊 |</span>
+            <div class="overflow-hidden w-full">
+                <div id="marquee-content" class="whitespace-nowrap text-xs text-gray-300 animate-marquee inline-block">
+                    讀取榮譽榜中...
+                </div>
+            </div>
+        </div>
+    </div>
 
     <main class="container mx-auto p-4 md:p-8">
         <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -365,10 +396,63 @@
         </div>
     </div>
 
-    <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-sm rounded-2xl shadow-xl p-8"><h2 class="text-xl font-bold mb-4 text-white">確認刪除</h2><p class="text-gray-400 mb-6">您確定要刪除這個挑戰嗎？此操作無法復原。</p><div class="flex justify-end space-x-4"><button type="button" id="cancel-delete-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="button" id="confirm-delete-button" class="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50">確認刪除</button></div></div></div>
-    <div id="leaderboard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-gray-100">🏆 排行榜</h2><button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white">&times;</button></div><div id="leaderboard-tabs" class="flex border-b border-gray-600 mb-4 overflow-x-auto"><button data-type="count" data-period="week" class="leaderboard-tab active whitespace-nowrap">本週報名王</button><button data-type="count" data-period="month" class="leaderboard-tab whitespace-nowrap">本月報名王</button><button data-type="speed" data-period="week" class="leaderboard-tab whitespace-nowrap">本週最速</button><button data-type="speed" data-period="month" class="leaderboard-tab whitespace-nowrap">本月最速</button></div><div id="leaderboard-content" class="space-y-2 max-h-96 overflow-y-auto"><p>讀取中...</p></div></div></div>
-    <div id="password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="modal-content w-full max-w-md rounded-2xl shadow-xl p-8"><h2 class="text-2xl font-bold mb-6 text-gray-100">修改密碼</h2><form id="password-form"><div class="space-y-4"><div><label for="new-password" class="block text-sm font-medium text-gray-400">新密碼 (至少6位數)</label><input type="password" id="new-password" required minlength="6" class="dark-input mt-1 block w-full rounded-md shadow-sm"></div><div><label for="confirm-password" class="block text-sm font-medium text-gray-400">確認新密碼</label><input type="password" id="confirm-password" required minlength="6" class="dark-input mt-1 block w-full rounded-md shadow-sm"></div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" id="cancel-password-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button><button type="submit" id="submit-password-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認修改</button></div></form></div></div>
-    <div id="toast-message" class="hidden fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg"></div>
+    <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+            <div class="modal-content w-full max-w-sm rounded-2xl shadow-xl p-8">
+                <h2 class="text-xl font-bold mb-4 text-white">確認刪除</h2>
+                <p class="text-gray-400 mb-6">您確定要刪除這個挑戰嗎？此操作無法復原。</p>
+                <div class="flex justify-end space-x-4">
+                    <button type="button" id="cancel-delete-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
+                    <button type="button" id="confirm-delete-button" class="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50">確認刪除</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="leaderboard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+            <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-100">🏆 排行榜</h2>
+                    <button type="button" id="close-leaderboard-button" class="text-gray-500 hover:text-white">&times;</button>
+                </div>
+                
+                <div id="leaderboard-tabs" class="flex border-b border-gray-600 mb-4 overflow-x-auto">
+                    <button data-type="count" data-period="week" class="leaderboard-tab active whitespace-nowrap">本週報名王</button>
+                    <button data-type="count" data-period="month" class="leaderboard-tab whitespace-nowrap">本月報名王</button>
+                    <button data-type="speed" data-period="week" class="leaderboard-tab whitespace-nowrap">本週最速</button>
+                    <button data-type="speed" data-period="month" class="leaderboard-tab whitespace-nowrap">本月最速</button>
+                    
+                    <button data-type="host" data-period="week" class="leaderboard-tab whitespace-nowrap">本週發菇王</button>
+                    <button data-type="host" data-period="month" class="leaderboard-tab whitespace-nowrap">本月發菇王</button>
+                    </div>
+
+                <div id="leaderboard-content" class="space-y-2 max-h-96 overflow-y-auto">
+                    <p>讀取中...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+            <div class="modal-content w-full max-w-md rounded-2xl shadow-xl p-8">
+                <h2 class="text-2xl font-bold mb-6 text-gray-100">修改密碼</h2>
+                <form id="password-form">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="new-password" class="block text-sm font-medium text-gray-400">新密碼 (至少6位數)</label>
+                            <input type="password" id="new-password" required minlength="6" class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label for="confirm-password" class="block text-sm font-medium text-gray-400">確認新密碼</label>
+                            <input type="password" id="confirm-password" required minlength="6" class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                        </div>
+                    </div>
+                    <div class="mt-8 flex justify-end space-x-4">
+                        <button type="button" id="cancel-password-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
+                        <button type="submit" id="submit-password-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認修改</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="toast-message" class="hidden fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg"></div>
 
     <script>
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co'; 
@@ -429,6 +513,10 @@
         let onlineNicknames = []; 
         let challengesData = {}; 
         
+        /* ▼▼▼ 新增：冷卻時間控制變數 ▼▼▼ */
+        let globalCooldownUntil = 0; // 記錄冷卻結束的時間戳記
+        let globalCooldownTimer = null; // 記錄計時器 ID
+
         //蘑菇樣式對照表
         const mushroomStyles = {
         '巨菇':     { bg: 'bg-cyan-400',     text: 'text-black' },
@@ -526,6 +614,46 @@
             setupRealtimeListeners();
             setupOnlinePresence();
             startGlobalCountdown();
+            updateMarquee();
+        }
+
+        // --- 新增開始：跑馬燈邏輯 ---
+        async function updateMarquee() {
+            const marqueeEl = document.getElementById('marquee-content');
+            try {
+                // 平行撈取三種數據
+                const [signUpData, speedData, hostData] = await Promise.all([
+                    supabaseClient.rpc('get_leaderboard_from_profiles', { period_type: 'month' }),
+                    supabaseClient.rpc('get_speed_leaderboard_from_profiles', { period_type: 'month' }),
+                    supabaseClient.rpc('get_host_leaderboard', { period_type: 'week' })
+                ]);
+
+                let textParts = [];
+
+                if (signUpData.data && signUpData.data.length > 0) {
+                    const top = signUpData.data[0];
+                    textParts.push(`🏆 本月報名王：${top.nickname} (${top.signup_count}次)`);
+                }
+                if (speedData.data && speedData.data.length > 0) {
+                    const top = speedData.data[0];
+                    textParts.push(`⚡ 本月最速傳說：${top.nickname} (${parseFloat(top.fastest_time_seconds).toFixed(2)}秒)`);
+                }
+                if (hostData.data && hostData.data.length > 0) {
+                    const top = hostData.data[0];
+                    textParts.push(`🍄 本週發菇王：${top.nickname} (${top.host_count}菇)`);
+                }
+
+                if (textParts.length > 0) {
+                    // 重複三次字串以確保跑馬燈銜接流暢
+                    const fullText = textParts.join(' &nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp; ');
+                    marqueeEl.innerHTML = `${fullText} &nbsp; | &nbsp; ${fullText} &nbsp; | &nbsp; ${fullText}`;
+                } else {
+                    marqueeEl.textContent = '目前尚無挑戰紀錄，快來搶頭香！';
+                }
+            } catch (e) {
+                console.error('跑馬燈更新失敗', e);
+                marqueeEl.textContent = '歡迎來到菇菇宅配網！';
+            }
         }
 
         function displayUserInfo() {
@@ -668,7 +796,15 @@
                 if (currentUserProfile.role === '發菇者') {
                     actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default" disabled>僅發布權限</button>`;
                 } else {
-                    actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
+                    // ▼▼▼ 修改：加入冷卻時間檢查 ▼▼▼
+                    const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
+                    if (cooldownLeft > 0) {
+                        // 如果還在冷卻時間內，直接生成灰色的按鈕
+                        actionButtonHtml = `<button class="signup-button w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
+                    } else {
+                        // 否則生成正常的藍色按鈕
+                        actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
+                    }
                 }
             }
 
@@ -1107,12 +1243,52 @@
             } else {
                 showToast('報名成功！', false);
                 userSignedUpChallengeIds.add(numericChallengeId);
+
+                // --- 觸發全域 3 秒冷卻 ---
+                triggerGlobalCooldown(); 
+
                 // ★ 修改：採用混合更新策略
                 await reloadChallengeCard(challengeId); // 1. 立即更新被點擊的卡片，提供最快速的回饋
                 await refreshUserProfile();           // 2. 獲取最新的使用者全域狀態
                 refreshAllChallengeCards();         // 3. 根據最新狀態，更新所有其他卡片
                 updateQuotaDisplay();                 // 4. 更新頂部的額度顯示             
             }
+        }
+        // --- 冷卻函式定義 ---
+        // --- 修改：冷卻函式定義 (改為基於時間戳記) ---
+        function triggerGlobalCooldown() {
+            // 1. 設定冷卻結束時間 (現在時間 + 3000毫秒)
+            globalCooldownUntil = Date.now() + 3000;
+
+            // 2. 清除舊的計時器 (避免重複執行)
+            if (globalCooldownTimer) clearInterval(globalCooldownTimer);
+
+            // 3. 啟動計時器，每 100ms 檢查一次
+            globalCooldownTimer = setInterval(() => {
+                const timeLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
+
+                // 抓取畫面上所有的報名按鈕 (包含剛剛被刷新出來的)
+                const allSignupButtons = document.querySelectorAll('.signup-button');
+
+                if (timeLeft <= 0) {
+                    // --- 時間到 ---
+                    clearInterval(globalCooldownTimer);
+                    globalCooldownUntil = 0; // 重置時間
+                    
+                    // 強制刷新一次列表，讓所有按鈕變回藍色狀態
+                    refreshAllChallengeCards();
+                } else {
+                    // --- 還在冷卻中 ---
+                    allSignupButtons.forEach(btn => {
+                        // 強制覆寫按鈕狀態 (防止刷新後變回藍色)
+                        btn.disabled = true;
+                        btn.classList.add('btn-cooldown');
+                        btn.classList.remove('bg-blue-600', 'hover:bg-blue-700'); // 移除藍色樣式
+                        btn.classList.add('bg-gray-600'); // 加入灰色樣式
+                        btn.textContent = `冷卻中 ${timeLeft}s`;
+                    });
+                }
+            }, 100);
         }
 
         async function handleCancelSignUp(challengeId, buttonEl) {
@@ -1186,9 +1362,11 @@
         async function fetchLeaderboard(type, period) {
             leaderboardContent.innerHTML = '<p>讀取中...</p>';
             
-            const functionName = type === 'count' 
-                ? 'get_leaderboard_from_profiles' 
-                : 'get_speed_leaderboard_from_profiles';
+            // --- 加入 host (發菇王) 的判斷 ---
+            let functionName;
+            if (type === 'count') functionName = 'get_leaderboard_from_profiles';
+            else if (type === 'speed') functionName = 'get_speed_leaderboard_from_profiles';
+            else if (type === 'host') functionName = 'get_host_leaderboard'; // 對應 SQL 新增的函數
 
             const { data, error } = await supabaseClient.rpc(functionName, {
                 period_type: period
@@ -1202,8 +1380,10 @@
             
             if (type === 'count') {
                 renderCountLeaderboard(data);
-            } else {
+            } else if (type === 'speed') {
                 renderSpeedLeaderboard(data);
+            } else if (type === 'host') {
+                renderHostLeaderboard(data);
             }
         }
         function renderCountLeaderboard(data) {
@@ -1259,6 +1439,33 @@
                 
                 const timeInSeconds = currentTime.toFixed(3);
                 return `<div class="leaderboard-item"><span class="leaderboard-rank">${rankDisplay}</span><span class="leaderboard-nickname">${item.nickname}</span><span class="leaderboard-count">${timeInSeconds} s</span></div>`;
+            }).join('');
+            leaderboardContent.innerHTML = listHtml;
+        }
+
+        // --- 渲染發菇王排行榜 ---
+        function renderHostLeaderboard(data) {
+            if (!data || data.length === 0) {
+                leaderboardContent.innerHTML = '<p>目前沒有紀錄。</p>'; 
+                return;
+            }
+
+            let rank = 0;
+            let lastScore = -1;
+
+            const listHtml = data.map((item) => {
+                if (item.host_count !== lastScore) {
+                    rank++;
+                }
+                lastScore = item.host_count;
+
+                let rankDisplay;
+                if (rank === 1) rankDisplay = '🥇'; 
+                else if (rank === 2) rankDisplay = '🥈'; 
+                else if (rank === 3) rankDisplay = '🥉'; 
+                else rankDisplay = rank;
+
+                return `<div class="leaderboard-item"><span class="leaderboard-rank">${rankDisplay}</span><span class="leaderboard-nickname">${item.nickname}</span><span class="leaderboard-count">${item.host_count} 菇</span></div>`;
             }).join('');
             leaderboardContent.innerHTML = listHtml;
         }
@@ -1531,6 +1738,7 @@
                 mobileMenu.classList.add('hidden');
             }
         });
+        
     </script>
 </body>
 </html>
