@@ -105,13 +105,88 @@ serve(async (req) => {
 
     let data: unknown = null;
 
+
     // ============================================================
-    // 區塊 A：系統自動化 (不需要 Auth Header)
+    // 區塊 A：系統自動化 (不需要一般使用者 Auth Header，使用 Service Role 執行)
     // ============================================================
+    
+    // 1. 排程發信通知 (GitHub Actions 每 30 分鐘觸發)
     if (action === 'scheduled-email-notify') {
         if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
         const result = await checkAndSendNotification(adminSupabaseClient, RESEND_API_KEY, false);
         return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+        });
+    }
+
+    // 2. 排程清理逾時挑戰 (GitHub Actions 每 30 分鐘觸發)
+    if (action === 'cleanup-expired') {
+        // --- 設定逾時時數 (可在此調整) ---
+        const HOURS_LIMIT = 8; 
+        
+        // 計算截止時間：目前時間 減去 8小時
+        const cutoffTime = new Date(Date.now() - HOURS_LIMIT * 60 * 60 * 1000).toISOString();
+
+        // --- 步驟 1：查詢符合刪除條件的挑戰 ---
+        // 條件：
+        // 1. 狀態必須是 '已發'
+        // 2. 發出時間 (dispatched_at) 必須早於 截止時間
+        // 3. (隱含邏輯) dispatched_at 為 NULL 的資料會被自動忽略，不會誤刪
+        const { data: expiredChallenges, error: findErr } = await adminSupabaseClient
+            .from('challenges')
+            .select('id, image_url, mushroom_type, dispatched_at')
+            .eq('dispatch_status', '已發')
+            .lt('dispatched_at', cutoffTime);
+
+        if (findErr) throw findErr;
+
+        const deletedLog = [];
+
+        // --- 步驟 2：執行刪除流程 ---
+        if (expiredChallenges && expiredChallenges.length > 0) {
+            for (const challenge of expiredChallenges) {
+                // A. 優先處理照片刪除 (如果有照片)
+                if (challenge.image_url) {
+                    try {
+                        // 從網址中解析出檔名 (例如: 173245xxxx.jpg)
+                        const fileName = challenge.image_url.split('/').pop();
+                        if (fileName) {
+                            // 呼叫 Storage API 移除檔案
+                            const { error: imgErr } = await adminSupabaseClient
+                                .storage
+                                .from('challenge-images')
+                                .remove([fileName]);
+                                
+                            if (imgErr) console.error(`照片刪除警告 (ID: ${challenge.id}):`, imgErr);
+                        }
+                    } catch (e) {
+                        console.error(`照片路徑解析失敗 (ID: ${challenge.id}):`, e);
+                    }
+                }
+
+                // B. 照片處理完畢後，刪除資料庫紀錄
+                const { error: delErr } = await adminSupabaseClient
+                    .from('challenges')
+                    .delete()
+                    .eq('id', challenge.id);
+                
+                if (!delErr) {
+                    deletedLog.push(`[已刪除] ${challenge.mushroom_type} (ID: ${challenge.id}, 發出於: ${new Date(challenge.dispatched_at).toLocaleString()})`);
+                } else {
+                    console.error(`資料刪除失敗 (ID: ${challenge.id}):`, delErr);
+                }
+            }
+        }
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: { 
+                message: `清理作業完成`, 
+                deleted_count: deletedLog.length, 
+                details: deletedLog 
+            } 
+        }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         });
@@ -235,62 +310,6 @@ serve(async (req) => {
             if (pErr) throw pErr;
             await adminSupabaseClient.from('partners').update({ name: payload.newNickname }).eq('name', payload.oldNickname);
             break;
-
-        // ▼▼▼ 新增：清理逾時挑戰與照片 (取代資料庫 SQL 自動刪除) ▼▼▼
-        case 'cleanup-expired':
-            // 1. 定義逾時時間 (目前時間 - 8 小時)
-            const hoursAgo = 8;
-            const cutoffTime = new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
-
-            // 2. 查詢所有符合條件 (已發 + 逾時 8hr) 的挑戰，並選取 image_url
-            // 對應您原本的 SQL: dispatch_status = '已發' AND dispatched_at < cutoffTime
-            const { data: expiredChallenges, error: findErr } = await adminSupabaseClient
-                .from('challenges')
-                .select('id, image_url, mushroom_type')
-                .eq('dispatch_status', '已發')
-                .lt('dispatched_at', cutoffTime);
-
-            if (findErr) throw findErr;
-
-            const deletedLog = [];
-
-            // 3. 迴圈處理每一筆逾時資料
-            if (expiredChallenges && expiredChallenges.length > 0) {
-                for (const challenge of expiredChallenges) {
-                    // A. 嘗試刪除照片 (如果有)
-                    if (challenge.image_url) {
-                        try {
-                            const fileName = challenge.image_url.split('/').pop();
-                            if (fileName) {
-                                await adminSupabaseClient
-                                    .storage
-                                    .from('challenge-images')
-                                    .remove([fileName]);
-                            }
-                        } catch (imgErr) {
-                            console.error(`照片刪除失敗 (ID: ${challenge.id}):`, imgErr);
-                        }
-                    }
-
-                    // B. 刪除資料庫紀錄
-                    const { error: delErr } = await adminSupabaseClient
-                        .from('challenges')
-                        .delete()
-                        .eq('id', challenge.id);
-                    
-                    if (!delErr) {
-                        deletedLog.push(`已移除: ${challenge.mushroom_type} (ID: ${challenge.id})`);
-                    }
-                }
-            }
-
-            data = { 
-                message: `清理作業完成`, 
-                deleted_count: deletedLog.length,
-                details: deletedLog 
-            };
-            break;
-        // ▲▲▲ 新增結束 ▲▲▲
             
         case 'get-daily-limit': 
             ({ data } = await adminSupabaseClient.from('daily_settings').select('setting_value').eq('setting_name', 'daily_signup_limit').single()); 
