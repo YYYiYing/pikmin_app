@@ -38,7 +38,9 @@
             font-weight: bold;
             font-size: 0.8rem;
             text-transform: uppercase;
+            white-space: nowrap; /* ★ 新增這行：強制標籤內文字不換行 */
         }
+
         .status-open { background-color: #10b981; color: white; }
         .status-full { background-color: #ef4444; color: white; }
         .status-pending { background-color: #f59e0b; color: white; }
@@ -166,8 +168,11 @@
                     <img src="./mashroom.png" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full">
                     <span class="hidden md:inline-block">菇菇宅配網</span>
                 </h1>
-                <div id="online-users-container" class="flex items-center gap-2 text-sm text-white cursor-pointer hover:text-gray-300 transition" title="查看在線列表">
-                    <span></span>
+
+                //  在線人數與重新整理按鈕
+                <div id="online-users-container" class="flex items-center gap-2 text-sm text-white cursor-pointer hover:text-gray-300 transition whitespace-nowrap" title="查看在線列表"></div>
+                
+                <span></span>
                     <button id="refresh-button" title="重新整理" class="hover:text-white transition">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
