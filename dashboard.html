@@ -229,12 +229,12 @@
         <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-4 flex-wrap justify-center">
                 
-               <div id="filter-tabs" class="flex space-x-2">
-                    <button data-filter="all" class="filter-tab active text-xs md:text-base">全部挑戰</button>
-                    <button data-filter="full" class="filter-tab text-xs md:text-base">已額滿</button>
-                    <button data-filter="signed-up" class="filter-tab text-xs md:text-base">我的報名</button>
-                    <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden text-xs md:text-base">我的發布</button>
-                </div>
+            <div id="filter-tabs" class="flex space-x-2 overflow-x-auto no-scrollbar">
+                <button data-filter="all" class="filter-tab active text-xs md:text-base whitespace-nowrap px-3 md:px-4">全部挑戰</button>
+                <button data-filter="full" class="filter-tab text-xs md:text-base whitespace-nowrap px-3 md:px-4">已額滿</button>
+                <button data-filter="signed-up" class="filter-tab text-xs md:text-base whitespace-nowrap px-3 md:px-4">我的報名</button>
+                <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden text-xs md:text-base whitespace-nowrap px-3 md:px-4">我的發布</button>
+            </div>
                 
 <button id="email-sub-button" class="text-gray-400 hover:text-indigo-400 transition text-xs md:text-base flex items-center gap-1 ml-2">
                     <span id="email-icon">📧</span> <span id="email-text">訂閱通知</span>
@@ -943,8 +943,10 @@ function renderChallenge(challenge) {
             const type = challenge.mushroom_type;
             const defaultStyle = { bg: 'bg-transparent', text: 'text-gray-100' };
             const style = mushroomStyles[type] || defaultStyle;
-            const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text}`;
-
+            
+            // ★ 修改：加入 whitespace-nowrap 強制文字不換行
+            const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap`;
+            
             const isHost = challenge.host && challenge.host.id === currentUserProfile.id;
             const isSignedUp = userSignedUpChallengeIds.has(challenge.id);
             const signupCount = challenge.signups ? challenge.signups.length : 0;
