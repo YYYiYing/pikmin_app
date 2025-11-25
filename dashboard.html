@@ -936,7 +936,13 @@ function renderChallenge(challenge) {
             card.innerHTML = `
                 <div>
                     <div class="flex justify-between items-start mb-4">
-                        <h3 class="${titleClasses}">${challenge.mushroom_type}</h3>
+                        
+                        <div class="flex items-center gap-2">
+                            <h3 class="${titleClasses}">
+                                ${challenge.mushroom_type}
+                            </h3>
+                            <span class="text-sm font-bold text-gray-500">#${challenge.id}</span>
+                        </div>
                         <div class="flex items-center space-x-2">
                         ${dispatchTagHtml}
                         <span class="status-badge ${statusClass}">${challenge.status}</span>
