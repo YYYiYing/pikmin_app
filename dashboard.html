@@ -260,6 +260,38 @@
         </div>
     </div>
 
+    <!-- 同步剩餘時間 Modal -->
+    <div id="sync-time-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="modal-content w-full max-w-sm rounded-2xl shadow-xl p-8">
+            <h2 class="text-xl font-bold mb-4 text-gray-100">⏱️ 設定蘑菇剩餘時間</h2>
+            <p class="text-sm text-gray-400 mb-6">請輸入遊戲中顯示的剩餘時間，系統將自動計算結束時間。</p>
+            
+            <form id="sync-time-form">
+                <input type="hidden" id="sync-challenge-id">
+                <div class="flex space-x-2 mb-6">
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-400 mb-1">天</label>
+                        <input type="number" id="sync-days" min="0" value="0" class="dark-input w-full rounded-md text-center">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-400 mb-1">小時</label>
+                        <input type="number" id="sync-hours" min="0" max="23" value="0" class="dark-input w-full rounded-md text-center">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-400 mb-1">分鐘</label>
+                        <input type="number" id="sync-minutes" min="0" max="59" value="0" class="dark-input w-full rounded-md text-center">
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4">
+                    <button type="button" id="cancel-sync-button" class="px-4 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
+                    <button type="button" id="clear-sync-button" class="px-4 py-2 bg-red-800 text-white rounded-lg font-semibold hover:bg-red-700">清除時間</button>
+                    <button type="submit" id="confirm-sync-button" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">更新</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <!-- 新增/發布挑戰 Modal -->
     <div id="challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
             <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
@@ -550,6 +582,92 @@
         const emailIcon = document.getElementById('email-icon');
         const emailText = document.getElementById('email-text');
         // ▲▲▲ 【新增結束】 ▲▲▲
+
+        // --- 蘑菇倒數計時相關變數 ---
+        const syncTimeModal = document.getElementById('sync-time-modal');
+        const syncTimeForm = document.getElementById('sync-time-form');
+        const cancelSyncButton = document.getElementById('cancel-sync-button');
+        const clearSyncButton = document.getElementById('clear-sync-button');
+
+        // 1. 監聽卡片上的「校時」按鈕點擊
+        challengesListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.open-sync-modal-button');
+            if (!btn) return;
+
+            const challengeId = btn.dataset.id;
+            document.getElementById('sync-challenge-id').value = challengeId;
+            
+            // 重置輸入框
+            document.getElementById('sync-days').value = 0;
+            document.getElementById('sync-hours').value = 0;
+            document.getElementById('sync-minutes').value = 0;
+
+            syncTimeModal.classList.remove('hidden');
+        });
+
+        // 2. 關閉 Modal
+        cancelSyncButton.addEventListener('click', () => syncTimeModal.classList.add('hidden'));
+
+        // 3. 處理「清除時間」 (設為 NULL)
+        clearSyncButton.addEventListener('click', async () => {
+            await updateChallengeTimer(null);
+        });
+
+        // 4. 處理「更新時間」 (計算 End Time 並寫入)
+        syncTimeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const days = parseInt(document.getElementById('sync-days').value) || 0;
+            const hours = parseInt(document.getElementById('sync-hours').value) || 0;
+            const minutes = parseInt(document.getElementById('sync-minutes').value) || 0;
+
+            if (days === 0 && hours === 0 && minutes === 0) {
+                alert('請輸入有效的剩餘時間');
+                return;
+            }
+
+            // 計算目標結束時間 (現在時間 + 輸入的剩餘時間)
+            const now = new Date();
+            const totalMilliseconds = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
+            const endTime = new Date(now.getTime() + totalMilliseconds);
+
+            await updateChallengeTimer(endTime.toISOString());
+        });
+
+        // ★ 修改後：寫入後立即重整卡片，解決需手動F5的問題
+        async function updateChallengeTimer(endTimeISO) {
+            const challengeId = document.getElementById('sync-challenge-id').value;
+            const btn = document.getElementById('confirm-sync-button');
+            const clearBtn = document.getElementById('clear-sync-button');
+            
+            btn.disabled = true; clearBtn.disabled = true;
+            btn.textContent = '更新中...';
+
+            try {
+                // 1. 呼叫遠端 RPC 更新資料庫
+                const { error } = await supabaseClient.rpc('update_challenge_countdown', {
+                    p_challenge_id: parseInt(challengeId),
+                    p_end_time: endTimeISO
+                });
+
+                if (error) throw error;
+
+                showToast('時間已更新！', false);
+                syncTimeModal.classList.add('hidden');
+                
+                // 2. ★ 關鍵修正：主動刷新該張卡片 (不用等 Realtime 推播)
+                await reloadChallengeCard(challengeId);
+                
+                // 3. ★ 關鍵修正：立即觸發一次倒數計算 (消除 "計算中..." 的等待感)
+                updateBattleTimers();
+
+            } catch (error) {
+                console.error(error);
+                showToast(`更新失敗: ${error.message}`, true);
+            } finally {
+                btn.disabled = false; clearBtn.disabled = false;
+                btn.textContent = '更新';
+            }
+        }
 
         let currentUserProfile = null;
         let challengeToDeleteId = null;
@@ -933,22 +1051,50 @@ function renderChallenge(challenge) {
             }
             // ▲▲▲ 判斷結束 ▲▲▲
 
+            // 1. 準備倒數計時的 HTML (依照您的需求修改為 "倒數--")
+            let countdownDisplayHtml = '<span class="text-gray-500">倒數--:--</span>';
+            let dataEndTime = '';
+
+            if (challenge.countdown_end_time) {
+                dataEndTime = challenge.countdown_end_time;
+                // 維持計算中或留白，等待 updateBattleTimers 立即更新
+                countdownDisplayHtml = '計算中...'; 
+            }
+
+            // 2. 組合按鈕與顯示文字
+            // 注意：因為我們將它放在第二行開頭，所以移除了 span 的 ml-2，保留按鈕的 ml-2
+            const battleTimerHtml = `
+                <span class="battle-timer text-white font-bold" data-endtime="${dataEndTime}">
+                    ${countdownDisplayHtml}
+                </span>
+                <button class="open-sync-modal-button text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded ml-2 hover:bg-gray-600 border border-gray-600 transition" 
+                        data-id="${challenge.id}" title="校正時間">
+                    校時
+                </button>
+            `;
+
+            // 3. 修改 card.innerHTML (採用第二行獨立顯示的版面)
             card.innerHTML = `
                 <div>
-                    <div class="flex justify-between items-start mb-4">
-                        
+                    <div class="flex justify-between items-start mb-2">
                         <div class="flex items-center gap-2">
                             <h3 class="${titleClasses}">
                                 ${challenge.mushroom_type}
                             </h3>
                             <span class="text-sm font-bold text-gray-500">#${challenge.id}</span>
                         </div>
+                        
                         <div class="flex items-center space-x-2">
-                        ${dispatchTagHtml}
-                        <span class="status-badge ${statusClass}">${challenge.status}</span>
-                        ${hostControlsHtml}
+                            ${dispatchTagHtml}
+                            <span class="status-badge ${statusClass}">${challenge.status}</span>
+                            ${hostControlsHtml}
                         </div>
                     </div>
+
+                    <div class="flex items-center mb-3 pl-1"> 
+                        ${battleTimerHtml}
+                    </div>
+
                     <div class="text-gray-400 space-y-2 mb-4">
                         <p><strong>發菇者:</strong> ${challenge.host ? challenge.host.nickname : '未知'}</p>
                         <p><strong>用餐時段:</strong> ${challenge.details || '未指定'}</p>
@@ -1914,11 +2060,19 @@ function renderChallenge(challenge) {
             });
         }
 
+        // 啟動全域倒數計時器
         function startGlobalCountdown() {
             if (countdownInterval) clearInterval(countdownInterval);
-            countdownInterval = setInterval(updateAllCountdowns, 1000); 
+            countdownInterval = setInterval(() => {
+                updateAllCountdowns(); // 原本的：預計開放倒數
+                updateBattleTimers();  // ★ 新增的：蘑菇戰鬥倒數
+            }, 1000); 
+            
+            // 立即執行一次
             updateAllCountdowns();
+            updateBattleTimers();
         }
+
         function showToast(message, isError = false) {
             toastMessage.textContent = message;
             toastMessage.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg ${isError ? 'bg-red-600' : 'bg-green-600'}`;
@@ -2103,6 +2257,64 @@ function renderChallenge(challenge) {
             }
         });
         
+        // ★ 修改後的新版函式：智慧型格式化戰鬥倒數
+        function updateBattleTimers() {
+            document.querySelectorAll('.battle-timer').forEach(el => {
+                const endTimeStr = el.dataset.endtime;
+                
+                // 1. 如果沒有設定時間，顯示簡潔的預設值
+                if (!endTimeStr || endTimeStr === 'null' || endTimeStr === 'undefined') {
+                    el.textContent = '--:--'; 
+                    el.classList.remove('text-red-400', 'text-white');
+                    el.classList.add('text-gray-500'); // 灰色表示未設定
+                    return;
+                }
+
+                const endTime = new Date(endTimeStr);
+                const now = new Date();
+                const diff = endTime - now;
+
+                // 2. 判斷是否已結束
+                if (diff <= 0) {
+                    el.textContent = '已結束';
+                    el.classList.remove('text-white', 'text-gray-500');
+                    el.classList.add('text-red-400'); // 時間到變紅色
+                    return;
+                }
+
+                // 3. 尚未結束，顯示白色
+                el.classList.remove('text-gray-500', 'text-red-400');
+                el.classList.add('text-white');
+
+                // ★ 核心邏輯：根據剩餘時間長度切換顯示格式
+                if (diff < 60000) { 
+                    // 【情境 D】小於 1 分鐘 -> 顯示秒數 (例如：剩餘：34秒)
+                    const seconds = Math.floor(diff / 1000);
+                    el.textContent = `倒數:${seconds}秒`;
+                } else {
+                    // 計算基本單位
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+                    // 補零處理 (讓 8 變成 08)
+                    const hh = hours.toString().padStart(2, '0');
+                    const mm = minutes.toString().padStart(2, '0');
+
+                    if (days > 0) {
+                        // 【情境 A】大於 1 天 -> 顯示天數 (例如：剩餘：1天08:03分)
+                        el.textContent = `倒數　${days}天${hh}:${mm}分`;
+                    } else if (hours > 0) {
+                        // 【情境 B】小於 1 天，但有小時 -> 隱藏天數 (例如：剩餘：04:15分)
+                        el.textContent = `倒數　${hh}:${mm}分`;
+                    } else {
+                        // 【情境 C】小於 1 小時 -> 隱藏時數 (例如：剩餘：12分)
+                        // 這裡 minutes 不補零，直接顯示數字較自然 (如 "9分" 比 "09分" 好讀)
+                        el.textContent = `倒數　${minutes}分`;
+                    }
+                }
+            });
+        }
     </script>
 </body>
 </html>
