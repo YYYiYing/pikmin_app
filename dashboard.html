@@ -1684,9 +1684,14 @@ function renderChallenge(challenge) {
 
             if (error) {
                 showToast(`報名失敗: ${error.message.includes('Daily signup limit reached') ? '本日報名額度已滿！' : (error.message.includes('full') ? '蘑菇已額滿！' : error.message)}`, true);
-                // 如果報名失敗，只需復原被點擊的按鈕狀態即可
+                
+                // 恢復按鈕狀態
                 buttonEl.disabled = false;
                 buttonEl.textContent = '報名';
+
+                // ★ 新增建議：失敗時也立即刷新這張卡片
+                // 這樣如果是因為額滿失敗，卡片會馬上變成紅色「已額滿」，避免使用者誤判再次點擊
+                reloadChallengeCard(challengeId); 
             } else {
                 showToast('報名成功！', false);
                 userSignedUpChallengeIds.add(numericChallengeId);
