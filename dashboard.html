@@ -1314,14 +1314,22 @@ function renderChallenge(challenge) {
             onlineUsersModal.classList.add('hidden');
         });
 
+        // ★ 修改：強制登出邏輯
+        // 不管伺服器端是否報錯 (如 403 session not found)，前端都必須執行跳轉
         logoutButton.addEventListener('click', async () => {
             logoutButton.disabled = true;
             logoutButton.textContent = '登出中...';
-            const { error } = await supabaseClient.auth.signOut();
-            if (error) {
-                showToast(`登出時發生錯誤: ${error.message}`, true);
-                logoutButton.disabled = false;
-                logoutButton.textContent = '登出';
+            
+            try {
+                // 嘗試通知後端登出 (即使後端回傳 403 也不管它)
+                await supabaseClient.auth.signOut();
+            } catch (error) {
+                console.warn('後端登出異常 (可忽略):', error);
+            } finally {
+                // ★ 重點：無論如何，強制清除本地暫存並跳轉回登入頁
+                // 這樣即使用戶已被刪除或 Session 過期，也能順利回到首頁
+                localStorage.removeItem('sb-' + SUPABASE_ANON_KEY + '-auth-token'); // 嘗試清除 Supabase Token (選用)
+                window.location.replace('./index.html');
             }
         });
         
@@ -1450,7 +1458,7 @@ function renderChallenge(challenge) {
                 slots: parseInt(form['slots'].value),
                 start_time: startTime.toISOString(),
                 details: form['details'].value,
-                status: startTime > new Date() ? '預計開放' : '報名中',
+                status: startTime > new Date() ? '預計開放' : '開放報名中',
                 
                 // ▼▼▼ 【新增】將火侯與圖片網址寫入資料庫欄位 ▼▼▼
                 cooking_style: cookingStyleVal,
@@ -1571,7 +1579,7 @@ function renderChallenge(challenge) {
             } else if (currentSignupCount >= newSlots) {
                 newStatus = '已額滿';
             } else {
-                newStatus = '報名中';
+                newStatus = '開放報名中';
             }
 
             // 2. 準備基本的更新資料 (先不含圖片)
