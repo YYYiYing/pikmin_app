@@ -611,10 +611,31 @@
             const challengeId = btn.dataset.id;
             document.getElementById('sync-challenge-id').value = challengeId;
             
-            // 重置輸入框
-            document.getElementById('sync-days').value = 0;
-            document.getElementById('sync-hours').value = 0;
-            document.getElementById('sync-minutes').value = 0;
+            // ★ 修改：嘗試從全域資料 challengesData 中抓取目前的倒數時間
+            const challenge = challengesData[challengeId];
+            
+            // 預設值為 0
+            let defaultDays = 0;
+            let defaultHours = 0;
+            let defaultMinutes = 0;
+
+            if (challenge && challenge.countdown_end_time) {
+                const endTime = new Date(challenge.countdown_end_time);
+                const now = new Date();
+                const diff = endTime - now;
+
+                // 只有當時間還沒結束(大於0)時，才自動帶入剩餘時間
+                if (diff > 0) {
+                    defaultDays = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    defaultHours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    defaultMinutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                }
+            }
+            
+            // 將計算好的時間 (或 0) 填入輸入框
+            document.getElementById('sync-days').value = defaultDays;
+            document.getElementById('sync-hours').value = defaultHours;
+            document.getElementById('sync-minutes').value = defaultMinutes;
 
             syncTimeModal.classList.remove('hidden');
         });
