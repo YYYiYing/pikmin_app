@@ -92,30 +92,42 @@
                             </button>
                         </div>
 
-                        <div class="pt-4 border-t border-gray-700 space-y-3">
-                            <label class="block text-sm font-medium text-gray-400">系統排程與測試</label>
-                            
-                            <div class="grid grid-cols-2 gap-3">
-                                <button id="trigger-check-button" class="bg-teal-600 hover:bg-teal-500 text-white px-2 py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-1">
-                                    ⚡ 立即發送報名通知
+                        <div class="grid grid-cols-3 gap-2">
+                                <button id="trigger-check-button" class="bg-teal-600 hover:bg-teal-500 text-white px-2 py-2 rounded-lg font-bold text-xs md:text-sm flex items-center justify-center gap-1">
+                                    發送報名通知
                                 </button>
-                                <button id="send-test-email-button" class="secondary-button px-2 py-2 rounded-lg font-bold text-sm border border-gray-500 hover:bg-gray-600 flex items-center justify-center gap-1">
-                                    📨 發送連線測試信
+                                <button id="trigger-full-notify-button" class="bg-pink-600 hover:bg-pink-500 text-white px-2 py-2 rounded-lg font-bold text-xs md:text-sm flex items-center justify-center gap-1">
+                                    發送額滿通知
                                 </button>
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">說明：左側按鈕等同於手動觸發排程檢查；右側按鈕僅測試系統發信功能是否正常。</p>
+                                <button id="send-test-email-button" class="secondary-button px-2 py-2 rounded-lg font-bold text-xs md:text-sm border border-gray-500 hover:bg-gray-600 flex items-center justify-center gap-1">
+                                    發送測試信
+                                </button>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex flex-col justify-start">
-                    <h2 class="text-xl font-bold mb-4">⚙️ 系統全域設定</h2>
-                     <div class="flex items-center gap-4 pt-2">
-                        <label for="daily-limit-input" class="text-lg font-medium whitespace-nowrap">每日報名上限：</label>
-                        <input type="number" id="daily-limit-input" min="1" class="dark-input w-24 rounded-md text-center" placeholder="讀取中...">
-                        <button id="save-settings-button" class="admin-button px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50">儲存</button>
+                <div class="flex flex-col justify-between h-full">
+                    <div>
+                        <h2 class="text-xl font-bold mb-4">⚙️ 系統全域設定</h2>
+                        <div class="flex items-center gap-4 pt-2">
+                            <label for="daily-limit-input" class="text-lg font-medium whitespace-nowrap">每日報名上限：</label>
+                            <input type="number" id="daily-limit-input" min="1" class="dark-input w-24 rounded-md text-center" placeholder="讀取中...">
+                            <button id="save-settings-button" class="admin-button px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50">儲存</button>
+                        </div>
+                        <span id="settings-status-text" class="text-sm text-gray-400 mt-2 block"></span>
                     </div>
-                    <span id="settings-status-text" class="text-sm text-gray-400 mt-2 block"></span>
+
+                    <div class="mt-8 pt-6 border-t border-gray-700">
+                        <h3 class="text-sm font-bold text-gray-400 mb-3">👥 Google Groups 管理捷徑</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <a href="https://groups.google.com/g/mushroom_notify" target="_blank" class="secondary-button px-4 py-3 rounded-lg font-bold text-sm text-center hover:bg-gray-600 hover:text-white transition border border-gray-600 block no-underline">
+                                🔗 開啟「報名通知」群組
+                            </a>
+                            <a href="https://groups.google.com/g/full_quota_notify" target="_blank" class="secondary-button px-4 py-3 rounded-lg font-bold text-sm text-center hover:bg-gray-600 hover:text-white transition border border-gray-600 block no-underline">
+                                🔗 開啟「額滿通知」群組
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -267,6 +279,7 @@
         const subLastUpdateEl = document.getElementById('sub-last-update');
         const sendTestEmailButton = document.getElementById('send-test-email-button');
         const triggerCheckButton = document.getElementById('trigger-check-button');
+        const triggerFullNotifyButton = document.getElementById('trigger-full-notify-button');
         // 額滿通知相關元素 
         const fullSubCountEl = document.getElementById('full-sub-count');
         const copyFullSubsButton = document.getElementById('copy-full-subs-button');
@@ -393,7 +406,32 @@
             });
         }
 
-        // --- 以下維持您原本穩定的列表渲染邏輯 (不做變更) ---
+        // 手動觸發額滿通知
+        if (triggerFullNotifyButton) {
+            triggerFullNotifyButton.addEventListener('click', async () => {
+                triggerFullNotifyButton.disabled = true;
+                const originalText = triggerFullNotifyButton.textContent;
+                triggerFullNotifyButton.textContent = '發送中...';
+
+                try {
+                    // 呼叫我們剛剛在 index.ts 寫好的 action
+                    const { data } = await invokeAdminFunction('scheduled-full-notify', {});
+
+                    if (data && data.message) {
+                        showMessage(`發送成功：${data.message}`, false);
+                    } else {
+                        showMessage('檢查完成，目前沒有額滿待發的蘑菇。', false);
+                    }
+                } catch (error) {
+                    showMessage(`發送失敗: ${error.message}`, true);
+                } finally {
+                    triggerFullNotifyButton.disabled = false;
+                    triggerFullNotifyButton.textContent = originalText;
+                }
+            });
+        }
+
+        // --- 以下維持您原本穩定的列表渲染邏輯 ---
 
         function renderUserList() {
             updateSortIndicators();

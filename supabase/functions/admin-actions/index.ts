@@ -75,8 +75,8 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
         body: JSON.stringify({
             from: 'Mushroom Bot <onboarding@resend.dev>',
-            to: [RELAY_TARGET_EMAIL], 
-            subject: `[蘑菇快訊] ${activeChallenges.length > 0 ? activeChallenges.length + ' 朵蘑菇開放中！' : '目前無新挑戰'}`,
+            to: [RELAY_TARGET_EMAIL],
+            subject: `[來吃喲!] ${activeChallenges.length > 0 ? activeChallenges.length + ' 朵蘑菇開放中！' : '目前無新挑戰'}`,
             html: emailHtml,
         }),
     });
@@ -109,12 +109,111 @@ serve(async (req) => {
     // ============================================================
     // 區塊 A：系統自動化 (不需要一般使用者 Auth Header，使用 Service Role 執行)
     // ============================================================
-    
-    // 1. 排程發信通知 (GitHub Actions 每 30 分鐘觸發)
+
+    // 1. 排程發信通知 (報名通知 - 寄給訂閱群組)
     if (action === 'scheduled-email-notify') {
         if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
+        // 維持原邏輯：檢查開放中的蘑菇 -> 寄給 RELAY_TARGET_EMAIL
         const result = await checkAndSendNotification(adminSupabaseClient, RESEND_API_KEY, false);
         return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+        });
+    }
+
+    // ★★★ 新增：排程發信通知 (額滿通知 - 針對發菇者分眾寄信) ★★★
+// ★★★ 修改：排程發信通知 (額滿通知 - 匯總報告給管理員) ★★★
+    if (action === 'scheduled-full-notify') {
+        if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
+
+        // A. 查詢條件：狀態="已額滿" 且 發送狀態!="已發"
+        const { data: fullMushrooms, error: dbError } = await adminSupabaseClient
+            .from('challenges')
+            .select('*, host:profiles!inner(nickname)')
+            .eq('status', '已額滿')
+            .neq('dispatch_status', '已發');
+
+        if (dbError) throw dbError;
+
+        if (!fullMushrooms || fullMushrooms.length === 0) {
+            return new Response(JSON.stringify({ success: true, data: { message: '無待發送的額滿蘑菇' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
+
+        // B. 資料分組：依照 host.nickname 進行分組
+        const reportMap: Record<string, any[]> = {};
+        fullMushrooms.forEach((m: any) => {
+            const nickname = m.host?.nickname || '未知';
+            if (!reportMap[nickname]) {
+                reportMap[nickname] = [];
+            }
+            reportMap[nickname].push(m);
+        });
+
+        // C. 產生匯總 HTML 內容
+        let contentHtml = '';
+        let hostIndex = 1;
+
+        for (const [nickname, mushrooms] of Object.entries(reportMap)) {
+            const listHtml = mushrooms.map((m: any) => {
+                 // 格式：蘑菇類型、用餐時段、名額
+                 return `<li style="margin-bottom: 4px; color: #555;">
+                    ${m.mushroom_type} | ${m.details || '未指定'} | ${m.slots}人
+                 </li>`;
+            }).join('');
+
+            // ★ 修改：去除中括號，並將 nickname 改為藍色 (#2563eb)
+            contentHtml += `
+                <div style="margin-bottom: 20px; padding: 10px; background-color: #f9fafb; border-left: 4px solid #db2777; border-radius: 4px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #333;">
+                        第${hostIndex}位 <span style="color: #2563eb; font-weight: bold;">${nickname}</span> 目前統計共有 <span style="color: #db2777;">${mushrooms.length}</span> 朵蘑菇未發送：
+                    </h3>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
+                        ${listHtml}
+                    </ul>
+                </div>
+            `;
+            hostIndex++;
+        }
+
+        const emailHtml = `
+            <div style="font-family: sans-serif; color: #333; max-width: 600px;">
+                <h2 style="color: #db2777; border-bottom: 2px solid #db2777; padding-bottom: 10px;">🔔 蘑菇額滿待發清單</h2>
+                <p>系統掃描報告：共有 <strong>${Object.keys(reportMap).length}</strong> 位發菇者需要發送邀請。</p>
+                
+                ${contentHtml}
+
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
+                <p style="font-size: 12px; color: #999;">
+                    此郵件由系統自動生成並寄送至中繼信箱。<br>
+                    請確認後協助通知相關發菇者。
+                </p>
+            </div>
+        `;
+
+        // D. 寄送單一信件 (設定顯示名稱)
+        const res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
+            body: JSON.stringify({
+                from: 'Mushroom Bot <onboarding@resend.dev>',
+                // ★ 這裡設定顯示名稱，隱藏直接的 Email 顯示
+                to: [RELAY_TARGET_EMAIL], 
+                subject: `[開車囉!] 共有 ${fullMushrooms.length} 朵蘑菇待發送`,
+                html: emailHtml,
+            }),
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Resend API Error: ${errText}`);
+        }
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: { 
+                message: `匯總報告已發送 (含 ${fullMushrooms.length} 朵蘑菇)`,
+            } 
+        }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         });

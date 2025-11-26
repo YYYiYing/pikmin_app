@@ -586,11 +586,16 @@
         const hamburgerButton = document.getElementById('hamburger-button');
         const mobileMenu = document.getElementById('mobile-menu');
 
-        // ▼▼▼ 【新增】Email 訂閱相關變數 ▼▼▼
-        const emailSubButton = document.getElementById('email-sub-button');
-        const emailIcon = document.getElementById('email-icon');
-        const emailText = document.getElementById('email-text');
-        // ▲▲▲ 【新增結束】 ▲▲▲
+        // ▼▼▼ 【新增】Email 訂閱相關變數 ▼▼▼        
+        // 1. 報名通知相關元素
+        const signupSubButton = document.getElementById('signup-sub-button');
+        const signupIcon = document.getElementById('signup-email-icon');
+        const signupText = document.getElementById('signup-email-text');
+
+        // 2. 額滿通知相關元素
+        const fullSubButton = document.getElementById('full-sub-button');
+        const fullIcon = document.getElementById('full-email-icon');
+        const fullText = document.getElementById('full-email-text');
 
         // --- 蘑菇倒數計時相關變數 ---
         const syncTimeModal = document.getElementById('sync-time-modal');
@@ -2140,29 +2145,26 @@ function renderChallenge(challenge) {
             }
         }
 
-        // ▼▼▼ 【新版 v3】Gmail 訂閱功能核心邏輯 ▼▼▼
-        
-        const signupSubButton = document.getElementById('signup-sub-button');
-        const signupIcon = document.getElementById('signup-email-icon');
-        const signupText = document.getElementById('signup-email-text');
+        // ▼▼▼ 訂閱功能完整邏輯 (請覆蓋舊的相關函式) ▼▼▼
+        // ==========================================
 
-        const fullSubButton = document.getElementById('full-sub-button');
-        const fullIcon = document.getElementById('full-email-icon');
-        const fullText = document.getElementById('full-email-text');
-
+        // 1. 檢查訂閱狀態 (UI更新)
         function checkSubscriptionStatus() {
             if (!currentUserProfile) return;
             
-            // 1. 檢查報名通知
+            // 報名通知
             const hasSignup = !!currentUserProfile.notification_email;
             updateSubBtnUI(signupSubButton, signupIcon, signupText, hasSignup, currentUserProfile.notification_email, 'text-green-500', '報名通知');
 
-            // 2. 檢查額滿通知
+            // 額滿通知
             const hasFull = !!currentUserProfile.full_notification_email;
             updateSubBtnUI(fullSubButton, fullIcon, fullText, hasFull, currentUserProfile.full_notification_email, 'text-pink-500', '額滿通知');
         }
 
+        // 2. 更新按鈕樣式的輔助函式
         function updateSubBtnUI(btn, icon, textSpan, isSubscribed, email, activeColorClass, defaultText) {
+            if (!btn || !icon || !textSpan) return; // 安全檢查
+
             if (!isSubscribed) {
                 icon.textContent = defaultText === '額滿通知' ? '🔔' : '📧';
                 textSpan.textContent = defaultText;
@@ -2176,7 +2178,7 @@ function renderChallenge(challenge) {
             }
         }
 
-        // 通用訂閱處理函式
+        // 3. 處理點擊事件 (跳出視窗)
         async function handleSubscriptionClick(type) {
             const isFullType = type === 'full';
             const currentEmail = isFullType ? currentUserProfile.full_notification_email : currentUserProfile.notification_email;
@@ -2202,16 +2204,14 @@ function renderChallenge(challenge) {
             }
         }
 
-        // 綁定按鈕事件
-        signupSubButton.addEventListener('click', () => handleSubscriptionClick('signup'));
-        fullSubButton.addEventListener('click', () => handleSubscriptionClick('full'));
-
+        // 4. 呼叫後端 API (更新資料庫)
         async function updateEmailSubscription(email, type) {
             const btn = type === 'full' ? fullSubButton : signupSubButton;
-            const originalText = type === 'full' ? fullText.textContent : signupText.textContent;
-            
-            btn.disabled = true;
-            (type === 'full' ? fullText : signupText).textContent = '...';
+            const textSpan = type === 'full' ? fullText : signupText;
+            const originalText = textSpan.textContent;
+
+            if (btn) btn.disabled = true;
+            textSpan.textContent = '處理中...';
 
             try {
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
@@ -2220,7 +2220,7 @@ function renderChallenge(challenge) {
                         payload: { 
                             userId: currentUserProfile.id, 
                             email: email,
-                            type: type // ★ 傳送訂閱類型
+                            type: type 
                         } 
                     }
                 });
@@ -2228,49 +2228,26 @@ function renderChallenge(challenge) {
                 if (error) throw error;
                 if (data.error) throw new Error(data.error);
 
-                // 更新本地狀態
                 if (type === 'full') currentUserProfile.full_notification_email = email;
                 else currentUserProfile.notification_email = email;
 
                 checkSubscriptionStatus();
                 
-                if (email) showToast(`${type === 'full' ? '額滿' : '報名'}通知訂閱成功！`, false);
-                else showToast('已取消訂閱。', false);
-
-            } catch (err) {
-                console.error(err);
-                showToast('操作失敗，請稍後再試。', true);
-                (type === 'full' ? fullText : signupText).textContent = originalText;
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        async function updateEmailSubscription(email) {
-            emailSubButton.disabled = true;
-            const originalText = emailText.textContent;
-            emailText.textContent = '處理中...';
-
-            try {
-                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
-                    body: { 
-                        action: 'update-subscription', 
-                        payload: { 
-                            userId: currentUserProfile.id, 
-                            email: email 
-                        } 
-                    }
-                });
-
-                if (error) throw error;
-                if (data.error) throw new Error(data.error);
-
-                // 更新本地狀態
-                currentUserProfile.notification_email = email; 
-                checkSubscriptionStatus();
-                
                 if (email) {
-                    showToast('訂閱成功！請等待管理員將您加入群組。', false);
+                    showToast(`${type === 'full' ? '額滿' : '報名'}通知訂閱成功！`, false);
+                    
+                    // ★★★ 修改：加入提示視窗，確認後才跳轉 ★★★
+                    setTimeout(() => {
+                        // 1. 跳出提示視窗 (這會暫停程式執行，直到使用者按確定)
+                        alert('即將轉往Google網路論壇，請按「要求加入群組」，等審核通過即可收到通知。');
+                        
+                        // 2. 使用者按下確定後，才執行開啟網頁
+                        const groupUrl = type === 'full' 
+                            ? "https://groups.google.com/g/full_quota_notify" 
+                            : "https://groups.google.com/g/mushroom_notify/members";
+                        
+                        window.open(groupUrl, '_blank');
+                    }, 500); // 設定 0.5 秒小延遲，確保 Toast 訊息有先顯示出來
                 } else {
                     showToast('已取消訂閱。', false);
                 }
@@ -2278,12 +2255,19 @@ function renderChallenge(challenge) {
             } catch (err) {
                 console.error(err);
                 showToast('操作失敗，請稍後再試。', true);
-                emailText.textContent = originalText;
+                textSpan.textContent = originalText;
             } finally {
-                emailSubButton.disabled = false;
+                if (btn) btn.disabled = false;
             }
         }
-        // ▲▲▲ 【新版 v3】結束 ▲▲▲
+
+        // 5. ★★★ 綁定按鈕監聽器 (這就是之前缺少的部分) ★★★
+        if (signupSubButton) {
+            signupSubButton.onclick = () => handleSubscriptionClick('signup');
+        }
+        if (fullSubButton) {
+            fullSubButton.onclick = () => handleSubscriptionClick('full');
+        }
         
         // 複製桌面版按鈕事件到行動版
         mobileMenu.querySelector('#leaderboard-button-mobile').addEventListener('click', () => leaderboardButton.click());

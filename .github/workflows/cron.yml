@@ -16,12 +16,21 @@ jobs:
   trigger-supabase:
     runs-on: ubuntu-latest
     steps:
-      - name: Call Supabase Edge Function
+    # ▼▼▼ 觸發「未額滿」通知 (針對報名者) ▼▼▼
+      - name: Call Supabase Edge Function (Signup Notify)
         run: |
           curl -X POST 'https://htdddmoclmhqebyvzean.supabase.co/functions/v1/admin-actions' \
           -H "Authorization: Bearer ${{ secrets.SECRET_KEY }}" \
           -H "Content-Type: application/json" \
           -d '{"action": "scheduled-email-notify"}'
+
+  # ▼▼▼ 觸發「額滿待發」通知 (針對發菇者) ▼▼▼
+      - name: Call Supabase Edge Function (Full/Dispatch Notify)
+        run: |
+          curl -X POST 'https://htdddmoclmhqebyvzean.supabase.co/functions/v1/admin-actions' \
+          -H "Authorization: Bearer ${{ secrets.SECRET_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"action": "scheduled-full-notify"}'
 
   # ▼▼▼ 新增：觸發逾時清理 ▼▼▼
       - name: Cleanup Expired Challenges
