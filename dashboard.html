@@ -2246,7 +2246,7 @@ function renderChallenge(challenge) {
                             ? "https://groups.google.com/g/full_quota_notify" 
                             : "https://groups.google.com/g/mushroom_notify/members";
                         
-                        window.open(groupUrl, '_blank');
+                        window.location.href = groupUrl;
                     }, 500); // 設定 0.5 秒小延遲，確保 Toast 訊息有先顯示出來
                 } else {
                     showToast('已取消訂閱。', false);
