@@ -75,12 +75,12 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
         body: JSON.stringify({
             from: 'Mushroom Bot <onboarding@resend.dev>',
-            to: [RELAY_TARGET_EMAIL],
+            to: [RELAY_TARGET_EMAIL], 
+            // ★ 修改：主旨改為 [來吃喲!]
             subject: `[來吃喲!] ${activeChallenges.length > 0 ? activeChallenges.length + ' 朵蘑菇開放中！' : '目前無新挑戰'}`,
             html: emailHtml,
         }),
     });
-
     if (!res.ok) {
         const errorText = await res.text();
         throw new Error(`Resend API Error (${res.status}): ${errorText}`);
@@ -198,7 +198,7 @@ serve(async (req) => {
                 from: 'Mushroom Bot <onboarding@resend.dev>',
                 // ★ 這裡設定顯示名稱，隱藏直接的 Email 顯示
                 to: [RELAY_TARGET_EMAIL], 
-                subject: `[開車囉!] 共有 ${fullMushrooms.length} 朵蘑菇待發送`,
+                subject: `[發車囉!] 共有 ${fullMushrooms.length} 朵蘑菇待發送`,
                 html: emailHtml,
             }),
         });
