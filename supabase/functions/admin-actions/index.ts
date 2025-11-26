@@ -395,6 +395,38 @@ serve(async (req) => {
             data = { emails: subscribers.map((p: any) => p.notification_email).filter((e: string) => e && e.includes('@')) };
             break;
 
+        // ★★★ 補上缺少的刪除挑戰功能 ★★★
+        case 'delete-challenge':
+            if (!payload.challengeId) throw new Error('缺少 challengeId');
+            
+            // 1. 先嘗試刪除關聯圖片 (如果有)
+            const { data: challengeData } = await adminSupabaseClient
+                .from('challenges')
+                .select('image_url')
+                .eq('id', payload.challengeId)
+                .single();
+
+            if (challengeData && challengeData.image_url) {
+                try {
+                    const fileName = challengeData.image_url.split('/').pop();
+                    if (fileName) {
+                        await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
+                    }
+                } catch (e) {
+                    console.error('圖片刪除失敗:', e);
+                }
+            }
+
+            // 2. 刪除資料庫紀錄
+            const { error: delErr } = await adminSupabaseClient
+                .from('challenges')
+                .delete()
+                .eq('id', payload.challengeId);
+            
+            if (delErr) throw delErr;
+            data = { message: '刪除成功' };
+            break;
+
         case 'create-user':
              const virtualEmail = `${encodeURIComponent(payload.nickname)}@pikmin.sys`;
              const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({ email: virtualEmail, password: payload.password, email_confirm: true });

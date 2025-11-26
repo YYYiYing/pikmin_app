@@ -1129,7 +1129,9 @@ function renderChallenge(challenge) {
                         
                         <div class="flex items-center space-x-2">
                             ${dispatchTagHtml}
-                            <span class="status-badge ${statusClass}">${challenge.status}</span>
+                            <span class="status-badge ${statusClass}">
+                                ${challenge.status === '開放報名中' ? '報名中' : challenge.status}
+                            </span>
                             ${hostControlsHtml}
                         </div>
                     </div>
@@ -1448,7 +1450,7 @@ function renderChallenge(challenge) {
                 slots: parseInt(form['slots'].value),
                 start_time: startTime.toISOString(),
                 details: form['details'].value,
-                status: startTime > new Date() ? '預計開放' : '開放報名中',
+                status: startTime > new Date() ? '預計開放' : '報名中',
                 
                 // ▼▼▼ 【新增】將火侯與圖片網址寫入資料庫欄位 ▼▼▼
                 cooking_style: cookingStyleVal,
@@ -1569,7 +1571,7 @@ function renderChallenge(challenge) {
             } else if (currentSignupCount >= newSlots) {
                 newStatus = '已額滿';
             } else {
-                newStatus = '開放報名中';
+                newStatus = '報名中';
             }
 
             // 2. 準備基本的更新資料 (先不含圖片)

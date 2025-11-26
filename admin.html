@@ -580,10 +580,25 @@
             loadAllAdminData();
         }
 
+        //  優化管理員登出邏輯
         adminLogoutButton.addEventListener('click', async () => {
+            // 1. 提供視覺回饋
+            adminLogoutButton.disabled = true;
+            adminLogoutButton.textContent = '登出中...';
+
+            // 2. 停止背景連線檢查
             if (dbConnectionInterval) clearInterval(dbConnectionInterval);
-            await supabaseClient.auth.signOut();
-            window.location.reload();
+
+            try {
+                // 3. 嘗試通知後端登出
+                await supabaseClient.auth.signOut();
+            } catch (error) {
+                console.warn('後台登出異常 (可忽略):', error);
+            } finally {
+                // 4. ★ 重點：無論成功或失敗，都強制重新載入頁面
+                // 重新載入後，因為沒有 Session，頁面會自動顯示回登入表單
+                window.location.reload();
+            }
         });
 
         function loadAllAdminData() {
@@ -765,7 +780,7 @@
                     <div class="flex items-center space-x-2">
                     ${dispatchTagHtml}
                     <span class="text-xs font-bold px-2 py-1 rounded-full text-white ${statusClass}">
-                        ${challenge.status}
+                        ${challenge.status === '開放報名中' ? '報名中' : challenge.status}
                     </span>
                     </div>
                 </div>
