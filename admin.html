@@ -71,31 +71,39 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 
                 <div>
-                    <div class="flex items-center gap-4 mb-4">
-                        <h2 class="text-xl font-bold">📧 通知與發信測試</h2>
-                        <span id="sub-count" class="text-sm bg-indigo-600 text-white px-2 py-1 rounded-full">讀取中...</span>
-                    </div>
-                    
-                    <div class="space-y-4">
-                        <div class="flex gap-2">
-                             <button id="copy-subs-button" class="admin-button px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
-                                📋 複製名單
-                            </button>
-                            <button id="send-test-email-button" class="secondary-button px-4 py-2 rounded-lg font-bold text-sm border border-gray-500 hover:bg-gray-600">
-                                📨 發送測試信
+                    <div class="flex flex-col gap-6">
+                        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-bold text-indigo-400">📧 報名通知名單</h3>
+                                <span id="sub-count" class="text-xs bg-indigo-900 text-indigo-200 px-2 py-1 rounded-full">讀取中...</span>
+                            </div>
+                            <button id="copy-subs-button" class="admin-button w-full py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2">
+                                📋 複製報名清單
                             </button>
                         </div>
 
-                        <p class="text-gray-400 text-sm">
-                            <span id="sub-last-update"></span>
-                        </p>
-
-                        <div class="pt-4 border-t border-gray-700">
-                            <label class="block text-sm font-medium text-gray-400 mb-2">手動執行排程檢查 (立即掃描)</label>
-                            <button id="trigger-check-button" class="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg font-bold text-sm w-full md:w-auto flex items-center justify-center gap-2">
-                                <span>⚡ 立即檢查蘑菇狀態</span>
+                        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-bold text-pink-400">🔔 額滿通知名單</h3>
+                                <span id="full-sub-count" class="text-xs bg-pink-900 text-pink-200 px-2 py-1 rounded-full">讀取中...</span>
+                            </div>
+                            <button id="copy-full-subs-button" class="secondary-button w-full py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-pink-900 border border-pink-700">
+                                📋 複製額滿清單
                             </button>
-                            <p class="text-xs text-gray-500 mt-1">說明：點擊此按鈕等同於系統自動觸發的行為。</p>
+                        </div>
+
+                        <div class="pt-4 border-t border-gray-700 space-y-3">
+                            <label class="block text-sm font-medium text-gray-400">系統排程與測試</label>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <button id="trigger-check-button" class="bg-teal-600 hover:bg-teal-500 text-white px-2 py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-1">
+                                    ⚡ 立即發送報名通知
+                                </button>
+                                <button id="send-test-email-button" class="secondary-button px-2 py-2 rounded-lg font-bold text-sm border border-gray-500 hover:bg-gray-600 flex items-center justify-center gap-1">
+                                    📨 發送連線測試信
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">說明：左側按鈕等同於手動觸發排程檢查；右側按鈕僅測試系統發信功能是否正常。</p>
                         </div>
                     </div>
                 </div>
@@ -250,7 +258,7 @@
         const dbStatusLight = document.getElementById('db-status-light');
         const userTableHeader = document.getElementById('user-table-header');
         
-        // 全域設定與通知相關元素 (★ 補回這些變數)
+        // 全域設定與通知相關元素
         const dailyLimitInput = document.getElementById('daily-limit-input');
         const saveSettingsButton = document.getElementById('save-settings-button');
         const settingsStatusText = document.getElementById('settings-status-text');
@@ -259,7 +267,10 @@
         const subLastUpdateEl = document.getElementById('sub-last-update');
         const sendTestEmailButton = document.getElementById('send-test-email-button');
         const triggerCheckButton = document.getElementById('trigger-check-button');
-        
+        // 額滿通知相關元素 
+        const fullSubCountEl = document.getElementById('full-sub-count');
+        const copyFullSubsButton = document.getElementById('copy-full-subs-button');
+
         // 複製 Modal 相關
         const copyModal = document.getElementById('copy-modal');
         const copyTextarea = document.getElementById('copy-textarea');
@@ -293,31 +304,47 @@
         // ★ 新增：更新訂閱統計 UI
         function updateSubscriptionUI() {
             if (!allUsersData) return;
-            // 計算有設定 notification_email 的人數
-            const subscriberCount = allUsersData.filter(u => u.notification_email && u.notification_email.includes('@')).length;
-            
-            if (subCountEl) subCountEl.textContent = `${subscriberCount} 人`;
-            if (subLastUpdateEl) subLastUpdateEl.textContent = `(資料同步於: ${new Date().toLocaleTimeString()})`;
+
+            // 1. 報名通知統計
+            const signupEmails = allUsersData.map(u => u.notification_email).filter(e => e && e.includes('@'));
+            if (subCountEl) subCountEl.textContent = `${signupEmails.length} 人`;
+
+            // 2. 額滿通知統計
+            const fullEmails = allUsersData.map(u => u.full_notification_email).filter(e => e && e.includes('@'));
+            if (fullSubCountEl) fullSubCountEl.textContent = `${fullEmails.length} 人`;
         }
 
         // ★ 新增：複製訂閱名單邏輯
-        if (copySubsButton) {
-            copySubsButton.addEventListener('click', () => {
+        if (copyFullSubsButton) {
+            copyFullSubsButton.addEventListener('click', () => {
                 const emails = allUsersData
-                    .map(user => user.notification_email)
+                    .map(user => user.full_notification_email)
                     .filter(email => email && email.includes('@'))
                     .sort();
 
                 if (emails.length === 0) {
-                    showMessage('目前沒有人訂閱。', true);
+                    showMessage('目前沒有人訂閱額滿通知。', true);
                     return;
                 }
+                copyToModal(emails);
+            });
+        }
 
-                copyTextarea.value = emails.join(', ');
-                copyModal.classList.remove('hidden');
-                copyTextarea.focus();
-                copyTextarea.select();
-                try { document.execCommand('copy'); showMessage('已自動複製到剪貼簿！', false); } catch (e) {}
+        // 為了避免代碼重複，建議將原本的 copySubsButton 邏輯內的複製動作提取為 copyToModal 函式
+        function copyToModal(emailList) {
+            copyTextarea.value = emailList.join(', ');
+            copyModal.classList.remove('hidden');
+            copyTextarea.focus();
+            copyTextarea.select();
+            try { document.execCommand('copy'); showMessage('已自動複製到剪貼簿！', false); } catch (e) {}
+        }
+
+        // 修改原本的 copySubsButton 使用新函式
+        if (copySubsButton) {
+            copySubsButton.addEventListener('click', () => {
+                const emails = allUsersData.map(u => u.notification_email).filter(e => e && e.includes('@')).sort();
+                if (emails.length === 0) { showMessage('目前沒有人訂閱報名通知。', true); return; }
+                copyToModal(emails);
             });
         }
 

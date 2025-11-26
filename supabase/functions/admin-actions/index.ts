@@ -123,9 +123,9 @@ serve(async (req) => {
     // 2. 排程清理逾時挑戰 (GitHub Actions 每 30 分鐘觸發)
     if (action === 'cleanup-expired') {
         // --- 設定逾時時數 (可在此調整) ---
-        const HOURS_LIMIT = 8; 
+        const HOURS_LIMIT = 12; 
         
-        // 計算截止時間：目前時間 減去 8小時
+        // 計算截止時間：目前時間 減去 12小時
         const cutoffTime = new Date(Date.now() - HOURS_LIMIT * 60 * 60 * 1000).toISOString();
 
         // --- 步驟 1：查詢符合刪除條件的挑戰 ---
@@ -210,9 +210,24 @@ serve(async (req) => {
     // --- B1. 一般使用者功能 ---
     if (action === 'update-subscription') {
         if (payload.userId !== user.id) throw new Error('權限不足');
-        const { error } = await adminSupabaseClient.from('profiles').update({ notification_email: payload.email }).eq('id', user.id);
+        
+        // ★ 修改：根據 payload.type 決定要更新哪個欄位
+        // payload.type 預設為 'signup' (報名通知), 若為 'full' 則更新額滿通知
+        const column = payload.type === 'full' ? 'full_notification_email' : 'notification_email';
+        
+        // 動態更新欄位
+        const updateData: any = {};
+        updateData[column] = payload.email;
+
+        const { error } = await adminSupabaseClient.from('profiles').update(updateData).eq('id', user.id);
+        
         if (error) throw error;
-        return new Response(JSON.stringify({ success: true, data: { message: payload.email ? '訂閱成功' : '已取消訂閱' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        
+        const typeText = payload.type === 'full' ? '額滿通知' : '報名通知';
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: { message: payload.email ? `${typeText}訂閱成功` : `已取消${typeText}` } 
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // --- B2. 管理員專屬功能 (檢查 role) ---

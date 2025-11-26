@@ -236,9 +236,15 @@
                     <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden text-xs md:text-base">我的發布</button>
                 </div>
                 
-<button id="email-sub-button" class="text-gray-400 hover:text-indigo-400 transition text-xs md:text-base flex items-center gap-1 ml-2">
-                    <span id="email-icon">📧</span> <span id="email-text">訂閱通知</span>
-                </button>
+                <div class="flex items-center space-x-2 ml-2">
+                    <button id="signup-sub-button" class="text-gray-400 hover:text-indigo-400 transition text-xs md:text-base flex items-center gap-1" title="訂閱新蘑菇通知">
+                        <span id="signup-email-icon">📧</span> <span id="signup-email-text">報名通知</span>
+                    </button>
+                    <button id="full-sub-button" class="text-gray-400 hover:text-red-400 transition text-xs md:text-base flex items-center gap-1" title="訂閱蘑菇額滿通知">
+                        <span id="full-email-icon">🔔</span> <span id="full-email-text">額滿通知</span>
+                    </button>
+                </div>
+
                 <button id="screenshot-button" class="text-gray-400 hover:text-white transition text-xs md:text-base">📸 截圖</button>
             </div>
             <button id="post-challenge-button" class="hidden bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 w-full md:w-auto">
@@ -2117,58 +2123,109 @@ function renderChallenge(challenge) {
 
         // ▼▼▼ 【新版 v3】Gmail 訂閱功能核心邏輯 ▼▼▼
         
+        const signupSubButton = document.getElementById('signup-sub-button');
+        const signupIcon = document.getElementById('signup-email-icon');
+        const signupText = document.getElementById('signup-email-text');
+
+        const fullSubButton = document.getElementById('full-sub-button');
+        const fullIcon = document.getElementById('full-email-icon');
+        const fullText = document.getElementById('full-email-text');
+
         function checkSubscriptionStatus() {
             if (!currentUserProfile) return;
             
-            const hasEmail = !!currentUserProfile.notification_email;
+            // 1. 檢查報名通知
+            const hasSignup = !!currentUserProfile.notification_email;
+            updateSubBtnUI(signupSubButton, signupIcon, signupText, hasSignup, currentUserProfile.notification_email, 'text-green-500', '報名通知');
 
-            if (!hasEmail) {
-                // 未訂閱
-                emailIcon.textContent = '📧';
-                emailText.textContent = '訂閱通知';
-                emailSubButton.className = 'text-gray-400 hover:text-indigo-400 transition text-xs md:text-base flex items-center gap-1 ml-2';
-                emailSubButton.title = '點擊訂閱 Google Groups 通知';
+            // 2. 檢查額滿通知
+            const hasFull = !!currentUserProfile.full_notification_email;
+            updateSubBtnUI(fullSubButton, fullIcon, fullText, hasFull, currentUserProfile.full_notification_email, 'text-pink-500', '額滿通知');
+        }
+
+        function updateSubBtnUI(btn, icon, textSpan, isSubscribed, email, activeColorClass, defaultText) {
+            if (!isSubscribed) {
+                icon.textContent = defaultText === '額滿通知' ? '🔔' : '📧';
+                textSpan.textContent = defaultText;
+                btn.className = `text-gray-400 hover:${defaultText === '額滿通知' ? 'text-red-400' : 'text-indigo-400'} transition text-xs md:text-base flex items-center gap-1`;
+                btn.title = `點擊訂閱 ${defaultText}`;
             } else {
-                // 已訂閱
-                emailIcon.textContent = '📭';
-                emailText.textContent = '已訂閱';
-                emailSubButton.className = 'text-green-500 hover:text-green-400 transition text-xs md:text-base flex items-center gap-1 ml-2';
-                emailSubButton.title = `接收信箱: ${currentUserProfile.notification_email} (點擊可取消訂閱)`;
+                icon.textContent = '📭';
+                textSpan.textContent = '已訂閱';
+                btn.className = `${activeColorClass} hover:opacity-80 transition text-xs md:text-base flex items-center gap-1`;
+                btn.title = `接收信箱: ${email} (點擊可取消)`;
             }
         }
 
-        // ▼▼▼ 【修改】訂閱按鈕 (含 Gmail 自動補全功能) ▼▼▼
-        emailSubButton.addEventListener('click', async () => {
-            const hasEmail = !!currentUserProfile.notification_email;
-
-            if (!hasEmail) {
+        // 通用訂閱處理函式
+        async function handleSubscriptionClick(type) {
+            const isFullType = type === 'full';
+            const currentEmail = isFullType ? currentUserProfile.full_notification_email : currentUserProfile.notification_email;
+            const typeName = isFullType ? '額滿通知' : '報名通知';
+            
+            if (!currentEmail) {
                 // --- 訂閱流程 ---
-                let email = prompt('請輸入您的 Gmail 帳號：\n(若未輸入 @gmail.com 系統將自動補上)');
-                
+                let email = prompt(`【訂閱${typeName}】\n請輸入您的 Gmail 帳號：\n(若未輸入 @gmail.com 系統將自動補上)`);
                 if (email) {
-                    email = email.trim(); // 去除前後空白
-
-                    // ★ 自動補全邏輯：如果沒有 @ 符號，預設補上 @gmail.com
-                    if (!email.includes('@')) {
-                        email += '@gmail.com';
-                    }
-                    
-                    // 強制檢查是否為 gmail
+                    email = email.trim();
+                    if (!email.includes('@')) email += '@gmail.com';
                     if (!email.toLowerCase().endsWith('@gmail.com')) {
                         alert('格式錯誤！為了配合 Google 群組功能，請務必使用 @gmail.com 信箱。');
                         return;
                     }
-
-                    await updateEmailSubscription(email);
+                    await updateEmailSubscription(email, type);
                 }
             } else {
                 // --- 取消訂閱流程 ---
-                if (confirm(`目前的訂閱信箱：${currentUserProfile.notification_email}\n\n確定要取消訂閱嗎？`)) {
-                    await updateEmailSubscription(null); 
+                if (confirm(`目前的${typeName}信箱：${currentEmail}\n\n確定要取消訂閱嗎？`)) {
+                    await updateEmailSubscription(null, type); 
                 }
             }
-        });
-        // ▲▲▲ 【修改結束】 ▲▲▲
+        }
+
+        // 綁定按鈕事件
+        signupSubButton.addEventListener('click', () => handleSubscriptionClick('signup'));
+        fullSubButton.addEventListener('click', () => handleSubscriptionClick('full'));
+
+        async function updateEmailSubscription(email, type) {
+            const btn = type === 'full' ? fullSubButton : signupSubButton;
+            const originalText = type === 'full' ? fullText.textContent : signupText.textContent;
+            
+            btn.disabled = true;
+            (type === 'full' ? fullText : signupText).textContent = '...';
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: { 
+                        action: 'update-subscription', 
+                        payload: { 
+                            userId: currentUserProfile.id, 
+                            email: email,
+                            type: type // ★ 傳送訂閱類型
+                        } 
+                    }
+                });
+
+                if (error) throw error;
+                if (data.error) throw new Error(data.error);
+
+                // 更新本地狀態
+                if (type === 'full') currentUserProfile.full_notification_email = email;
+                else currentUserProfile.notification_email = email;
+
+                checkSubscriptionStatus();
+                
+                if (email) showToast(`${type === 'full' ? '額滿' : '報名'}通知訂閱成功！`, false);
+                else showToast('已取消訂閱。', false);
+
+            } catch (err) {
+                console.error(err);
+                showToast('操作失敗，請稍後再試。', true);
+                (type === 'full' ? fullText : signupText).textContent = originalText;
+            } finally {
+                btn.disabled = false;
+            }
+        }
 
         async function updateEmailSubscription(email) {
             emailSubButton.disabled = true;
