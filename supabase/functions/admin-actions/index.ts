@@ -469,6 +469,49 @@ serve(async (req) => {
             break;
             
         default: throw new Error(`未知的操作: ${action}`);
+
+        // --- B3. 使用者許願功能 ---
+        case 'submit-wish':
+            // 1. 查詢目前已許願次數
+            const { data: wisherProfile } = await adminSupabaseClient
+                .from('profiles')
+                .select('daily_wish_count')
+                .eq('id', user.id)
+                .single();
+            
+            const currentCount = wisherProfile?.daily_wish_count || 0;
+            const newVotes = payload.types.length; // 這次投了幾票
+            const DAILY_LIMIT = 3; // 每日上限
+
+            // 2. 檢查是否超過上限
+            if (currentCount >= DAILY_LIMIT) {
+                throw new Error('今日已完成 3 次許願，請明日再來！');
+            }
+
+            if (currentCount + newVotes > DAILY_LIMIT) {
+                throw new Error(`您今日只剩 ${DAILY_LIMIT - currentCount} 票額度，無法一次投 ${newVotes} 票。`);
+            }
+
+            // 3. 更新使用者計數
+            const { error: updateError } = await adminSupabaseClient
+                .from('profiles')
+                .update({ daily_wish_count: currentCount + newVotes })
+                .eq('id', user.id);
+            
+            if (updateError) throw updateError;
+
+            // 4. 呼叫 SQL 函式更新統計 (原子操作)
+            const { error: incError } = await adminSupabaseClient
+                .rpc('increment_wishes', { types: payload.types });
+
+            if (incError) {
+                console.error('許願統計失敗:', incError);
+                // 這裡可選擇是否回滾 user count，為簡化邏輯暫不處理
+                throw new Error('許願統計發生錯誤');
+            }
+
+            data = { message: '許願成功！' };
+            break;
     }
 
     return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });

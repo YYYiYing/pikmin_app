@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統全功能自動檢核 - 菇菇宅配網</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background-color: #111827; color: #d1d5db; font-family: 'Consolas', 'Monaco', monospace; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .bg-red-500 { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; }
+        .bg-green-500 { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .bg-yellow-500 { background-color: #eab308; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .category-header { background-color: #374151; color: #e5e7eb; font-weight: bold; padding: 10px 16px; border-left: 4px solid #6366f1; }
+        /* 遮罩層：未授權時遮蔽內容 */
+        #auth-overlay { position: fixed; inset: 0; background: #111827; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body class="p-4 md:p-8 max-w-5xl mx-auto relative">
+
+    <div id="auth-overlay">
+        <h2 class="text-2xl font-bold text-red-500 mb-4">🔒 權限驗證中...</h2>
+        <p class="text-gray-400">正在檢查管理員身分</p>
+    </div>
+
+    <header class="mb-6 flex justify-between items-center border-b border-gray-700 pb-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">🤖 系統全功能自動檢核</h1>
+            <p class="text-xs text-gray-400 mt-1">注意：執行功能檢核需要您具備「管理者」權限</p>
+        </div>
+        <div class="flex gap-4">
+            <a href="./admin.html" class="text-indigo-400 hover:text-white flex items-center gap-1">⚙️ 後台</a>
+            <a href="./dashboard.html" class="text-indigo-400 hover:text-white flex items-center gap-1">🏠 前台</a>
+        </div>
+    </header>
+
+    <div class="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
+        <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900">
+            <span id="global-status" class="font-bold text-yellow-400 text-lg">⏳ 等待啟動...</span>
+            <button id="start-btn" onclick="startAllTests()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg transition">
+                🚀 開始全檢測
+            </button>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-gray-900 text-gray-400 text-sm uppercase">
+                    <tr>
+                        <th class="py-3 px-6 w-1/3">檢核項目</th>
+                        <th class="py-3 px-6 w-1/6 text-center">狀態</th>
+                        <th class="py-3 px-6">回應訊息 / 耗時</th>
+                    </tr>
+                </thead>
+                <tbody id="test-results">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co'; 
+        const SUPABASE_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // 測試用變數
+        let createdUserId = null;
+        let createdChallengeId = null;
+
+        // ★★★ 安全性檢查：網頁載入時立即執行 ★★★
+        document.addEventListener('DOMContentLoaded', async () => {
+            const overlay = document.getElementById('auth-overlay');
+            const overlayTitle = overlay.querySelector('h2');
+            const overlayText = overlay.querySelector('p');
+
+            try {
+                // 1. 檢查 Session
+                const { data: { session } } = await client.auth.getSession();
+                if (!session) throw new Error('未登入');
+
+                // 2. 檢查 Role
+                const { data: profile, error } = await client.from('profiles')
+                    .select('role')
+                    .eq('id', session.user.id)
+                    .single();
+                
+                if (error || profile?.role !== '管理者') throw new Error('權限不足');
+
+                // 3. 通過驗證，移除遮罩
+                overlay.style.display = 'none';
+
+            } catch (err) {
+                // 驗證失敗，顯示錯誤並提供返回按鈕
+                overlayTitle.textContent = '⛔ 存取被拒';
+                overlayText.innerHTML = `
+                    <div class="text-center">
+                        <p class="mb-4 text-red-300">此頁面僅限管理員存取。<br>原因：${err.message}</p>
+                        <a href="./admin.html" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded">返回登入頁</a>
+                    </div>
+                `;
+            }
+        });
+
+        // 定義測試群組
+        const testGroups = {
+            system: {
+                title: "🖥️ 系統基礎連線 (System)",
+                tests: [
+                    { name: 'Supabase 連線 (Ping)', func: testPing },
+                    { name: '權限驗證 (Admin Auth)', func: testAdminAuth },
+                    { name: 'Edge Function (Health)', func: testEdgeFunction },
+                    { name: 'Storage 存取 (Images)', func: testStorage }
+                ]
+            },
+            challenges: {
+                title: "🍄 挑戰功能檢核 (Challenge CRUD)",
+                tests: [
+                    { name: '讀取挑戰列表 (Read)', func: testFetchChallenges },
+                    { name: '發布測試挑戰 (Create)', func: testCreateChallenge },
+                    { name: '編輯測試挑戰 (Update)', func: testUpdateChallenge },
+                    { name: '刪除測試挑戰 (Delete)', func: testDeleteChallenge }
+                ]
+            },
+            users: {
+                title: "👥 使用者管理檢核 (User Management)",
+                tests: [
+                    { name: '讀取使用者列表 (List)', func: testListUsers },
+                    { name: '新增測試使用者 (Create)', func: testCreateUser },
+                    { name: '變更使用者角色 (Role)', func: testUpdateRole },
+                    { name: '重設使用者密碼 (Reset PW)', func: testResetPassword },
+                    { name: '刪除測試使用者 (Delete)', func: testDeleteUser }
+                ]
+            }
+        };
+
+        async function startAllTests() {
+            const btn = document.getElementById('start-btn');
+            const tbody = document.getElementById('test-results');
+            const statusLabel = document.getElementById('global-status');
+            
+            btn.disabled = true; btn.classList.add('opacity-50', 'cursor-not-allowed');
+            tbody.innerHTML = '';
+            statusLabel.textContent = '🔄 檢測進行中...';
+            statusLabel.className = 'font-bold text-yellow-400 text-lg';
+
+            let globalPass = true;
+
+            for (const [key, group] of Object.entries(testGroups)) {
+                const headerRow = document.createElement('tr');
+                headerRow.innerHTML = `<td colspan="3" class="category-header">${group.title}</td>`;
+                tbody.appendChild(headerRow);
+
+                for (const test of group.tests) {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-700 hover:bg-gray-700/30 transition';
+                    row.innerHTML = `
+                        <td class="py-3 px-6 font-medium text-gray-300 pl-8 border-l-2 border-gray-700">${test.name}</td>
+                        <td class="py-3 px-6 text-center"><span class="status-dot bg-yellow-500"></span></td>
+                        <td class="py-3 px-6 text-sm text-gray-500 font-mono">Pending...</td>
+                    `;
+                    tbody.appendChild(row);
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    const start = performance.now();
+                    try {
+                        const msg = await test.func();
+                        const time = (performance.now() - start).toFixed(0);
+                        
+                        row.querySelector('td:nth-child(1)').classList.add('border-l-2', 'border-green-500');
+                        row.querySelector('td:nth-child(2)').innerHTML = `<span class="status-dot bg-green-500" title="正常"></span>`;
+                        row.querySelector('td:nth-child(3)').innerHTML = `<span class="text-green-400 font-bold">OK</span> <span class="text-gray-500 ml-2">(${time}ms)</span> <span class="text-gray-400 text-xs block md:inline md:ml-2">${msg || ''}</span>`;
+                    } catch (err) {
+                        globalPass = false;
+                        const errMsg = err.message || err;
+                        row.querySelector('td:nth-child(1)').classList.add('border-l-2', 'border-red-500');
+                        row.querySelector('td:nth-child(2)').innerHTML = `<span class="status-dot bg-red-500" title="異常"></span>`;
+                        row.querySelector('td:nth-child(3)').innerHTML = `<span class="text-red-400 font-bold">FAIL</span> <span class="text-red-300 ml-2 text-xs break-all">${errMsg}</span>`;
+                    }
+                    await new Promise(r => setTimeout(r, 200));
+                }
+            }
+
+            statusLabel.textContent = globalPass ? '✅ 全系統運作正常' : '⚠️ 檢測完成，發現異常';
+            statusLabel.className = globalPass ? 'font-bold text-green-400 text-lg' : 'font-bold text-red-400 text-lg';
+            btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        // ==========================================
+        // 測試邏輯實作
+        // ==========================================
+
+        async function testPing() {
+            const { error } = await client.from('wish_stats').select('count', { count: 'exact', head: true });
+            if (error) throw error;
+            return 'Database Connected';
+        }
+
+        async function testAdminAuth() {
+            const { data: { session }, error } = await client.auth.getSession();
+            if (error || !session) throw new Error('未登入');
+            return `已驗證: ${session.user.email}`;
+        }
+
+        async function testEdgeFunction() {
+            const { data, error } = await client.functions.invoke('admin-actions', { body: { action: 'ping' } });
+            if (error) throw error;
+            return 'Function Alive';
+        }
+
+        async function testStorage() {
+            const { data } = client.storage.from('challenge-images').getPublicUrl('test.jpg');
+            if (!data.publicUrl) throw new Error('Public URL 生成失敗');
+            return 'Bucket Configured';
+        }
+
+        async function testFetchChallenges() {
+            const { data, error } = await client.from('challenges').select('id').limit(5);
+            if (error) throw error;
+            return `讀取 ${data.length} 筆`;
+        }
+
+        async function testCreateChallenge() {
+            const { data: { session } } = await client.auth.getSession();
+            const now = new Date();
+            const { data, error } = await client.from('challenges').insert({
+                host_id: session.user.id,
+                mushroom_type: '測試',
+                slots: 1,
+                start_time: now.toISOString(),
+                details: '自動化測試(AutoTest)',
+                status: '已額滿',
+                cooking_style: '隨便亂炒（不限戰力）'
+            }).select().single();
+
+            if (error) throw error;
+            createdChallengeId = data.id;
+            return `ID: ${data.id} Created`;
+        }
+
+        async function testUpdateChallenge() {
+            if (!createdChallengeId) throw new Error('無測試挑戰 ID');
+            const { error } = await client.from('challenges').update({ details: '已編輯(AutoTest)' }).eq('id', createdChallengeId);
+            if (error) throw error;
+            return 'Updated Success';
+        }
+
+        async function testDeleteChallenge() {
+            if (!createdChallengeId) throw new Error('無測試挑戰 ID');
+            const { data, error } = await client.functions.invoke('admin-actions', {
+                body: { action: 'delete-challenge', payload: { challengeId: createdChallengeId } }
+            });
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+            createdChallengeId = null;
+            return 'Deleted via Edge Function';
+        }
+
+        async function testListUsers() {
+            const { data, error } = await client.functions.invoke('admin-actions', {
+                body: { action: 'list-users-with-details', payload: {} }
+            });
+            if (error) throw error;
+            return `讀取 ${data.users?.length || 0} 位使用者`;
+        }
+
+        async function testCreateUser() {
+            const timestamp = Date.now();
+            const testNickname = `AT_${timestamp}`;
+            const { data, error } = await client.functions.invoke('admin-actions', {
+                body: { 
+                    action: 'create-user', 
+                    payload: { nickname: testNickname, password: 'password123', role: '報名者' } 
+                }
+            });
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+            
+            // ★ 修改重點：相容兩種回傳結構 (data.user.id 或 data.user.user.id)
+            if (data.user && data.user.id) {
+                createdUserId = data.user.id;
+            } else if (data.user && data.user.user && data.user.user.id) {
+                createdUserId = data.user.user.id;
+            } else {
+                console.log('Create User Response:', data); // 方便除錯
+                throw new Error('未回傳 User ID (請查看 Console)');
+            }
+
+            return `User Created: ${testNickname}`;
+        }
+
+        async function testUpdateRole() {
+            if (!createdUserId) throw new Error('無測試 User ID');
+            const { data, error } = await client.functions.invoke('admin-actions', {
+                body: { action: 'update-user-role', payload: { userId: createdUserId, role: '發菇者' } }
+            });
+            if (error) throw error;
+            return 'Role Updated';
+        }
+
+        async function testResetPassword() {
+            if (!createdUserId) throw new Error('無測試 User ID');
+            const { data, error } = await client.functions.invoke('admin-actions', {
+                body: { action: 'reset-user-password', payload: { userId: createdUserId, password: 'newpassword456' } }
+            });
+            if (error) throw error;
+            return 'Password Reset OK';
+        }
+
+        async function testDeleteUser() {
+            if (!createdUserId) throw new Error('無測試 User ID');
+            const { data, error } = await client.functions.invoke('admin-actions', {
+                body: { action: 'delete-user', payload: { userId: createdUserId } }
+            });
+            if (error) throw error;
+            createdUserId = null;
+            return 'User Deleted';
+        }
+    </script>
+</body>
+</html>
