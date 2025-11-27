@@ -1,5 +1,5 @@
-// 【最終整合修復版 v7】index.ts
-// 結合權威版使用者管理邏輯 + 最新版通知系統
+// 【最終整合修復版 v8】index.ts
+// 已修正重複代碼，並整理 B1/B2 權限區塊
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -15,7 +15,6 @@ const RELAY_TARGET_EMAIL = 'secretsoulful@gmail.com';
 // --- 核心函式：檢查蘑菇並發信 (v2.0 智慧靜音版) ---
 async function checkAndSendNotification(supabase: any, resendApiKey: string, isTest = false) {
     // 1. 查詢目前「開放中」且「未額滿」的挑戰
-    // 依 ID 排序確保指紋生成的順序一致
     const { data: challenges, error: dbError } = await supabase
         .from('challenges')
         .select('*, signups(*)')
@@ -38,15 +37,13 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         return { sent: false, message: '無開放中的挑戰' };
     }
 
-    // --- [新增] 狀態指紋比對邏輯 ---
-    // 產生當前狀態指紋 (格式範例: "2750:1|2755:3") 代表 ID:目前人數
+    // --- 狀態指紋比對邏輯 ---
     const currentFingerprint = activeChallenges.map((c: any) => {
         const count = c.signups ? c.signups.length : 0;
         return `${c.id}:${count}`;
     }).join('|');
 
     if (!isTest) {
-        // 從資料庫讀取上一次通知的指紋
         const { data: settingData } = await supabase
             .from('daily_settings')
             .select('setting_text')
@@ -55,14 +52,13 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         
         const lastFingerprint = settingData?.setting_text || '';
 
-        // 如果指紋完全相同，代表名單與人數都沒變 -> 靜默跳過
         if (lastFingerprint === currentFingerprint) {
             console.log('狀態未變動，跳過通知');
             return { sent: false, message: '狀態未變動 (與半小時前相同)，略過發信' };
         }
     }
 
-    // 2. 組合 Email 內容 (保持不變)
+    // 2. 組合 Email 內容
     const timeString = new Date().toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' });
     
     let emailHtml = `
@@ -115,9 +111,8 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         throw new Error(`Resend API Error (${res.status}): ${errorText}`);
     }
 
-    // --- [新增] 發送成功後，更新資料庫指紋 ---
+    // 更新資料庫指紋
     if (!isTest) {
-        // 使用 upsert (有則更新，無則新增)
         await supabase.from('daily_settings').upsert({ 
             setting_name: 'last_signup_notify_fingerprint',
             setting_text: currentFingerprint,
@@ -132,7 +127,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    // 初始化 Admin Client (使用 Service Role Key)
+    // 初始化 Admin Client (Service Role Key)
     const adminSupabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SECRET_KEY') ?? '' 
@@ -146,13 +141,12 @@ serve(async (req) => {
 
 
     // ============================================================
-    // 區塊 A：系統自動化 (不需要一般使用者 Auth Header，使用 Service Role 執行)
+    // 區塊 A：系統自動化 (無需 User Auth)
     // ============================================================
 
-    // 1. 排程發信通知 (報名通知 - 寄給訂閱群組)
+    // 1. 排程發信通知 (報名通知)
     if (action === 'scheduled-email-notify') {
         if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
-        // 維持原邏輯：檢查開放中的蘑菇 -> 寄給 RELAY_TARGET_EMAIL
         const result = await checkAndSendNotification(adminSupabaseClient, RESEND_API_KEY, false);
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -160,11 +154,10 @@ serve(async (req) => {
         });
     }
 
-    // ★★★ 修改：排程發信通知 (額滿通知 - 加入用餐時段過濾) ★★★
+    // 2. 排程發信通知 (額滿通知 - 含用餐時段過濾)
     if (action === 'scheduled-full-notify') {
         if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
 
-        // A. 查詢條件：狀態="已額滿" 且 發送狀態!="已發"
         const { data: fullMushrooms, error: dbError } = await adminSupabaseClient
             .from('challenges')
             .select('*, host:profiles!inner(nickname)')
@@ -177,63 +170,37 @@ serve(async (req) => {
             return new Response(JSON.stringify({ success: true, data: { message: '無待發送的額滿蘑菇' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
 
-        // --- B. [新增] 智慧過濾邏輯：依據用餐時段篩選 ---
-        
-        // 取得台灣時間目前的 Date 物件
+        // 時段過濾邏輯
         const nowUTC = new Date();
-        const nowTW = new Date(nowUTC.getTime() + (8 * 60 * 60 * 1000)); // 手動加8小時轉台灣時間
+        const nowTW = new Date(nowUTC.getTime() + (8 * 60 * 60 * 1000));
         const currentHour = nowTW.getUTCHours();
         
-        // 定義各時段的「起始通知小時」 (24小時制)
         const mealStartHours: Record<string, number> = {
-            '早餐': 6,
-            '午餐': 11,
-            '下午茶': 14,
-            '晚餐': 17,
-            '宵夜': 21, 
-            // '滿人開' 不在此限，直接通過
+            '早餐': 6, '午餐': 11, '下午茶': 14, '晚餐': 17, '宵夜': 21
         };
 
         const notifyList = fullMushrooms.filter((m: any) => {
-            // 1. 如果是「滿人開」，直接列入通知
             if (m.details === '滿人開') return true;
-
-            // 2. 解析蘑菇的開放時間 (start_time)
-            // 資料庫存的是 UTC ISO 字串，我們轉成台灣時間來比對日期
+            
             const mushroomDateUTC = new Date(m.start_time);
             const mushroomDateTW = new Date(mushroomDateUTC.getTime() + (8 * 60 * 60 * 1000));
-
-            // 3. 比對日期 (只比對 年/月/日)
+            
             const isSameDay = 
                 nowTW.getUTCFullYear() === mushroomDateTW.getUTCFullYear() &&
                 nowTW.getUTCMonth() === mushroomDateTW.getUTCMonth() &&
                 nowTW.getUTCDate() === mushroomDateTW.getUTCDate();
 
-            // 如果蘑菇日期比今天還晚 (是明天的菇) -> 不通知
-            if (mushroomDateTW.getTime() > nowTW.getTime() && !isSameDay) {
-                return false; 
-            }
+            // 明天的菇不通知
+            if (mushroomDateTW.getTime() > nowTW.getTime() && !isSameDay) return false; 
+            // 昨天的菇 (過期未發) 補通知
+            if (mushroomDateTW.getTime() < nowTW.getTime() && !isSameDay) return true;
 
-            // 如果蘑菇日期比今天還早 (是昨天的菇，過期了還沒發) -> 通知 (提醒他忘記了)
-            if (mushroomDateTW.getTime() < nowTW.getTime() && !isSameDay) {
-                return true;
-            }
-
-            // 4. 如果是「今天」的菇，檢查是否已到用餐時間
             const targetHour = mealStartHours[m.details];
-            
-            // 如果找不到對應時段設定 (未預期的字串)，預設都通知，避免漏訊
             if (targetHour === undefined) return true;
 
-            // 核心判斷：現在幾點 >= 開飯時間
-            if (currentHour >= targetHour) {
-                return true; // 時間到了，該發了
-            } else {
-                return false; // 還沒到，先別吵他
-            }
+            return currentHour >= targetHour;
         });
 
-        // 如果過濾後，清單是空的 -> 直接結束，不發信
         if (notifyList.length === 0) {
             return new Response(JSON.stringify({ 
                 success: true, 
@@ -241,23 +208,18 @@ serve(async (req) => {
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
 
-        // --- C. 資料分組 (使用過濾後的 notifyList) ---
+        // 產生報表
         const reportMap: Record<string, any[]> = {};
         notifyList.forEach((m: any) => {
             const nickname = m.host?.nickname || '未知';
-            if (!reportMap[nickname]) {
-                reportMap[nickname] = [];
-            }
+            if (!reportMap[nickname]) reportMap[nickname] = [];
             reportMap[nickname].push(m);
         });
 
-        // --- D. 產生匯總 HTML 內容 ---
         let contentHtml = '';
         let hostIndex = 1;
-
         for (const [nickname, mushrooms] of Object.entries(reportMap)) {
             const listHtml = mushrooms.map((m: any) => {
-                 // 格式：蘑菇類型、用餐時段、名額
                  return `<li style="margin-bottom: 4px; color: #555;">
                     ${m.mushroom_type} | <strong>${m.details}</strong> | ${m.slots}人
                  </li>`;
@@ -280,18 +242,12 @@ serve(async (req) => {
             <div style="font-family: sans-serif; color: #333; max-width: 600px;">
                 <h2 style="color: #db2777; border-bottom: 2px solid #db2777; padding-bottom: 10px;">🔔 蘑菇額滿發車提醒</h2>
                 <p>系統篩選報告：共有 <strong>${Object.keys(reportMap).length}</strong> 位發菇者，時間已到且額滿未發。</p>
-                
                 ${contentHtml}
-
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
-                <p style="font-size: 12px; color: #999;">
-                    此郵件由系統自動生成並寄送至群組。<br>
-                    僅列出「已達用餐時段」且「已額滿」的挑戰。
-                </p>
+                <p style="font-size: 12px; color: #999;">此郵件由系統自動生成。</p>
             </div>
         `;
 
-        // E. 寄送單一信件
         const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
@@ -310,28 +266,18 @@ serve(async (req) => {
 
         return new Response(JSON.stringify({ 
             success: true, 
-            data: { 
-                message: `匯總報告已發送 (含 ${notifyList.length} 朵符合時段的蘑菇)`,
-            } 
+            data: { message: `匯總報告已發送 (含 ${notifyList.length} 朵符合時段的蘑菇)` } 
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         });
     }
 
-    // 2. 排程清理逾時挑戰 (GitHub Actions 每 30 分鐘觸發)
+    // 3. 排程清理逾時挑戰
     if (action === 'cleanup-expired') {
-        // --- 設定逾時時數 (可在此調整) ---
         const HOURS_LIMIT = 12; 
-        
-        // 計算截止時間：目前時間 減去 12小時
         const cutoffTime = new Date(Date.now() - HOURS_LIMIT * 60 * 60 * 1000).toISOString();
 
-        // --- 步驟 1：查詢符合刪除條件的挑戰 ---
-        // 條件：
-        // 1. 狀態必須是 '已發'
-        // 2. 發出時間 (dispatched_at) 必須早於 截止時間
-        // 3. (隱含邏輯) dispatched_at 為 NULL 的資料會被自動忽略，不會誤刪
         const { data: expiredChallenges, error: findErr } = await adminSupabaseClient
             .from('challenges')
             .select('id, image_url, mushroom_type, dispatched_at')
@@ -341,50 +287,32 @@ serve(async (req) => {
         if (findErr) throw findErr;
 
         const deletedLog = [];
-
-        // --- 步驟 2：執行刪除流程 ---
         if (expiredChallenges && expiredChallenges.length > 0) {
             for (const challenge of expiredChallenges) {
-                // A. 優先處理照片刪除 (如果有照片)
                 if (challenge.image_url) {
                     try {
-                        // 從網址中解析出檔名 (例如: 173245xxxx.jpg)
                         const fileName = challenge.image_url.split('/').pop();
                         if (fileName) {
-                            // 呼叫 Storage API 移除檔案
-                            const { error: imgErr } = await adminSupabaseClient
-                                .storage
-                                .from('challenge-images')
-                                .remove([fileName]);
-                                
-                            if (imgErr) console.error(`照片刪除警告 (ID: ${challenge.id}):`, imgErr);
+                            await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
                         }
                     } catch (e) {
                         console.error(`照片路徑解析失敗 (ID: ${challenge.id}):`, e);
                     }
                 }
-
-                // B. 照片處理完畢後，刪除資料庫紀錄
                 const { error: delErr } = await adminSupabaseClient
                     .from('challenges')
                     .delete()
                     .eq('id', challenge.id);
                 
                 if (!delErr) {
-                    deletedLog.push(`[已刪除] ${challenge.mushroom_type} (ID: ${challenge.id}, 發出於: ${new Date(challenge.dispatched_at).toLocaleString()})`);
-                } else {
-                    console.error(`資料刪除失敗 (ID: ${challenge.id}):`, delErr);
+                    deletedLog.push(`[已刪除] ${challenge.mushroom_type} (ID: ${challenge.id})`);
                 }
             }
         }
 
         return new Response(JSON.stringify({ 
             success: true, 
-            data: { 
-                message: `清理作業完成`, 
-                deleted_count: deletedLog.length, 
-                details: deletedLog 
-            } 
+            data: { message: `清理作業完成`, deleted_count: deletedLog.length, details: deletedLog } 
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
@@ -406,15 +334,19 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await userSupabaseClient.auth.getUser();
     if (userError || !user) throw new Error('無效的使用者或 Token');
 
-    // --- B1. 一般使用者功能 ---
+
+    // ============================================================
+    // 區塊 B1：一般使用者功能 (B1 - General User Actions)
+    // 只要是登入的使用者皆可執行，無需管理員權限
+    // ============================================================
+
+    // 1. 更新訂閱 (整合至此)
     if (action === 'update-subscription') {
-        if (payload.userId !== user.id) throw new Error('權限不足');
+        if (payload.userId !== user.id) throw new Error('權限不足 (ID 不符)');
         
-        // ★ 修改：根據 payload.type 決定要更新哪個欄位
         // payload.type 預設為 'signup' (報名通知), 若為 'full' 則更新額滿通知
         const column = payload.type === 'full' ? 'full_notification_email' : 'notification_email';
         
-        // 動態更新欄位
         const updateData: any = {};
         updateData[column] = payload.email;
 
@@ -429,44 +361,77 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // --- B2. 管理員專屬功能 (檢查 role) ---
-    const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
-    if (profile?.role !== '管理者') return new Response(JSON.stringify({ error: '權限不足' }), { status: 403, headers: corsHeaders });
+    // 2. 許願功能 (已從管理區搬移至此)
+    if (action === 'submit-wish') {
+        const { data: wisherProfile } = await adminSupabaseClient
+            .from('profiles')
+            .select('daily_wish_count')
+            .eq('id', user.id)
+            .single();
+        
+        const currentCount = wisherProfile?.daily_wish_count || 0;
+        const newVotes = payload.types.length;
+        const DAILY_LIMIT = 3;
 
+        if (currentCount >= DAILY_LIMIT) {
+            throw new Error('今日已完成 3 次許願，請明日再來！');
+        }
+        if (currentCount + newVotes > DAILY_LIMIT) {
+            throw new Error(`您今日只剩 ${DAILY_LIMIT - currentCount} 票額度，無法一次投 ${newVotes} 票。`);
+        }
+
+        const { error: updateError } = await adminSupabaseClient
+            .from('profiles')
+            .update({ daily_wish_count: currentCount + newVotes })
+            .eq('id', user.id);
+        if (updateError) throw updateError;
+
+        const { error: incError } = await adminSupabaseClient
+            .rpc('increment_wishes', { types: payload.types });
+
+        if (incError) throw new Error('許願統計發生錯誤');
+
+        // ★ 重要：執行完直接 return 回傳，防止進入管理員檢查
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: { message: '許願成功！' } 
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+
+    // ============================================================
+    // 區塊 B2：管理員專屬功能 (B2 - Admin Only Actions)
+    // 必須檢查 role === '管理者'，否則回傳 403
+    // ============================================================
+    
+    const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role !== '管理者') {
+        return new Response(JSON.stringify({ error: '權限不足 (非管理員)' }), { status: 403, headers: corsHeaders });
+    }
+
+    // --- 管理員操作 Switch ---
     switch (action) {
-        // ★★★ 這裡完整恢復了「權威版」的使用者列表邏輯 (RPC) ★★★
+        
+        // 取得使用者列表 (含最後登入時間)
         case 'list-users-with-details':
-            // 1. 獲取所有使用者 Profile
             const { data: profiles, error: profilesError } = await adminSupabaseClient.from('profiles').select('*');
             if (profilesError) throw profilesError;
             if (!profiles || profiles.length === 0) { data = { users: [] }; break; }
             
-            // 2. 準備 ID 列表
             const userIds = profiles.map((p: any) => p.id);
-
-            // 3. 呼叫 RPC (資料庫函式)
             const { data: authData, error: rpcError } = await adminSupabaseClient
                 .rpc('get_users_signin_data', { user_ids: userIds });
             
-            if (rpcError) {
-                 console.error("RPC call failed:", rpcError); 
-                 throw rpcError; 
-            }
+            if (rpcError) { console.error("RPC call failed:", rpcError); throw rpcError; }
 
-            // 4. 建立 Map 加速查找
             const authMap = new Map(authData.map((u: any) => [u.id, u.last_sign_in_at]));
-            
-            // 5. 合併資料
             const combinedUsers = profiles.map((profile: any) => ({
                 ...profile,
                 last_sign_in_at: authMap.get(profile.id) || null
             }));
-            
             data = { users: combinedUsers };
             break;
 
-        // --- 以下為其他標準管理員功能 (保持不變) ---
-        
         case 'send-test-email':
             if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
             const testRes = await fetch('https://api.resend.com/emails', {
@@ -476,7 +441,7 @@ serve(async (req) => {
                     from: 'Mushroom Bot <onboarding@resend.dev>', 
                     to: [RELAY_TARGET_EMAIL],
                     subject: `[測試] 蘑菇通知連線測試`,
-                    html: `<p>這是一封測試信，確認系統發信功能正常。</p><p>發送時間：${new Date().toLocaleString('zh-TW', {timeZone: 'Asia/Taipei'})}</p>`,
+                    html: `<p>這是一封測試信。</p>`,
                 }),
             });
             if (!testRes.ok) throw new Error(await testRes.text());
@@ -485,7 +450,6 @@ serve(async (req) => {
 
         case 'trigger-check-now':
             if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
-            // 手動觸發，強制顯示結果 (true)
             data = await checkAndSendNotification(adminSupabaseClient, RESEND_API_KEY, true);
             break;
 
@@ -495,11 +459,8 @@ serve(async (req) => {
             data = { emails: subscribers.map((p: any) => p.notification_email).filter((e: string) => e && e.includes('@')) };
             break;
 
-        // ★★★ 補上缺少的刪除挑戰功能 ★★★
         case 'delete-challenge':
             if (!payload.challengeId) throw new Error('缺少 challengeId');
-            
-            // 1. 先嘗試刪除關聯圖片 (如果有)
             const { data: challengeData } = await adminSupabaseClient
                 .from('challenges')
                 .select('image_url')
@@ -516,13 +477,7 @@ serve(async (req) => {
                     console.error('圖片刪除失敗:', e);
                 }
             }
-
-            // 2. 刪除資料庫紀錄
-            const { error: delErr } = await adminSupabaseClient
-                .from('challenges')
-                .delete()
-                .eq('id', payload.challengeId);
-            
+            const { error: delErr } = await adminSupabaseClient.from('challenges').delete().eq('id', payload.challengeId);
             if (delErr) throw delErr;
             data = { message: '刪除成功' };
             break;
@@ -569,49 +524,6 @@ serve(async (req) => {
             break;
             
         default: throw new Error(`未知的操作: ${action}`);
-
-        // --- B3. 使用者許願功能 ---
-        case 'submit-wish':
-            // 1. 查詢目前已許願次數
-            const { data: wisherProfile } = await adminSupabaseClient
-                .from('profiles')
-                .select('daily_wish_count')
-                .eq('id', user.id)
-                .single();
-            
-            const currentCount = wisherProfile?.daily_wish_count || 0;
-            const newVotes = payload.types.length; // 這次投了幾票
-            const DAILY_LIMIT = 3; // 每日上限
-
-            // 2. 檢查是否超過上限
-            if (currentCount >= DAILY_LIMIT) {
-                throw new Error('今日已完成 3 次許願，請明日再來！');
-            }
-
-            if (currentCount + newVotes > DAILY_LIMIT) {
-                throw new Error(`您今日只剩 ${DAILY_LIMIT - currentCount} 票額度，無法一次投 ${newVotes} 票。`);
-            }
-
-            // 3. 更新使用者計數
-            const { error: updateError } = await adminSupabaseClient
-                .from('profiles')
-                .update({ daily_wish_count: currentCount + newVotes })
-                .eq('id', user.id);
-            
-            if (updateError) throw updateError;
-
-            // 4. 呼叫 SQL 函式更新統計 (原子操作)
-            const { error: incError } = await adminSupabaseClient
-                .rpc('increment_wishes', { types: payload.types });
-
-            if (incError) {
-                console.error('許願統計失敗:', incError);
-                // 這裡可選擇是否回滾 user count，為簡化邏輯暫不處理
-                throw new Error('許願統計發生錯誤');
-            }
-
-            data = { message: '許願成功！' };
-            break;
     }
 
     return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
