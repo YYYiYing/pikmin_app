@@ -121,8 +121,7 @@ serve(async (req) => {
         });
     }
 
-    // ★★★ 新增：排程發信通知 (額滿通知 - 針對發菇者分眾寄信) ★★★
-// ★★★ 修改：排程發信通知 (額滿通知 - 匯總報告給管理員) ★★★
+    // ★★★ 修改：排程發信通知 (額滿通知 - 加入用餐時段過濾) ★★★
     if (action === 'scheduled-full-notify') {
         if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
 
@@ -139,9 +138,73 @@ serve(async (req) => {
             return new Response(JSON.stringify({ success: true, data: { message: '無待發送的額滿蘑菇' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
 
-        // B. 資料分組：依照 host.nickname 進行分組
+        // --- B. [新增] 智慧過濾邏輯：依據用餐時段篩選 ---
+        
+        // 取得台灣時間目前的 Date 物件
+        const nowUTC = new Date();
+        const nowTW = new Date(nowUTC.getTime() + (8 * 60 * 60 * 1000)); // 手動加8小時轉台灣時間
+        const currentHour = nowTW.getUTCHours();
+        
+        // 定義各時段的「起始通知小時」 (24小時制)
+        const mealStartHours: Record<string, number> = {
+            '早餐': 6,
+            '午餐': 11,
+            '下午茶': 14,
+            '晚餐': 17,
+            '宵夜': 21, 
+            // '滿人開' 不在此限，直接通過
+        };
+
+        const notifyList = fullMushrooms.filter((m: any) => {
+            // 1. 如果是「滿人開」，直接列入通知
+            if (m.details === '滿人開') return true;
+
+            // 2. 解析蘑菇的開放時間 (start_time)
+            // 資料庫存的是 UTC ISO 字串，我們轉成台灣時間來比對日期
+            const mushroomDateUTC = new Date(m.start_time);
+            const mushroomDateTW = new Date(mushroomDateUTC.getTime() + (8 * 60 * 60 * 1000));
+
+            // 3. 比對日期 (只比對 年/月/日)
+            const isSameDay = 
+                nowTW.getUTCFullYear() === mushroomDateTW.getUTCFullYear() &&
+                nowTW.getUTCMonth() === mushroomDateTW.getUTCMonth() &&
+                nowTW.getUTCDate() === mushroomDateTW.getUTCDate();
+
+            // 如果蘑菇日期比今天還晚 (是明天的菇) -> 不通知
+            if (mushroomDateTW.getTime() > nowTW.getTime() && !isSameDay) {
+                return false; 
+            }
+
+            // 如果蘑菇日期比今天還早 (是昨天的菇，過期了還沒發) -> 通知 (提醒他忘記了)
+            if (mushroomDateTW.getTime() < nowTW.getTime() && !isSameDay) {
+                return true;
+            }
+
+            // 4. 如果是「今天」的菇，檢查是否已到用餐時間
+            const targetHour = mealStartHours[m.details];
+            
+            // 如果找不到對應時段設定 (未預期的字串)，預設都通知，避免漏訊
+            if (targetHour === undefined) return true;
+
+            // 核心判斷：現在幾點 >= 開飯時間
+            if (currentHour >= targetHour) {
+                return true; // 時間到了，該發了
+            } else {
+                return false; // 還沒到，先別吵他
+            }
+        });
+
+        // 如果過濾後，清單是空的 -> 直接結束，不發信
+        if (notifyList.length === 0) {
+            return new Response(JSON.stringify({ 
+                success: true, 
+                data: { message: '檢查完成：有額滿蘑菇，但皆未達用餐發送時間，暫不通知。' } 
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
+
+        // --- C. 資料分組 (使用過濾後的 notifyList) ---
         const reportMap: Record<string, any[]> = {};
-        fullMushrooms.forEach((m: any) => {
+        notifyList.forEach((m: any) => {
             const nickname = m.host?.nickname || '未知';
             if (!reportMap[nickname]) {
                 reportMap[nickname] = [];
@@ -149,7 +212,7 @@ serve(async (req) => {
             reportMap[nickname].push(m);
         });
 
-        // C. 產生匯總 HTML 內容
+        // --- D. 產生匯總 HTML 內容 ---
         let contentHtml = '';
         let hostIndex = 1;
 
@@ -157,15 +220,14 @@ serve(async (req) => {
             const listHtml = mushrooms.map((m: any) => {
                  // 格式：蘑菇類型、用餐時段、名額
                  return `<li style="margin-bottom: 4px; color: #555;">
-                    ${m.mushroom_type} | ${m.details || '未指定'} | ${m.slots}人
+                    ${m.mushroom_type} | <strong>${m.details}</strong> | ${m.slots}人
                  </li>`;
             }).join('');
 
-            // ★ 修改：去除中括號，並將 nickname 改為藍色 (#2563eb)
             contentHtml += `
                 <div style="margin-bottom: 20px; padding: 10px; background-color: #f9fafb; border-left: 4px solid #db2777; border-radius: 4px;">
                     <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #333;">
-                        第${hostIndex}位 <span style="color: #2563eb; font-weight: bold;">${nickname}</span> 目前統計共有 <span style="color: #db2777;">${mushrooms.length}</span> 朵蘑菇未發送：
+                        第${hostIndex}位 <span style="color: #2563eb; font-weight: bold;">${nickname}</span> 提醒您發車：
                     </h3>
                     <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
                         ${listHtml}
@@ -177,28 +239,27 @@ serve(async (req) => {
 
         const emailHtml = `
             <div style="font-family: sans-serif; color: #333; max-width: 600px;">
-                <h2 style="color: #db2777; border-bottom: 2px solid #db2777; padding-bottom: 10px;">🔔 蘑菇額滿待發清單</h2>
-                <p>系統掃描報告：共有 <strong>${Object.keys(reportMap).length}</strong> 位發菇者需要發送邀請。</p>
+                <h2 style="color: #db2777; border-bottom: 2px solid #db2777; padding-bottom: 10px;">🔔 蘑菇額滿發車提醒</h2>
+                <p>系統篩選報告：共有 <strong>${Object.keys(reportMap).length}</strong> 位發菇者，時間已到且額滿未發。</p>
                 
                 ${contentHtml}
 
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
                 <p style="font-size: 12px; color: #999;">
-                    此郵件由系統自動生成並寄送至中繼信箱。<br>
-                    請確認後協助通知相關發菇者。
+                    此郵件由系統自動生成並寄送至群組。<br>
+                    僅列出「已達用餐時段」且「已額滿」的挑戰。
                 </p>
             </div>
         `;
 
-        // D. 寄送單一信件 (設定顯示名稱)
+        // E. 寄送單一信件
         const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
             body: JSON.stringify({
                 from: 'Mushroom Bot <onboarding@resend.dev>',
-                // ★ 這裡設定顯示名稱，隱藏直接的 Email 顯示
                 to: [RELAY_TARGET_EMAIL], 
-                subject: `[發車囉!] 共有 ${fullMushrooms.length} 朵蘑菇待發送`,
+                subject: `[發車囉!] 共有 ${notifyList.length} 朵蘑菇待發送 (已過濾時段)`,
                 html: emailHtml,
             }),
         });
@@ -211,7 +272,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ 
             success: true, 
             data: { 
-                message: `匯總報告已發送 (含 ${fullMushrooms.length} 朵蘑菇)`,
+                message: `匯總報告已發送 (含 ${notifyList.length} 朵符合時段的蘑菇)`,
             } 
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
