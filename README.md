@@ -1,114 +1,78 @@
-🍄 菇菇宅配網 - Pikmin Bloom 蘑菇報名系統 🍄 (v5.1 Final)
-這是一個專為 Pikmin Bloom 玩家設計的蘑菇挑戰報名與管理平台，旨在提供一個中心化的介面，方便玩家發布、報名蘑菇挑戰，以及管理好友碼。系統採用了現代化的網頁技術棧，提供即時的資料更新、精細的角色權限管理與全自動化的活動控管功能。
+🍄 菇菇宅配網 (Pikmin Bloom Mushroom Signup System)
+專為 Pikmin Bloom 玩家設計的蘑菇揪團互助平台。提供即時報名、倒數計時、發車通知與許願池功能，旨在解決玩家尋找隊友與協調時間的痛點。
 
-專案概述
-本專案旨在解決遊戲中蘑菇挑戰協調的痛點，提供以下核心功能：
+📖 專案簡介
+本系統採用 Serverless 架構，前端為純靜態頁面 (HTML/JS)，後端完全依賴 Supabase 提供的 Database、Auth、Edge Functions 與 Realtime 功能。透過 GitHub Actions 執行定期排程，實現自動化的郵件通知與資料清理。
 
-精細角色權限管理：支援四種使用者角色（報名者、發菇者、發菇及報名者、管理者），並根據不同角色，提供精確的操作權限。
+🏗️ 系統架構 (System Architecture)
+核心技術堆疊
+Frontend: HTML5, Vanilla JavaScript (ES6+), Tailwind CSS (CDN).
+Backend / DB: Supabase (PostgreSQL).
+Auth: Supabase Auth (Email/Password, Custom Virtual Email for Admins).
+Logic: Supabase Edge Functions (Deno/TypeScript).
+Storage: Supabase Storage (用於儲存蘑菇明信片).
+Automation: GitHub Actions (Cron Jobs).
+Notifications: Resend API + Google Groups.
 
-蘑菇挑戰發布與報名：具權限的使用者可發布各種類型、名額、開放時間的蘑菇挑戰；使用者可即時報名或取消報名。
+資料流向
+即時互動: 前端透過 Supabase Realtime 監聽 challenges 與 signups 資料表，實現不需重新整理的即時列表更新。
+排程通知: GitHub Actions 每 30 分鐘觸發 Edge Function -> 掃描資料庫 -> 透過 Resend 發送通知至 Google Groups。
+許願系統: 使用者投票 -> 寫入 daily_wish_count 與 wish_stats -> SQL 排程每日/每週自動重置。
 
-每日限量報名機制：管理者可在後台設定全域的「每人每日報名次數上限」，並由資料庫於每日固定時間自動重置計數。
+✨ 主要功能 (Key Features)
+1. 蘑菇挑戰看板 (Dashboard)
+即時狀態: 顯示蘑菇種類、剩餘名額、火侯（戰力要求）、倒數計時。
+倒數系統: 包含「開放報名倒數」與「戰鬥/收成時間倒數」。
+報名機制: 防止重複報名、每日額度限制、操作冷卻時間 (3秒)。
+圖片瀏覽: 支援上傳與預覽蘑菇明信片。
 
-公平且穩健的排行榜：提供週/月排行的「報名王」與「最速傳說」。最速紀錄的取消操作具備**復歸(Rollback)**功能，能自動回溯至前一筆最佳成績，防止洗榜。
+RWD 設計: 針對手機版優化的緊湊介面，支援寬度自適應顯示。
+2. 🌟 許願池 (Wishing Well) [NEW]
+視覺化統計: 以堆疊長條圖顯示當前熱門精華需求（巨菇、活動菇、各色精華）。
+互動機制: 每人每日可投 3 票，支援單次複選。
+自動重置:
+每日 00:00: 重置個人投票額度。
+每週一 00:00: 清空許願池統計數據。
+UI 優化: 依據視窗寬度智慧顯示/隱藏圖示與數字，手機版保持極簡色塊。
 
-伺服器端自動化：關鍵的業務邏輯，如「挑戰開放狀態更新」與「排行榜計數器歸零」，皆由後端伺服器定時自動執行，確保了功能的絕對可靠性。
+3. 智慧通知系統 (Smart Notifications) [Optimized]
+報名通知: 當有新蘑菇開放時，通知訂閱群組。
+額滿發車提醒: 針對發菇者發送提醒。
+用餐時段過濾邏輯: 避免過早打擾，依據時段智慧判斷是否發送通知：
+早餐 (06:00+) / 午餐 (11:00+) / 下午茶 (14:00+) / 晚餐 (17:00+) / 宵夜 (21:00+)。
+若未達用餐時間，即使額滿也不會發送通知；過期未發則強制提醒。
 
-精細的響應式介面：前端介面經深度優化，在桌面與行動裝置上皆有量身打造的排版與操作體驗。
+4. 管理後台 (Admin Panel)
+使用者管理: 新增、刪除、修改暱稱/角色、重設密碼。
+全域設定: 調整每日報名上限。
+手動觸發: 強制執行通知檢查、發送測試信。
+挑戰管理: 強制刪除違規或錯誤的挑戰（連動刪除圖片）。
 
-管理後台：管理者專用的介面，用於使用者管理、挑戰管理、以及每日報名上限設定。
+5. 排行榜 (Leaderboard)
+每 30 分鐘更新數據，統計「發菇王」、「報名王」與「最速傳說」。
+支援「本週」與「本月」切換。
 
-便利工具：包含 GPX 路徑生成器、動態截圖、好友碼聯絡簿、在線人數顯示等。
+🚀 近期更新日誌 (Recent Updates)
+[Feat] 許願池 v2.0:
+資料庫改為計數器 (daily_wish_count) 取代布林值，允許分次投票。
+新增圖示支援 (🍄 巨菇/活動菇)，優化長條圖高度與對齊。
 
-核心架構與設計理念
-本專案在迭代過程中，確立了幾個核心的設計原則，以確保系統的穩健性與可維護性。
+[Fix] 通知邏輯優化:
+實作 mealStartHours 邏輯，解決隔日預約單在非用餐時段誤報的問題。
+訂閱/退訂流程優化，加入轉址至 Google Groups 的防呆提示。
 
-1. 後端驅動的業務邏輯
-所有核心且敏感的操作，如權限檢查、報名資格驗證、排行榜計分等，都封裝在 PostgreSQL 的資料庫函式 (RPC) 中。前端只負責呼叫這些函式，而不參與複雜的邏輯判斷。
+[Refactor] 前端重構:
+導入 事件委派 (Event Delegation)，大幅減少 DOM 監聽器數量，提升效能。
+模組化 JavaScript 程式碼 (Init / UI / Data / Interaction)。
 
-2. 伺服器端自動化 (pg_cron)
-系統的「心跳」由 Supabase 內建的 pg_cron 排程工具驅動，它負責執行週期性任務，不受任何使用者行為影響。
+[UI] 介面微調:
+手機版許願池高度縮減 (h-7)，文字大小自適應 (text-[10px])。
+修復「重新整理」按鈕失效問題。
 
-3. 數據完整性：永久成績日誌
-為實現公平的排行榜「復歸」功能，並應對「挑戰卡片會被清除」的業務規則，本專案採用了永久日誌表 (signup_history) 的架構。透過在 signups 表上設置觸發器 (Trigger)，在任何報名紀錄被刪除前，都會先將其成績自動存檔至 signup_history，確保排行榜的計算數據源永不遺失。
+🛠️ 開發與部署
+本專案無需傳統後端伺服器。
 
-技術棧
-前端: HTML5, CSS3, JavaScript (ES6+), Tailwind CSS, Supabase JS Client, html2canvas
-
-後端 (Supabase): PostgreSQL, pg_cron, Supabase Auth, Supabase Edge Functions (Deno/TypeScript), Supabase Realtime
-
-程式語言: JavaScript, TypeScript, SQL (PL/pgSQL)
-
-後端架構與自動化詳解
-資料庫結構
-profiles: 儲存使用者資料，包含 role 及各項排行榜計數欄位。
-
-challenges: 儲存蘑菇挑戰的詳細資訊。
-
-signups: 儲存使用者與挑戰之間的報名關係，包含 signup_speed。
-
-daily_settings: 儲存全域設定，如 daily_signup_limit。
-
-signup_history: 永久存檔使用者的報名成績，作為排行榜計算的真實數據源。
-
-核心資料庫函式與觸發器
-signup_for_challenge(): 處理報名的核心函式，整合了時間驗證、每日上限、名額檢查、排行榜計分等多重邏輯。
-
-cancel_signup_and_update_challenge(): 處理取消報名的核心函式，整合了次數返還、排行榜最速時間復歸、挑戰狀態更新等邏輯。
-
-archive_signup_record() 與 on_signup_delete_archive (觸發器): 實現報名成績的自動永久存檔。
-
-自動化排程任務 (Cron Jobs)
-系統透過 pg_cron 設定了多個定時任務，以 UTC 時間為標準執行。
-
-挑戰狀態自動更新 (challenge-opener)
-
-排程: * * * * * (每分鐘)
-
-執行內容: 呼叫 open_due_challenges() 函式，將到期的挑戰狀態更新為「開放報名中」。
-
-每日報名次數重置 (daily-signup-reset)
-
-排程: 0 16 * * * (每日 UTC 16:00)，對應台灣時間 (UTC+8) 的每日凌晨 00:00。
-
-執行內容: 呼叫 reset_all_user_signup_counts() 函式，將所有使用者的 daily_signup_count 歸零。
-
-歷史紀錄月度清理 (monthly-history-purge)
-
-排程: 0 0 1 * * (每月 1 號 UTC 00:00)，對應台灣時間 (UTC+8) 的每月 1 號早上 8:00。
-
-執行內容: 呼叫 purge_old_signup_history() 函式，清除過期的歷史成績。
-
-週/月排行榜計數重置 (既有)
-
-週重置: 排程為 0 16 * * 0 (每週日的 UTC 16:00)，對應台灣時間的週一凌晨 00:00，負責將 weekly_signup_count 等週計數歸零。
-
-月重置: 排程為 0 0 1 * * (每月 1 號的 UTC 00:00)，對應台灣時間的每月 1 號早上 8:00，負責將 monthly_signup_count 等月計數歸零。
-
-前端介面與使用者體驗
-dashboard.html - 主控台
-響應式 Header：
-
-桌面版：採用寬廣的兩欄式佈局，左側為網站標題與在線人數，右側為使用者資訊與完整的功能列。
-
-行動版：
-
-版面：header 結構經細緻調整，確保元素佈局平衡。左側為漢堡選單按鈕，中間為 Logo 圖示，右側為使用者資訊與額度。
-
-文字：網站標題「菇菇宅配網」會被自動隱藏以節省空間；「在線人數」、「歡迎詞」等文字會在外層容器 flex-wrap 的作用下，於極端窄螢幕上自動換行，防止版面錯亂。
-
-漢堡選單：次要功能（如排行榜、好友碼、管理連結等）會被收納至從左側滑出的漢堡選單中，保持介面簡潔。
-
-即時回饋機制：
-
-倒數計時：前端倒數計時器歸零時，會主動觸發一次卡片刷新 (reloadChallengeCard) 以嘗試獲取最新狀態，提供最佳即時感。後端的 pg_cron 與 Realtime 則提供了最終的可靠狀態同步。
-
-報名/取消：採用「混合更新策略」。操作成功後，會先立刻刷新被點擊的單張卡片，然後再刷新所有其他卡片與頂部額度狀態，兼顧了即時回饋與全局狀態一致性。
-
-gpx_generator.html - GPX 產生器
-介面：提供動態新增/刪除的單行座標輸入欄位，每行均有獨立的序號與貼上按鈕。
-
-功能：支援兩種 GPX 格式（Router / Joystick）的生成與下載。
-
-admin.html - 管理後台
-功能：新增了「全域設定」區塊，讓管理者可即時修改每日報名上限。所有讀寫操作皆透過安全的 Edge Function 進行。
+資料庫: 匯入 schema.sql 至 Supabase。
+後端: 部署 supabase/functions 至 Supabase Edge Functions。
+前端: 任何靜態網頁託管服務 (GitHub Pages, Vercel, Netlify) 即可運作。
+排程: 設定 GitHub Secrets (SUPABASE_URL, SECRET_KEY, RESEND_API_KEY) 並啟用 GitHub Actions。
