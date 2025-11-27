@@ -12,13 +12,15 @@ const corsHeaders = {
 // 設定接收通知的中繼信箱 (Resend 測試模式請務必設為您的註冊信箱)
 const RELAY_TARGET_EMAIL = 'secretsoulful@gmail.com';
 
-// --- 核心函式：檢查蘑菇並發信 (來自最新版通知邏輯) ---
+// --- 核心函式：檢查蘑菇並發信 (v2.0 智慧靜音版) ---
 async function checkAndSendNotification(supabase: any, resendApiKey: string, isTest = false) {
     // 1. 查詢目前「開放中」且「未額滿」的挑戰
+    // 依 ID 排序確保指紋生成的順序一致
     const { data: challenges, error: dbError } = await supabase
         .from('challenges')
         .select('*, signups(*)')
-        .eq('status', '開放報名中');
+        .eq('status', '開放報名中')
+        .order('id');
     
     if (dbError) throw dbError;
 
@@ -27,12 +29,40 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         return signupCount < c.slots;
     });
 
-    // 如果沒有開放中的挑戰，且不是手動觸發，則不發信直接結束
+    // 如果沒有開放中的挑戰，且不是手動觸發，則不發信
     if (activeChallenges.length === 0 && !isTest) {
-        return { sent: false, message: '無開放中的挑戰，不需發信' };
+        // 清除指紋，確保下次有新蘑菇時能觸發通知
+        await supabase.from('daily_settings')
+            .update({ setting_text: '' })
+            .eq('setting_name', 'last_signup_notify_fingerprint');
+        return { sent: false, message: '無開放中的挑戰' };
     }
 
-    // 2. 組合 Email 內容
+    // --- [新增] 狀態指紋比對邏輯 ---
+    // 產生當前狀態指紋 (格式範例: "2750:1|2755:3") 代表 ID:目前人數
+    const currentFingerprint = activeChallenges.map((c: any) => {
+        const count = c.signups ? c.signups.length : 0;
+        return `${c.id}:${count}`;
+    }).join('|');
+
+    if (!isTest) {
+        // 從資料庫讀取上一次通知的指紋
+        const { data: settingData } = await supabase
+            .from('daily_settings')
+            .select('setting_text')
+            .eq('setting_name', 'last_signup_notify_fingerprint')
+            .single();
+        
+        const lastFingerprint = settingData?.setting_text || '';
+
+        // 如果指紋完全相同，代表名單與人數都沒變 -> 靜默跳過
+        if (lastFingerprint === currentFingerprint) {
+            console.log('狀態未變動，跳過通知');
+            return { sent: false, message: '狀態未變動 (與半小時前相同)，略過發信' };
+        }
+    }
+
+    // 2. 組合 Email 內容 (保持不變)
     const timeString = new Date().toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' });
     
     let emailHtml = `
@@ -69,14 +99,13 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
             <p style="font-size: 0.8em; color: #888; margin-top: 20px;">本郵件由系統自動發送至群組。</p>
         </div>`;
 
-    // 3. 發送 (為了測試模式穩定，簡化收件人設定)
+    // 3. 發送
     const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
         body: JSON.stringify({
             from: 'Mushroom Bot <onboarding@resend.dev>',
             to: [RELAY_TARGET_EMAIL], 
-            // ★ 修改：主旨改為 [來吃喲!]
             subject: `[來吃喲!] ${activeChallenges.length > 0 ? activeChallenges.length + ' 朵蘑菇開放中！' : '目前無新挑戰'}`,
             html: emailHtml,
         }),
@@ -84,6 +113,16 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
     if (!res.ok) {
         const errorText = await res.text();
         throw new Error(`Resend API Error (${res.status}): ${errorText}`);
+    }
+
+    // --- [新增] 發送成功後，更新資料庫指紋 ---
+    if (!isTest) {
+        // 使用 upsert (有則更新，無則新增)
+        await supabase.from('daily_settings').upsert({ 
+            setting_name: 'last_signup_notify_fingerprint',
+            setting_text: currentFingerprint,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'setting_name' });
     }
 
     return { sent: true, message: `通知已發送 (含 ${activeChallenges.length} 筆挑戰)` };
