@@ -259,28 +259,37 @@
             <p class="text-sm text-gray-400 mb-4">請選擇您最想要的精華 (最多可選 3 種)</p>
             
             <div class="grid grid-cols-2 gap-3 mb-6" id="wish-options">
-                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700">
-                    <input type="checkbox" value="巨菇" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600">
-                    <span class="text-gray-200 font-bold">巨菇</span>
+                
+                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700 transition select-none">
+                    <input type="checkbox" value="巨菇" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600 focus:ring-0 focus:ring-offset-0">
+                    <span class="text-gray-200 font-bold flex items-center">
+                        <span class="text-3xl mr-1 filter drop-shadow-md">🍄</span> 
+                        <span>巨菇</span>
+                    </span>
                 </label>
-                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700">
-                    <input type="checkbox" value="活動菇" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600">
-                    <span class="text-gray-200 font-bold">活動菇</span>
+
+                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700 transition select-none">
+                    <input type="checkbox" value="活動菇" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600 focus:ring-0 focus:ring-offset-0">
+                    <span class="text-gray-200 font-bold flex items-center">
+                        <span class="text-xl mr-1 filter drop-shadow-md">🍄</span> 
+                        <span>活動菇</span>
+                    </span>
                 </label>
-                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700">
-                    <input type="checkbox" value="白" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600">
+
+                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700 transition select-none">
+                    <input type="checkbox" value="白" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600 focus:ring-0 focus:ring-offset-0">
                     <span class="text-gray-200 font-bold">⚪ 白色</span>
                 </label>
-                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700">
-                    <input type="checkbox" value="紅" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600">
+                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700 transition select-none">
+                    <input type="checkbox" value="紅" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600 focus:ring-0 focus:ring-offset-0">
                     <span class="text-red-400 font-bold">🔴 紅色</span>
                 </label>
-                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700">
-                    <input type="checkbox" value="黃" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600">
+                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700 transition select-none">
+                    <input type="checkbox" value="黃" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600 focus:ring-0 focus:ring-offset-0">
                     <span class="text-yellow-400 font-bold">🟡 黃色</span>
                 </label>
-                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700">
-                    <input type="checkbox" value="藍" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600">
+                <label class="flex items-center space-x-2 p-3 rounded-lg border border-gray-600 bg-gray-700/50 cursor-pointer hover:bg-gray-700 transition select-none">
+                    <input type="checkbox" value="藍" class="wish-checkbox form-checkbox h-5 w-5 text-indigo-500 rounded border-gray-500 bg-gray-600 focus:ring-0 focus:ring-offset-0">
                     <span class="text-blue-400 font-bold">🔵 藍色</span>
                 </label>
             </div>
@@ -1803,25 +1812,63 @@
             if(confirm(`目前信箱：${currentEmail}\n確定取消？`)) await doSub(null, type);
         }
     }
+
+    /** [訂閱] 執行訂閱/退訂動作 */
     async function doSub(email, type) {
-        const btn = type==='full'?fullSubButton:signupSubButton;
-        btn.disabled=true;
+        const btn = type === 'full' ? fullSubButton : signupSubButton;
+        // 暫存原本按鈕文字以便恢復 (優化版通常不需要，但保留以防萬一)
+        // const originalText = btn.textContent; 
+        
+        btn.disabled = true;
+        
         try {
-            const { data, error } = await supabaseClient.functions.invoke('admin-actions', { body: { action: 'update-subscription', payload: { userId: currentUserProfile.id, email, type } } });
-            if(error) throw error;
-            if(type==='full') currentUserProfile.full_notification_email = email;
+            const { data, error } = await supabaseClient.functions.invoke('admin-actions', { 
+                body: { 
+                    action: 'update-subscription', 
+                    payload: { 
+                        userId: currentUserProfile.id, 
+                        email: email, 
+                        type: type 
+                    } 
+                } 
+            });
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+
+            // 更新本地狀態
+            if (type === 'full') currentUserProfile.full_notification_email = email;
             else currentUserProfile.notification_email = email;
             
             checkSubscriptionStatus();
-            if(email) {
-                showToast('訂閱成功', false);
+
+            // 定義群組網址
+            const groupUrl = type === 'full' 
+                ? "https://groups.google.com/g/full_quota_notify" 
+                : "https://groups.google.com/g/mushroom_notify/members";
+
+            if (email) {
+                // === 訂閱成功 ===
+                showToast('訂閱成功！', false);
                 setTimeout(() => {
-                    alert('請前往 Google Groups 確認加入群組');
-                    window.location.href = type==='full' ? "https://groups.google.com/g/full_quota_notify" : "https://groups.google.com/g/mushroom_notify/members";
+                    alert('即將轉往Google網路論壇，請按「要求加入群組」，等審核通過即可收到通知。');
+                    window.location.href = groupUrl;
                 }, 500);
-            } else showToast('已取消訂閱', false);
-        } catch(e) { showToast('操作失敗', true); console.error(e); }
-        finally { btn.disabled=false; }
+            } else {
+                // === ★ 修改：退訂成功 (加入提示與轉址) ===
+                showToast('已取消訂閱', false);
+                setTimeout(() => {
+                    alert('【⚠️ 重要提醒】\n\n系統已清除您的信箱紀錄，但您仍需手動退出 Google 群組。\n\n點擊確定後將轉往群組頁面，請找到「退出群組」按鈕以完成退訂。');
+                    window.location.href = groupUrl;
+                }, 500);
+            }
+
+        } catch (e) { 
+            showToast('操作失敗', true); 
+            console.error(e); 
+        } finally { 
+            btn.disabled = false; 
+        }
     }
 
     /** [Realtime] */
