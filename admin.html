@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>管理後台 - 菇菇宅配網</title> <script src="https://cdn.tailwindcss.com"></script> <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> <style>
+    <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>管理後台 - 菇菇宅配網</title> <script src="https://cdn.tailwindcss.com"></script> <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> 
+    <style>
         /* CSS 註解：以下是本頁面的樣式設定 */
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
         .admin-container { background-color: #1f2937; border: 1px solid #374151; }
@@ -31,6 +32,61 @@
             font-size: 0.7rem; /* 符號的字體大小 */
             vertical-align: middle; /* 讓符號能和文字垂直對齊 */
         }
+        /* === 自訂下拉選單樣式 (仿原生 Select 但支援搜尋) === */
+        .custom-dropdown-container {
+            position: relative;
+            width: 100%;
+        }
+        
+        /* 下拉選單本體 */
+        .dropdown-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background-color: #374151; /* 深灰背景 */
+            border: 1px solid #4b5563;
+            border-radius: 0.75rem; /* rounded-xl */
+            max-height: 280px;      /* 限制高度 */
+            overflow-y: auto;       /* 超出捲動 */
+            z-index: 50;
+            display: none;          /* 預設隱藏 */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 顯示狀態 */
+        .dropdown-options.show {
+            display: block;
+        }
+
+        /* 選項樣式 */
+        .dropdown-option {
+            padding: 12px 16px;
+            color: #d1d5db;
+            cursor: pointer;
+            transition: background-color 0.1s;
+            font-size: 0.95rem;
+            border-bottom: 1px solid #4b5563;
+        }
+        .dropdown-option:last-child {
+            border-bottom: none;
+        }
+        .dropdown-option:hover {
+            background-color: #4f46e5; /* 懸浮變靛藍色 */
+            color: white;
+        }
+
+        /* 右側箭頭裝飾 */
+        .input-arrow {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none; /* 讓點擊穿透到 input */
+            color: #9ca3af;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
@@ -42,10 +98,14 @@
         </div>
         <form id="admin-login-form" class="space-y-6">
             <div>
-                <label for="admin-nickname-input" class="text-sm font-bold text-gray-400">管理員暱稱</label>
-                <input list="admin-nicknames-list" id="admin-nickname-input" name="nickname" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none" placeholder="輸入管理員暱稱..." autocomplete="off">
-                <datalist id="admin-nicknames-list">
-                    </datalist>
+                <label class="text-sm font-bold text-gray-400">管理員暱稱</label>
+                <div class="custom-dropdown-container mt-1">
+                    <input type="text" id="admin-nickname-input" name="nickname" required 
+                           class="dark-input w-full px-4 py-3 rounded-xl focus:outline-none" 
+                           placeholder="選擇管理員..." autocomplete="off">
+                    <span class="input-arrow">▼</span>
+                    <div id="admin-nickname-dropdown" class="dropdown-options"></div>
+                </div>
             </div>
             <div>
                 <label for="admin-password" class="text-sm font-bold text-gray-400">密碼</label>
@@ -556,16 +616,37 @@
             e.preventDefault();
             adminLoginButton.disabled = true; adminLoginButton.textContent = '驗證中...';
             const { nickname, password } = e.target.elements;
-            const cleanNickname = (nickname.value || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
+            
+            // --- ★ 核心修改：雙重登入機制 (Admin版) ---
+            
+            // 格式 A (新制)
+            const hexNickname = Array.from(new TextEncoder().encode(nickname.value))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+            const emailNew = `${hexNickname}@pikmin.sys`;
 
-            const virtualEmail = `${encodeURIComponent(cleanNickname)}@pikmin.sys`;
+            // 格式 B (舊制)
+            const cleanNickname = (nickname.value || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
+            const emailOld = `${encodeURIComponent(cleanNickname)}@pikmin.sys`;
 
             try {
-                const { data: { user }, error } = await supabaseClient.auth.signInWithPassword({ email: virtualEmail, password: password.value });
+                // 1. 嘗試新制
+                let { data: { user }, error } = await supabaseClient.auth.signInWithPassword({ email: emailNew, password: password.value });
+
+                // 2. 若失敗則嘗試舊制
+                if (error) {
+                    const retry = await supabaseClient.auth.signInWithPassword({ email: emailOld, password: password.value });
+                    if (!retry.error) {
+                        user = retry.data.user;
+                        error = null;
+                    }
+                }
+
                 if (error) throw error;
+
                 const { data: profile } = await supabaseClient.from('profiles').select('role, nickname').eq('id', user.id).single();
                 if (profile.role !== '管理者') throw new Error('權限不足，僅限管理者登入。');
                 authorizeAndShowDashboard(profile);
+
             } catch (error) {
                 showMessage(error.message.includes('Invalid') ? '暱稱或密碼錯誤。' : error.message, true);
             } finally {
@@ -580,7 +661,7 @@
             loadAllAdminData();
         }
 
-        //  優化管理員登出邏輯
+        //  優化管理員登出邏輯 (v2.0 同步前台標準)
         adminLogoutButton.addEventListener('click', async () => {
             // 1. 提供視覺回饋
             adminLogoutButton.disabled = true;
@@ -594,11 +675,13 @@
                 await supabaseClient.auth.signOut();
             } catch (error) {
                 console.warn('後台登出異常 (可忽略):', error);
-            } finally {
-                // 4. ★ 重點：無論成功或失敗，都強制重新載入頁面
-                // 重新載入後，因為沒有 Session，頁面會自動顯示回登入表單
-                window.location.reload();
             }
+            
+            // ★ 新增：強制清除本地暫存 (與前台一致，雙重保險)
+            localStorage.removeItem('sb-' + PUBLIC_KEY + '-auth-token');
+
+            // 4. ★ 修改：使用 replace 跳轉回 admin.html (避免 unload 警告，並重置頁面狀態)
+            window.location.replace('./admin.html');
         });
 
         function loadAllAdminData() {
@@ -876,23 +959,63 @@
             }
         });
 
+        // --- 管理員選單變數 ---
+        const adminInput = document.getElementById('admin-nickname-input');
+        const adminDropdown = document.getElementById('admin-nickname-dropdown');
+        let adminNicknames = [];
+
         async function populateNicknames() {
-            // ★ 修改：抓取新的 input 與 datalist
-            const datalist = document.getElementById('admin-nicknames-list');
             try {
+                // 只撈取管理員
                 const { data, error } = await supabaseClient.from('profiles').select('nickname').eq('role', '管理者').order('nickname');
                 if (error) throw error;
                 
-                datalist.innerHTML = '';
-                data.forEach(p => {
-                    const option = document.createElement('option');
-                    option.value = p.nickname;
-                    datalist.appendChild(option);
-                });
+                adminNicknames = data.map(p => p.nickname);
+                renderAdminDropdown(adminNicknames);
             } catch (error) {
-                console.error('無法載入管理員名單');
+                adminInput.placeholder = '無法載入';
             }
         }
+
+        function renderAdminDropdown(items) {
+            adminDropdown.innerHTML = '';
+            if (items.length === 0) {
+                adminDropdown.innerHTML = '<div class="dropdown-option text-center text-gray-500">無管理員</div>';
+                return;
+            }
+            items.forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'dropdown-option';
+                div.textContent = name;
+                div.addEventListener('click', () => {
+                    adminInput.value = name;
+                    adminDropdown.classList.remove('show');
+                });
+                adminDropdown.appendChild(div);
+            });
+        }
+
+        // 互動事件
+        adminInput.addEventListener('click', () => {
+            renderAdminDropdown(adminNicknames);
+            adminDropdown.classList.add('show');
+        });
+        
+        adminInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = adminNicknames.filter(n => n.toLowerCase().includes(term));
+            renderAdminDropdown(filtered);
+            adminDropdown.classList.add('show');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!adminInput.contains(e.target) && !adminDropdown.contains(e.target)) {
+                adminDropdown.classList.remove('show');
+            }
+        });
+        
+        // 別忘了更新 adminLoginForm 的監聽器，將原本的 nickname 變數來源改成：
+        // const nickname = adminInput.value.trim();
         
         function showMessage(text, isError) {
             adminMessageBox.textContent = text;

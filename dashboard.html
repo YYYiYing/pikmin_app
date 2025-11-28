@@ -149,6 +149,61 @@
             filter: grayscale(100%);
             transform: none !important;
         }
+        /* === 自訂下拉選單樣式 (仿原生 Select 但支援搜尋) === */
+        .custom-dropdown-container {
+            position: relative;
+            width: 100%;
+        }
+        
+        /* 下拉選單本體 */
+        .dropdown-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background-color: #374151; /* 深灰背景 */
+            border: 1px solid #4b5563;
+            border-radius: 0.75rem; /* rounded-xl */
+            max-height: 280px;      /* 限制高度 */
+            overflow-y: auto;       /* 超出捲動 */
+            z-index: 50;
+            display: none;          /* 預設隱藏 */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 顯示狀態 */
+        .dropdown-options.show {
+            display: block;
+        }
+
+        /* 選項樣式 */
+        .dropdown-option {
+            padding: 12px 16px;
+            color: #d1d5db;
+            cursor: pointer;
+            transition: background-color 0.1s;
+            font-size: 0.95rem;
+            border-bottom: 1px solid #4b5563;
+        }
+        .dropdown-option:last-child {
+            border-bottom: none;
+        }
+        .dropdown-option:hover {
+            background-color: #4f46e5; /* 懸浮變靛藍色 */
+            color: white;
+        }
+
+        /* 右側箭頭裝飾 */
+        .input-arrow {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none; /* 讓點擊穿透到 input */
+            color: #9ca3af;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body class="bg-gray-900">
@@ -191,6 +246,7 @@
                 <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="text-gray-300 hover:text-white transition text-sm">🔃 路徑轉檔</a>
                 <a id="gpx-generator-link" href="./gpx_generator.html" class="text-green-400 hover:text-green-300 font-bold transition text-sm">🗺️ 路徑生成</a>
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
+                <button id="change-nickname-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">🏷️ 改暱稱</button>
                 <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">㊙️ 改密碼</button>
                 <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">🏃‍♂️ 登出</button>
             </div>
@@ -209,6 +265,7 @@
             </div>
             <hr class="border-gray-600 my-2">
             <div class="space-y-1">
+                <button id="change-nickname-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏷️ 改暱稱</button>
                 <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">㊙️ 改密碼</button>
                 <button id="logout-button-mobile" class="w-full text-left text-red-400 hover:bg-gray-700 p-2 rounded-md">🏃‍♂️ 登出</button>
             </div>
@@ -587,6 +644,22 @@
             <button type="button" onclick="closeImageViewer()" class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300 font-bold bg-black/50 rounded-full w-10 h-10 flex items-center justify-center">&times;</button>
             <img id="viewer-image" src="" alt="蘑菇美片" class="rounded-lg shadow-2xl max-h-[85vh] object-contain bg-gray-900">
         </div>
+        </div>
+
+        <div id="nickname-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+            <div class="modal-content w-full max-w-sm rounded-2xl shadow-xl p-8">
+                <h2 class="text-2xl font-bold mb-4 text-gray-100">修改暱稱</h2>
+                <p class="text-sm text-red-400 mb-6 font-bold">⚠️ 修改後，下次登入請使用新暱稱！</p>
+                <form id="nickname-form">
+                    <label for="new-nickname-input" class="block text-sm font-medium text-gray-400">新暱稱</label>
+                    <input type="text" id="new-nickname-input" required maxlength="20" class="dark-input mt-1 block w-full rounded-md shadow-sm" placeholder="輸入新名字...">
+                    
+                    <div class="mt-8 flex justify-end space-x-4">
+                        <button type="button" id="cancel-nickname-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
+                        <button type="submit" id="submit-nickname-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認修改</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
         <div id="password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
@@ -1013,9 +1086,9 @@
 
     function displayUserInfo() {
         if (!currentUserProfile) return;
-        const displayName = (currentUserProfile.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
-        userInfoEl.textContent = `你好，${displayName}！`;
-        updateQuotaDisplay();
+            const displayName = (currentUserProfile.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s!?.~_+\-]/)[0];
+            userInfoEl.textContent = `你好，${displayName}！`;
+            updateQuotaDisplay();
 
         if (['管理者', '發菇者', '發菇及報名者'].includes(currentUserProfile.role)) {
             postChallengeButton.classList.remove('hidden');
@@ -1041,11 +1114,21 @@
         if (!error) currentUserProfile = data;
     }
 
-    // 登出
+    // 登出按鈕邏輯優化
     logoutButton.addEventListener('click', async () => {
-        logoutButton.disabled = true; logoutButton.textContent = '登出中...';
-        try { await supabaseClient.auth.signOut(); } catch(e) {}
+        logoutButton.disabled = true; 
+        logoutButton.textContent = '登出中...';
+        
+        try { 
+            await supabaseClient.auth.signOut(); 
+        } catch(e) { 
+            console.warn(e); 
+        }
+        
+        // 清除本地暫存
         localStorage.removeItem('sb-' + SUPABASE_ANON_KEY + '-auth-token');
+        
+        // ★ 修改：使用 replace 來跳轉，通常比 reload 更乾淨，且不會產生 unload 警告
         window.location.replace('./index.html');
     });
 
@@ -1979,6 +2062,76 @@
         });
     }
 
+    // ==========================================
+    // ▼▼▼ 【新增】使用者改暱稱邏輯 ▼▼▼
+    // ==========================================
+    const changeNicknameBtn = document.getElementById('change-nickname-button');
+    const changeNicknameBtnMob = document.getElementById('change-nickname-button-mobile');
+    const nicknameModal = document.getElementById('nickname-modal');
+    const nicknameForm = document.getElementById('nickname-form');
+    const cancelNicknameBtn = document.getElementById('cancel-nickname-button');
+    const newNicknameInput = document.getElementById('new-nickname-input');
+    const submitNicknameBtn = document.getElementById('submit-nickname-button');
+
+    function openNicknameModal() {
+        if(!currentUserProfile) return;
+        // 預帶入舊暱稱
+        newNicknameInput.value = currentUserProfile.nickname || '';
+        nicknameModal.classList.remove('hidden');
+    }
+
+    // 綁定按鈕 (電腦版 & 手機版)
+    if(changeNicknameBtn) changeNicknameBtn.addEventListener('click', openNicknameModal);
+    if(changeNicknameBtnMob) changeNicknameBtnMob.addEventListener('click', openNicknameModal);
+    
+    // 關閉 Modal
+    if(cancelNicknameBtn) cancelNicknameBtn.addEventListener('click', () => nicknameModal.classList.add('hidden'));
+
+    // 送出表單
+    if(nicknameForm) {
+        nicknameForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newName = newNicknameInput.value.trim();
+            
+            // 基本防呆
+            if(!newName) return;
+            if(newName === currentUserProfile.nickname) {
+                showToast('新暱稱與舊暱稱相同', true); return;
+            }
+
+            submitNicknameBtn.disabled = true;
+            submitNicknameBtn.textContent = '修改中...';
+
+            try {
+                // 呼叫後端 API
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: { 
+                        action: 'user-update-nickname', 
+                        payload: { newNickname: newName } 
+                    }
+                });
+
+                if (error) throw error;
+                if (data?.error) throw new Error(data.error);
+
+                // 成功後提示並登出
+                showToast('修改成功！請重新登入', false);
+                nicknameModal.classList.add('hidden');
+                
+                // 強制登出，讓使用者用新名字重新登入 (延遲 1.5 秒讓使用者看到成功訊息)
+                setTimeout(() => {
+                    logoutButton.click();
+                }, 1500);
+
+            } catch (err) {
+                console.error(err);
+                showToast(`修改失敗: ${err.message}`, true);
+            } finally {
+                submitNicknameBtn.disabled = false;
+                submitNicknameBtn.textContent = '確認修改';
+            }
+        });
+    }
 </script>
 </body>
 </html>

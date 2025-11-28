@@ -395,6 +395,54 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // 3. 使用者自行改名 (v1.0 含防撞機制)
+    if (action === 'user-update-nickname') {
+        const newNickname = payload.newNickname;
+        
+        // 基本驗證
+        if (!newNickname || newNickname.length > 20) throw new Error('暱稱無效或過長');
+
+        // 1. 計算新 Hex 信箱
+        const newHexNickname = Array.from(new TextEncoder().encode(newNickname))
+            .map(b => b.toString(16).padStart(2, '0')).join('');
+        const newVirtualEmail = `${newHexNickname}@pikmin.sys`;
+
+        // 2. 嘗試更新 Auth Email (這步會自動檢查唯一性)
+        try {
+            const { error: authUpdateErr } = await adminSupabaseClient.auth.admin.updateUserById(
+                user.id, 
+                { email: newVirtualEmail }
+            );
+            if (authUpdateErr) throw authUpdateErr;
+        } catch (err: any) {
+            // 捕捉特定錯誤：信箱重複 (代表暱稱被用過了)
+            if (err.message.includes('already registered') || err.message.includes('duplicate')) {
+                throw new Error(`暱稱「${newNickname}」已被使用，請換一個。`);
+            }
+            throw err; // 其他錯誤照常拋出
+        }
+
+        // 3. 更新 Profile 顯示名稱
+        const { error: pErr } = await adminSupabaseClient
+            .from('profiles')
+            .update({ nickname: newNickname })
+            .eq('id', user.id);
+        
+        if (pErr) throw pErr;
+
+        // 4. 同步更新 Partners 表 (如果有的話)
+        // 注意：這裡需要知道「舊暱稱」才能更新，或是前端傳過來，或是先查詢
+        // 為簡化，我們嘗試查詢一次舊暱稱
+        const { data: oldProfile } = await adminSupabaseClient.from('profiles').select('nickname').eq('id', user.id).single();
+        if (oldProfile) {
+             await adminSupabaseClient.from('partners').update({ name: newNickname }).eq('name', oldProfile.nickname);
+        }
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: { message: '暱稱修改成功！下次請用新名字登入。' } 
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
 
     // ============================================================
     // 區塊 B2：管理員專屬功能 (B2 - Admin Only Actions)
@@ -480,7 +528,13 @@ serve(async (req) => {
             break;
 
         case 'create-user':
-             const virtualEmail = `${encodeURIComponent(payload.nickname)}@pikmin.sys`;
+             // ★ 修改：改用 Hex 編碼生成虛擬信箱，確保每個字元(含特殊符號)都能區分，解決撞名問題
+             const hexNickname = Array.from(new TextEncoder().encode(payload.nickname))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+             
+             const virtualEmail = `${hexNickname}@pikmin.sys`;
+             
+             // 以下保持不變
              const { data: created, error: createErr } = await adminSupabaseClient.auth.admin.createUser({ email: virtualEmail, password: payload.password, email_confirm: true });
              if (createErr) throw createErr;
              if (created.user) {
@@ -503,10 +557,36 @@ serve(async (req) => {
             ({ data } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId)); 
             break;
             
+        // ★ 修改：更新暱稱時，同步更新 Auth 表的虛擬信箱，確保登入邏輯一致
         case 'update-user-nickname': 
-            const { error: pErr } = await adminSupabaseClient.from('profiles').update({ nickname: payload.newNickname }).eq('id', payload.userId);
+            // 1. 先計算新暱稱對應的 Hex 虛擬信箱
+            const newHexNickname = Array.from(new TextEncoder().encode(payload.newNickname))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+            const newVirtualEmail = `${newHexNickname}@pikmin.sys`;
+
+            // 2. 更新 Supabase Auth (這步最關鍵，讓使用者能用新名字登入)
+            // 注意：這會讓該使用者變成「新制 (Hex) 帳號」，這很好，統一規格
+            const { error: authUpdateErr } = await adminSupabaseClient.auth.admin.updateUserById(
+                payload.userId, 
+                { email: newVirtualEmail }
+            );
+            
+            if (authUpdateErr) throw new Error(`Auth 更新失敗: ${authUpdateErr.message}`);
+
+            // 3. 更新 Profiles 表 (顯示用)
+            const { error: pErr } = await adminSupabaseClient
+                .from('profiles')
+                .update({ nickname: payload.newNickname })
+                .eq('id', payload.userId);
+            
             if (pErr) throw pErr;
-            await adminSupabaseClient.from('partners').update({ name: payload.newNickname }).eq('name', payload.oldNickname);
+
+            // 4. 更新 Partners 表 (如果有對應的話)
+            await adminSupabaseClient
+                .from('partners')
+                .update({ name: payload.newNickname })
+                .eq('name', payload.oldNickname);
+            
             break;
             
         case 'get-daily-limit': 
