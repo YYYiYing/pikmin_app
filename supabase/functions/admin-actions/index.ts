@@ -12,7 +12,7 @@ const corsHeaders = {
 // 設定接收通知的中繼信箱 (Resend 測試模式請務必設為您的註冊信箱)
 const RELAY_TARGET_EMAIL = 'secretsoulful@gmail.com';
 
-// --- 核心函式：檢查蘑菇並發信 (v2.0 智慧靜音版) ---
+// --- 核心函式：檢查蘑菇並發信 (v2.2 穩健寫入版) ---
 async function checkAndSendNotification(supabase: any, resendApiKey: string, isTest = false) {
     // 1. 查詢目前「開放中」且「未額滿」的挑戰
     const { data: challenges, error: dbError } = await supabase
@@ -28,21 +28,25 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         return signupCount < c.slots;
     });
 
-    // 如果沒有開放中的挑戰，且不是手動觸發，則不發信
-    if (activeChallenges.length === 0 && !isTest) {
-        // 清除指紋，確保下次有新蘑菇時能觸發通知
-        await supabase.from('daily_settings')
-            .update({ setting_text: '' })
-            .eq('setting_name', 'last_signup_notify_fingerprint');
-        return { sent: false, message: '無開放中的挑戰' };
-    }
-
-    // --- 狀態指紋比對邏輯 ---
+    // 產生指紋：ID:目前人數 (例如 "2750:1|2755:3")
     const currentFingerprint = activeChallenges.map((c: any) => {
         const count = c.signups ? c.signups.length : 0;
         return `${c.id}:${count}`;
     }).join('|');
 
+    // 如果沒有開放中的挑戰
+    if (activeChallenges.length === 0 && !isTest) {
+        // ★ 修正：明確寫入空字串與 value:0，作為歸零狀態
+        await supabase.from('daily_settings').upsert({ 
+            setting_name: 'last_signup_notify_fingerprint', 
+            setting_text: '', // 空字串代表目前無名單
+            setting_value: 0, 
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'setting_name' });
+        return { sent: false, message: '無開放中的挑戰，已記錄空指紋' };
+    }
+
+    // --- 狀態指紋比對 ---
     if (!isTest) {
         const { data: settingData } = await supabase
             .from('daily_settings')
@@ -53,47 +57,28 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         const lastFingerprint = settingData?.setting_text || '';
 
         if (lastFingerprint === currentFingerprint) {
-            console.log('狀態未變動，跳過通知');
-            return { sent: false, message: '狀態未變動 (與半小時前相同)，略過發信' };
+            console.log('報名名單未變動，跳過通知');
+            return { sent: false, message: '報名名單未變動 (與半小時前相同)，略過發信' };
         }
     }
 
-    // 2. 組合 Email 內容
+    // 2. 組合 Email 內容 (保持不變)
     const timeString = new Date().toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' });
-    
-    let emailHtml = `
-        <div style="font-family: sans-serif; color: #333;">
-            <h2 style="color: #4f46e5;">🍄 蘑菇報名快訊 [${timeString}]</h2>
-    `;
+    let emailHtml = `<div style="font-family: sans-serif; color: #333;"><h2 style="color: #4f46e5;">🍄 蘑菇報名快訊 [${timeString}]</h2>`;
 
     if (activeChallenges.length > 0) {
-        emailHtml += `<p>目前統計共有 <strong>${activeChallenges.length}</strong> 朵蘑菇開放報名中(未額滿)：</p>
-            <ul style="list-style: none; padding: 0;">`;
-            
+        emailHtml += `<p>目前統計共有 <strong>${activeChallenges.length}</strong> 朵蘑菇開放報名中(未額滿)：</p><ul style="list-style: none; padding: 0;">`;
         activeChallenges.forEach((c: any) => {
             const left = c.slots - (c.signups ? c.signups.length : 0);
             const startTime = new Date(c.start_time).toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' });
-            emailHtml += `
-                <li style="background: #f3f4f6; margin-bottom: 10px; padding: 10px; border-radius: 8px; border-left: 4px solid #10b981;">
-                    <strong style="font-size: 1.1em;">${c.mushroom_type}</strong> (${c.details})<br>
-                    <span style="color: #555;">🕒 ${startTime} 開放 | 🔥 尚缺 <strong>${left}</strong> 人</span>
-                </li>
-            `;
+            emailHtml += `<li style="background: #f3f4f6; margin-bottom: 10px; padding: 10px; border-radius: 8px; border-left: 4px solid #10b981;"><strong style="font-size: 1.1em;">${c.mushroom_type}</strong> (${c.details})<br><span style="color: #555;">🕒 ${startTime} 開放 | 🔥 尚缺 <strong>${left}</strong> 人</span></li>`;
         });
         emailHtml += `</ul>`;
     } else {
          emailHtml += `<p>目前沒有開放中的蘑菇 (這是手動觸發的檢查)。</p>`;
     }
 
-    emailHtml += `
-            <p style="margin-top: 20px;">
-                <a href="https://yyyiying.github.io/pikmin_app/dashboard.html" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">👉 點此前往報名</a>
-            </p>
-            <p style="margin-top: 10px;">
-                <a href="https://groups.google.com/g/mushroom_notify/membership" style="font-size: 0.85em; color: #6b7280; text-decoration: underline;">🔕 暫時不需要通知？點此前往 Google Groups 設定</a>
-            </p>
-            <p style="font-size: 0.8em; color: #888; margin-top: 20px;">本郵件由系統自動發送至群組。</p>
-        </div>`;
+    emailHtml += `<p style="margin-top: 20px;"><a href="https://yyyiying.github.io/pikmin_app/dashboard.html" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">👉 點此前往報名</a></p><p style="margin-top: 10px;"><a href="https://groups.google.com/g/mushroom_notify/membership" style="font-size: 0.85em; color: #6b7280; text-decoration: underline;">🔕 暫時不需要通知？點此前往 Google Groups 設定</a></p><p style="font-size: 0.8em; color: #888; margin-top: 20px;">本郵件由系統自動發送至群組。</p></div>`;
 
     // 3. 發送
     const res = await fetch('https://api.resend.com/emails', {
@@ -111,11 +96,12 @@ async function checkAndSendNotification(supabase: any, resendApiKey: string, isT
         throw new Error(`Resend API Error (${res.status}): ${errorText}`);
     }
 
-    // 更新資料庫指紋
+    // ★ 修正：發送成功後更新指紋 (含 setting_value: 0)
     if (!isTest) {
         await supabase.from('daily_settings').upsert({ 
             setting_name: 'last_signup_notify_fingerprint',
             setting_text: currentFingerprint,
+            setting_value: 0, 
             updated_at: new Date().toISOString()
         }, { onConflict: 'setting_name' });
     }
@@ -154,29 +140,39 @@ serve(async (req) => {
         });
     }
 
-    // 2. 排程發信通知 (額滿通知 - 含用餐時段過濾)
+// 2. 排程發信通知 (額滿通知 - 含用餐時段過濾 + 重複辨識)
     if (action === 'scheduled-full-notify') {
         if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
 
+        // A. 查詢
         const { data: fullMushrooms, error: dbError } = await adminSupabaseClient
             .from('challenges')
             .select('*, host:profiles!inner(nickname)')
             .eq('status', '已額滿')
-            .neq('dispatch_status', '已發');
+            .neq('dispatch_status', '已發')
+            .order('id'); // 排序很重要，確保指紋一致
 
         if (dbError) throw dbError;
 
+        // 如果資料庫完全沒資料，直接清空指紋並結束
         if (!fullMushrooms || fullMushrooms.length === 0) {
-            return new Response(JSON.stringify({ success: true, data: { message: '無待發送的額滿蘑菇' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+            // ★ 修正：寫入空字串 + value:0
+            await adminSupabaseClient.from('daily_settings').upsert({ 
+                setting_name: 'last_full_notify_fingerprint', 
+                setting_text: '',
+                setting_value: 0, 
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'setting_name' });
+            return new Response(JSON.stringify({ success: true, data: { message: '目前無任何額滿蘑菇' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
 
-        // 時段過濾邏輯
+        // B. 時段過濾邏輯
         const nowUTC = new Date();
         const nowTW = new Date(nowUTC.getTime() + (8 * 60 * 60 * 1000));
         const currentHour = nowTW.getUTCHours();
         
-        const mealStartHours: Record<string, number> = {
-            '早餐': 6, '午餐': 11, '下午茶': 14, '晚餐': 17, '宵夜': 21
+        const mealStartHours: Record<string, number[]> = {
+            '早餐': [4, 10], '午餐': [11, 13], '下午茶': [14, 16], '晚餐': [17, 20], '宵夜': [21, 23]
         };
 
         const notifyList = fullMushrooms.filter((m: any) => {
@@ -185,30 +181,56 @@ serve(async (req) => {
             const mushroomDateUTC = new Date(m.start_time);
             const mushroomDateTW = new Date(mushroomDateUTC.getTime() + (8 * 60 * 60 * 1000));
             
-            const isSameDay = 
-                nowTW.getUTCFullYear() === mushroomDateTW.getUTCFullYear() &&
-                nowTW.getUTCMonth() === mushroomDateTW.getUTCMonth() &&
-                nowTW.getUTCDate() === mushroomDateTW.getUTCDate();
+            // 日期歸零比較法
+            const todayZero = new Date(nowTW.getFullYear(), nowTW.getMonth(), nowTW.getDate());
+            const mushroomZero = new Date(mushroomDateTW.getFullYear(), mushroomDateTW.getMonth(), mushroomDateTW.getDate());
+            const diffTime = todayZero.getTime() - mushroomZero.getTime();
+            const diffDays = diffTime / (1000 * 3600 * 24);
 
-            // 明天的菇不通知
-            if (mushroomDateTW.getTime() > nowTW.getTime() && !isSameDay) return false; 
-            // 昨天的菇 (過期未發) 補通知
-            if (mushroomDateTW.getTime() < nowTW.getTime() && !isSameDay) return true;
+            if (diffDays < 0) return false; // 未來
+            if (diffDays >= 1) return true; // 過去 (過期強制發)
 
-            const targetHour = mealStartHours[m.details];
-            if (targetHour === undefined) return true;
+            const window = mealStartHours[m.details];
+            if (!window) return true; // 未知時段預設發
 
-            return currentHour >= targetHour;
+            const [startH, endH] = window;
+            return currentHour >= startH && currentHour <= endH;
         });
 
-        if (notifyList.length === 0) {
+        // C. 指紋比對
+        // 產生指紋：ID清單 (因為額滿名單的ID組合改變就代表有事發生)
+        const currentFingerprint = notifyList.map((m: any) => m.id).join('|');
+
+        // 讀取上次指紋
+        const { data: settingData } = await adminSupabaseClient
+            .from('daily_settings')
+            .select('setting_text')
+            .eq('setting_name', 'last_full_notify_fingerprint')
+            .single();
+        const lastFingerprint = settingData?.setting_text || '';
+
+        // 如果指紋相同且名單非空，代表重複 -> 跳過
+        if (currentFingerprint === lastFingerprint && notifyList.length > 0) {
+            console.log('額滿名單未變動，跳過通知');
             return new Response(JSON.stringify({ 
                 success: true, 
-                data: { message: '檢查完成：有額滿蘑菇，但皆未達用餐發送時間，暫不通知。' } 
+                data: { message: '額滿名單未變動 (與上次通知相同)，略過發信' } 
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
 
-        // 產生報表
+        // 如果過濾後清單是空的 (例如全都被時段濾掉了)
+        if (notifyList.length === 0) {
+            // ★ 修正：寫入空字串 + value:0 (歸零)
+            await adminSupabaseClient.from('daily_settings').upsert({ 
+                setting_name: 'last_full_notify_fingerprint', 
+                setting_text: '',
+                setting_value: 0,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'setting_name' });
+            return new Response(JSON.stringify({ success: true, data: { message: '檢查完成：目前無符合時段的待發蘑菇' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
+
+        // D. 產生 Email 內容 (略，保持不變)
         const reportMap: Record<string, any[]> = {};
         notifyList.forEach((m: any) => {
             const nickname = m.host?.nickname || '未知';
@@ -224,37 +246,20 @@ serve(async (req) => {
                     ${m.mushroom_type} | <strong>${m.details}</strong> | ${m.slots}人
                  </li>`;
             }).join('');
-
-            contentHtml += `
-                <div style="margin-bottom: 20px; padding: 10px; background-color: #f9fafb; border-left: 4px solid #db2777; border-radius: 4px;">
-                    <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #333;">
-                        第${hostIndex}位 <span style="color: #2563eb; font-weight: bold;">${nickname}</span> 提醒您發車：
-                    </h3>
-                    <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
-                        ${listHtml}
-                    </ul>
-                </div>
-            `;
+            contentHtml += `<div style="margin-bottom: 20px; padding: 10px; background-color: #f9fafb; border-left: 4px solid #db2777; border-radius: 4px;"><h3 style="margin: 0 0 8px 0; font-size: 16px; color: #333;">第${hostIndex}位 <span style="color: #2563eb; font-weight: bold;">${nickname}</span> 提醒您發車：</h3><ul style="margin: 0; padding-left: 20px; font-size: 14px;">${listHtml}</ul></div>`;
             hostIndex++;
         }
 
-        const emailHtml = `
-            <div style="font-family: sans-serif; color: #333; max-width: 600px;">
-                <h2 style="color: #db2777; border-bottom: 2px solid #db2777; padding-bottom: 10px;">🔔 蘑菇額滿發車提醒</h2>
-                <p>系統篩選報告：共有 <strong>${Object.keys(reportMap).length}</strong> 位發菇者，時間已到且額滿未發。</p>
-                ${contentHtml}
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
-                <p style="font-size: 12px; color: #999;">此郵件由系統自動生成。</p>
-            </div>
-        `;
+        const emailHtml = `<div style="font-family: sans-serif; color: #333; max-width: 600px;"><h2 style="color: #db2777; border-bottom: 2px solid #db2777; padding-bottom: 10px;">🔔 蘑菇額滿發車提醒</h2><p>系統篩選報告：共有 <strong>${Object.keys(reportMap).length}</strong> 位發菇者，時間已到且額滿未發。</p>${contentHtml}<hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;"><p style="font-size: 12px; color: #999;">此郵件由系統自動生成。</p></div>`;
 
+        // E. 寄送
         const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
             body: JSON.stringify({
                 from: 'Mushroom Bot <onboarding@resend.dev>',
                 to: [RELAY_TARGET_EMAIL], 
-                subject: `[發車囉!] 共有 ${notifyList.length} 朵蘑菇待發送 (已過濾時段)`,
+                subject: `[發車囉!] 共有 ${notifyList.length} 朵蘑菇待發送`,
                 html: emailHtml,
             }),
         });
@@ -263,6 +268,15 @@ serve(async (req) => {
             const errText = await res.text();
             throw new Error(`Resend API Error: ${errText}`);
         }
+
+        // F. 發送成功後，更新指紋
+        // ★ 修正：明確寫入指紋 + value:0
+        await adminSupabaseClient.from('daily_settings').upsert({ 
+            setting_name: 'last_full_notify_fingerprint',
+            setting_text: currentFingerprint,
+            setting_value: 0,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'setting_name' });
 
         return new Response(JSON.stringify({ 
             success: true, 
