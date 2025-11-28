@@ -42,10 +42,10 @@
         </div>
         <form id="admin-login-form" class="space-y-6">
             <div>
-                <label for="admin-nickname-select" class="text-sm font-bold text-gray-400">管理員暱稱</label>
-                <select id="admin-nickname-select" name="nickname" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none appearance-none">
-                    <option value="" disabled selected>讀取中...</option>
-                </select>
+                <label for="admin-nickname-input" class="text-sm font-bold text-gray-400">管理員暱稱</label>
+                <input list="admin-nicknames-list" id="admin-nickname-input" name="nickname" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none" placeholder="輸入管理員暱稱..." autocomplete="off">
+                <datalist id="admin-nicknames-list">
+                    </datalist>
             </div>
             <div>
                 <label for="admin-password" class="text-sm font-bold text-gray-400">密碼</label>
@@ -877,14 +877,20 @@
         });
 
         async function populateNicknames() {
-            const nicknameSelect = document.getElementById('admin-nickname-select');
+            // ★ 修改：抓取新的 input 與 datalist
+            const datalist = document.getElementById('admin-nicknames-list');
             try {
                 const { data, error } = await supabaseClient.from('profiles').select('nickname').eq('role', '管理者').order('nickname');
                 if (error) throw error;
-                nicknameSelect.innerHTML = '<option value="" disabled selected>請選擇管理員暱稱</option>';
-                data.forEach(p => nicknameSelect.innerHTML += `<option value="${p.nickname}">${p.nickname}</option>`);
+                
+                datalist.innerHTML = '';
+                data.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.nickname;
+                    datalist.appendChild(option);
+                });
             } catch (error) {
-                nicknameSelect.innerHTML = '<option value="" disabled>無法載入</option>';
+                console.error('無法載入管理員名單');
             }
         }
         

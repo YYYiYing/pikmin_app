@@ -52,10 +52,10 @@
 
         <form id="login-form" class="space-y-6">
             <div>
-                <label for="nickname-select" class="text-sm font-bold text-gray-400">遊戲暱稱</label>
-                <select id="nickname-select" name="nickname" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none appearance-none">
-                    <option value="" disabled selected>讀取中...</option>
-                </select>
+                <label for="nickname-input" class="text-sm font-bold text-gray-400">遊戲暱稱</label>
+                <input list="nicknames-list" id="nickname-input" name="nickname" required class="dark-input w-full px-4 py-3 mt-1 rounded-xl focus:outline-none" placeholder="輸入或選擇暱稱..." autocomplete="off">
+                <datalist id="nicknames-list">
+                    </datalist>
             </div>
             <div>
                 <label for="password" class="text-sm font-bold text-gray-400">密碼</label>
@@ -180,59 +180,52 @@
             }
         });
         
-        // --- 頁面載入時，從資料庫獲取並填充暱稱列表 ---
+        // --- 頁面載入時，從資料庫獲取並填充暱稱列表 (搜尋版) ---
         async function populateNicknames() {
-            const nicknameSelect = document.getElementById('nickname-select'); // 找到暱稱的下拉選單元素。
-            try {
-                // 向 Supabase 的 'profiles' 資料表發出請求，只要 'nickname' 這一欄的資料。
-                const { data: profiles, error } = await supabaseClient
-                    .from('profiles') // 指定要查詢的資料表名稱
-                    .select('nickname'); // 指定要抓取的欄位
+            // ★ 修改：抓取 datalist 元素，而不是 select
+            const datalist = document.getElementById('nicknames-list'); 
+            const input = document.getElementById('nickname-input');
 
-                if (error) throw error; // 如果查詢出錯，就拋出錯誤。
+            try {
+                const { data: profiles, error } = await supabaseClient
+                    .from('profiles')
+                    .select('nickname');
+
+                if (error) throw error;
                 
-                // 如果找不到任何暱稱資料。
                 if (!profiles || profiles.length === 0) {
-                    nicknameSelect.innerHTML = '<option value="" disabled selected>無可用暱稱</option>';
-                    showMessage('系統中找不到任何暱稱，請先由管理者在後台新增。', 'bg-yellow-500', 'text-white');
+                    showMessage('系統中找不到任何暱稱。', 'bg-yellow-500', 'text-white');
                     return;
                 }
 
-                // 【排序邏輯更新】實現英文在前，中文在後的排序。
+                // 排序邏輯 (保持不變)
                 profiles.sort((a, b) => {
-                    // 正則表達式 /^[a-zA-Z0-9]/ 用來判斷字串是否以英文或數字開頭。
                     const aIsEnglish = /^[a-zA-Z0-9]/.test(a.nickname);
                     const bIsEnglish = /^[a-zA-Z0-9]/.test(b.nickname);
-
-                    if (aIsEnglish && !bIsEnglish) return -1; // a 是英文，b 是中文，a 排前面。
-                    if (!aIsEnglish && bIsEnglish) return 1;  // b 是英文，a 是中文，b 排前面。
-                    
-                    // 如果兩個都是英文，或都是中文，則使用 'localeCompare' 按照繁體中文的語系規則排序（例如筆劃）。
+                    if (aIsEnglish && !bIsEnglish) return -1;
+                    if (!aIsEnglish && bIsEnglish) return 1;
                     return a.nickname.localeCompare(b.nickname, 'zh-Hant');
                 });
 
-                // 先清空下拉選單，並放入一個預設的提示選項。
-                nicknameSelect.innerHTML = '<option value="" disabled selected>請選擇您的暱稱</option>';
-
-                // 'forEach' 迴圈會遍歷從資料庫拿到的每一個 profile 物件。
+                // ★ 修改：清空 datalist 並填充 option
+                datalist.innerHTML = '';
                 profiles.forEach(profile => {
-                    const option = document.createElement('option'); // 用 JavaScript 建立一個 <option> HTML 元素。
-                    option.value = profile.nickname; // 設定選項的值。
-                    option.textContent = profile.nickname; // 設定選項顯示的文字。
-                    nicknameSelect.appendChild(option); // 將這個新建的選項加入到下拉選單中。
+                    const option = document.createElement('option');
+                    option.value = profile.nickname; // datalist 的 option 不需要 textContent，value 即可
+                    datalist.appendChild(option);
                 });
 
-                // 【新增功能】在選項填充完畢後，檢查 localStorage 中是否有被記住的暱稱。
+                // 檢查記憶登入
                 const rememberedNickname = localStorage.getItem('rememberedNickname');
-                if (rememberedNickname) { // 如果有找到
-                    nicknameSelect.value = rememberedNickname; // 就自動在下拉選單中選中那個暱稱。
-                    rememberMeCheckbox.checked = true; // 同時也自動勾選「記住我」。
-                    document.getElementById('password').focus(); // 並將輸入焦點自動移到密碼框，方便使用者直接輸入密碼。
+                if (rememberedNickname) {
+                    input.value = rememberedNickname; // ★ 修改：設定 input 的值
+                    rememberMeCheckbox.checked = true;
+                    document.getElementById('password').focus();
                 }
 
-            } catch (error) { // 如果從資料庫獲取暱稱失敗
-                nicknameSelect.innerHTML = '<option value="" disabled selected>無法載入暱稱</option>';
-                showMessage('無法載入暱稱列表，請確認資料庫連線與 RLS (Row Level Security) 設定。', 'bg-red-500', 'text-white');
+            } catch (error) {
+                console.error(error);
+                showMessage('無法載入暱稱列表。', 'bg-red-500', 'text-white');
             }
         }
 

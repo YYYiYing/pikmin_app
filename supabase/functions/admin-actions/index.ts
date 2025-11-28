@@ -375,37 +375,20 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 2. 許願功能 (已從管理區搬移至此)
+    // 2. 許願功能 (v3.0 原子操作版)
     if (action === 'submit-wish') {
-        const { data: wisherProfile } = await adminSupabaseClient
-            .from('profiles')
-            .select('daily_wish_count')
-            .eq('id', user.id)
-            .single();
-        
-        const currentCount = wisherProfile?.daily_wish_count || 0;
-        const newVotes = payload.types.length;
-        const DAILY_LIMIT = 3;
+        // 直接呼叫資料庫交易函式，所有邏輯判斷都在 SQL 中完成
+        const { error } = await adminSupabaseClient.rpc('submit_wish_transaction', { 
+            p_user_id: user.id, 
+            p_types: payload.types 
+        });
 
-        if (currentCount >= DAILY_LIMIT) {
-            throw new Error('今日已完成 3 次許願，請明日再來！');
-        }
-        if (currentCount + newVotes > DAILY_LIMIT) {
-            throw new Error(`您今日只剩 ${DAILY_LIMIT - currentCount} 票額度，無法一次投 ${newVotes} 票。`);
+        if (error) {
+            console.error('許願交易失敗:', error);
+            // 將資料庫回傳的錯誤訊息 (例如 "額度不足...") 拋出給前端顯示
+            throw new Error(error.message);
         }
 
-        const { error: updateError } = await adminSupabaseClient
-            .from('profiles')
-            .update({ daily_wish_count: currentCount + newVotes })
-            .eq('id', user.id);
-        if (updateError) throw updateError;
-
-        const { error: incError } = await adminSupabaseClient
-            .rpc('increment_wishes', { types: payload.types });
-
-        if (incError) throw new Error('許願統計發生錯誤');
-
-        // ★ 重要：執行完直接 return 回傳，防止進入管理員檢查
         return new Response(JSON.stringify({ 
             success: true, 
             data: { message: '許願成功！' } 
