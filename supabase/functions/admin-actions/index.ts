@@ -375,9 +375,10 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 2. 許願功能 (v3.0 原子操作版)
+    // 2. 許願功能 (v3.1 原子操作修復版)
     if (action === 'submit-wish') {
-        // 直接呼叫資料庫交易函式，所有邏輯判斷都在 SQL 中完成
+        // 直接呼叫資料庫交易函式，所有邏輯判斷(含額度檢查)都在 SQL 中完成
+        // 這樣能確保數據絕對一致，不會發生「扣了票卻沒統計」的狀況
         const { error } = await adminSupabaseClient.rpc('submit_wish_transaction', { 
             p_user_id: user.id, 
             p_types: payload.types 
@@ -385,7 +386,7 @@ serve(async (req) => {
 
         if (error) {
             console.error('許願交易失敗:', error);
-            // 將資料庫回傳的錯誤訊息 (例如 "額度不足...") 拋出給前端顯示
+            // 將資料庫回傳的具體錯誤 (例如 "額度不足...") 傳回前端
             throw new Error(error.message);
         }
 
