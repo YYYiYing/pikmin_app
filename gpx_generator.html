@@ -7,23 +7,27 @@
     <link rel="icon" href="./mashroom_s.png" type="image/png">
     <link rel="apple-touch-icon" href="./mashroom_s.png">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
         .main-container { background-color: #1f2937; border: 1px solid #374151; }
         .dark-input { background-color: #374151; border-color: #4b5563; color: #d1d5db; }
         .dark-input:focus { --tw-ring-color: #22c55e; border-color: #22c55e; }
-        .primary-button { background-color: #22c55e; transition: background-color 0.2s; } /* 主要按鈕 (Joystick) */
+        .primary-button { background-color: #22c55e; transition: background-color 0.2s; }
         .primary-button:hover:not(:disabled) { background-color: #16a34a; }
-        .router-button { background-color: #3b82f6; transition: background-color: 0.2s; } /* 次要按鈕 (Router) */
+        .router-button { background-color: #3b82f6; transition: background-color: 0.2s; }
         .router-button:hover:not(:disabled) { background-color: #2563eb; }
         .secondary-button { background-color: #4b5563; transition: background-color 0.2s; }
         .secondary-button:hover { background-color: #6b7280; }
         .row-number { width: 2rem; text-align: right; color: #6b7280; font-size: 0.875rem; flex-shrink: 0; }
+        
+        /* ★ 安全性：預設隱藏內容，直到權限檢查通過 */
+        #app-content { display: none; }
     </style>
 </head>
 <body class="p-4 md:p-8">
 
-    <div class="max-w-4xl mx-auto main-container rounded-2xl shadow-lg p-6 md:p-8">
+    <div id="app-content" class="max-w-4xl mx-auto main-container rounded-2xl shadow-lg p-6 md:p-8">
         <header class="mb-8 flex justify-between items-center">
             <h1 class="text-2xl md:text-3xl font-bold text-white">GPX 路徑生成器</h1>
             <a href="./dashboard.html" class="text-indigo-400 hover:text-indigo-300 font-bold transition">返回主頁</a>
@@ -40,8 +44,7 @@
                     <label class="block text-sm font-medium text-gray-400">座標點 (格式：緯度, 經度)</label>
                     <button id="paste-all-button" class="secondary-button text-xs font-bold py-1 px-3 rounded-full">從剪貼簿貼上多行</button>
                 </div>
-                <div id="coords-container" class="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
-                    </div>
+                <div id="coords-container" class="space-y-2 max-h-[50vh] overflow-y-auto pr-2"></div>
                 <button id="add-row-button" class="mt-4 secondary-button font-bold py-2 px-4 rounded-lg text-sm">增加欄位</button>
             </div>
 
@@ -53,110 +56,32 @@
     </div>
 
     <script>
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ★ 安全性檢查：若無登入，直接踢回首頁
+        async function checkAuth() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                alert('請先登入才能使用此功能！');
+                window.location.replace('./index.html');
+            } else {
+                // 通過驗證，顯示內容
+                document.getElementById('app-content').style.display = 'block';
+            }
+        }
+        checkAuth();
+
+        // --- 以下為原有邏輯 ---
         const coordsContainer = document.getElementById('coords-container');
         const addRowButton = document.getElementById('add-row-button');
         const pasteAllButton = document.getElementById('paste-all-button');
         const routeNameInput = document.getElementById('route-name');
-        // ★ 修改：抓取兩個新的生成按鈕
         const generateRouterButton = document.getElementById('generate-router-button');
         const generateJoystickButton = document.getElementById('generate-joystick-button');
 
-
-        function updateRowNumbers() { /* ... 此函式內容不變 ... */ }
-        function addCoordRow(coordText = '') { /* ... 此函式內容不變 ... */ }
-        coordsContainer.addEventListener('click', async (event) => { /* ... 此函式內容不變 ... */ });
-        async function pasteAllFromClipboard() { /* ... 此函式內容不變 ... */ }
-
-        // ★ 修改：共用的讀取座標邏輯，回傳一個包含有效座標的陣列
-        function getCoordinates() {
-            const allCoordInputs = coordsContainer.querySelectorAll('.coord-input');
-            const coords = [];
-            allCoordInputs.forEach(input => {
-                const value = input.value.trim();
-                if (!value) return;
-
-                const parts = value.split(/[,\s\t]+/);
-                if (parts.length >= 2) {
-                    const lat = parseFloat(parts[0]);
-                    const lon = parseFloat(parts[1]);
-                    if (!isNaN(lat) && !isNaN(lon)) {
-                        coords.push({ lat, lon });
-                    }
-                }
-            });
-            return coords;
-        }
-
-        // ★ 修改：原有的 generateGpxFile 函式，現在專門生成 Router 格式
-        function generateRouterGpxFile() {
-            const coords = getCoordinates();
-            const routeName = routeNameInput.value.trim().replace(/[<>:"/\\|?*]/g, '') || '未命名路徑';
-
-            if (coords.length === 0) {
-                alert('請至少輸入一組有效的座標！');
-                return;
-            }
-
-            const waypoints = coords.map(c => `  <wpt lat="${c.lat}" lon="${c.lon}"></wpt>`).join('\n');
-            const trackpoints = coords.map(c => `    <trkpt lat="${c.lat}" lon="${c.lon}"></trkpt>`).join('\n');
-
-            const gpxContent = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<gpx version="1.1" creator="Gemini GPX Generator" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
-${waypoints}
-<trk>
-  <name>${routeName}</name>
-  <trkseg>
-${trackpoints}
-  </trkseg>
-</trk>
-</gpx>`;
-            
-            downloadGpxFile(gpxContent, routeName);
-        }
-
-        // ★ 新增：專門生成 Joystick 格式的函式
-        function generateJoystickGpxFile() {
-            const coords = getCoordinates();
-            const routeName = routeNameInput.value.trim().replace(/[<>:"/\\|?*]/g, '') || '未命名路徑';
-
-            if (coords.length === 0) {
-                alert('請至少輸入一組有效的座標！');
-                return;
-            }
-
-            const routepoints = coords.map(c => `<rtept lat="${c.lat}" lon="${c.lon}"/>`).join('');
-
-            const gpxContent = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="GPS JoyStick - gpsjoystick@gmail.com - https://www.facebook.com/gpsjoystick"><rte><name>${routeName}</name><number>0</number>${routepoints}</rte></gpx>`;
-
-            downloadGpxFile(gpxContent, routeName);
-        }
-
-        // ★ 新增：將下載邏輯抽離成共用函式
-        function downloadGpxFile(content, fileName) {
-            const blob = new Blob([content], { type: 'application/gpx+xml;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            
-            a.href = url;
-            a.download = `${fileName}.gpx`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-        
-        function initializePage() { /* ... 此函式內容不變 ... */ }
-        
-        // 綁定主要事件監聽器
-        addRowButton.addEventListener('click', () => { addCoordRow(); updateRowNumbers(); });
-        pasteAllButton.addEventListener('click', pasteAllFromClipboard);
-        // ★ 修改：為兩個不同的按鈕綁定不同的生成函式
-        generateRouterButton.addEventListener('click', generateRouterGpxFile);
-        generateJoystickButton.addEventListener('click', generateJoystickGpxFile);
-        
-        initializePage();
-
-        // 為了方便複製貼上，這裡再次提供不變的函式內容
         function updateRowNumbers() {
             const rows = coordsContainer.querySelectorAll('.coord-row');
             rows.forEach((row, index) => {
@@ -185,7 +110,7 @@ ${trackpoints}
                     const text = await navigator.clipboard.readText();
                     target.nextElementSibling.value = text.trim();
                 } catch (err) {
-                    alert('讀取剪貼簿失敗，或您的瀏覽器不支援此功能。');
+                    alert('讀取剪貼簿失敗');
                 }
             }
         });
@@ -199,16 +124,63 @@ ${trackpoints}
                     updateRowNumbers();
                 }
             } catch (err) {
-                alert('讀取剪貼簿失敗，或您的瀏覽器不支援此功能。');
+                alert('讀取剪貼簿失敗');
             }
+        }
+        function getCoordinates() {
+            const allCoordInputs = coordsContainer.querySelectorAll('.coord-input');
+            const coords = [];
+            allCoordInputs.forEach(input => {
+                const value = input.value.trim();
+                if (!value) return;
+                const parts = value.split(/[,\s\t]+/);
+                if (parts.length >= 2) {
+                    const lat = parseFloat(parts[0]);
+                    const lon = parseFloat(parts[1]);
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        coords.push({ lat, lon });
+                    }
+                }
+            });
+            return coords;
+        }
+        function generateRouterGpxFile() {
+            const coords = getCoordinates();
+            const routeName = routeNameInput.value.trim().replace(/[<>:"/\\|?*]/g, '') || '未命名路徑';
+            if (coords.length === 0) { alert('請至少輸入一組有效的座標！'); return; }
+            const waypoints = coords.map(c => `  <wpt lat="${c.lat}" lon="${c.lon}"></wpt>`).join('\n');
+            const trackpoints = coords.map(c => `    <trkpt lat="${c.lat}" lon="${c.lon}"></trkpt>`).join('\n');
+            const gpxContent = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<gpx version="1.1" creator="Gemini GPX Generator" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+${waypoints}
+<trk><name>${routeName}</name><trkseg>${trackpoints}</trkseg></trk></gpx>`;
+            downloadGpxFile(gpxContent, routeName);
+        }
+        function generateJoystickGpxFile() {
+            const coords = getCoordinates();
+            const routeName = routeNameInput.value.trim().replace(/[<>:"/\\|?*]/g, '') || '未命名路徑';
+            if (coords.length === 0) { alert('請至少輸入一組有效的座標！'); return; }
+            const routepoints = coords.map(c => `<rtept lat="${c.lat}" lon="${c.lon}"/>`).join('');
+            const gpxContent = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="GPS JoyStick"><rte><name>${routeName}</name><number>0</number>${routepoints}</rte></gpx>`;
+            downloadGpxFile(gpxContent, routeName);
+        }
+        function downloadGpxFile(content, fileName) {
+            const blob = new Blob([content], { type: 'application/gpx+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `${fileName}.gpx`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         }
         function initializePage() {
             coordsContainer.innerHTML = '';
-            for (let i = 0; i < 20; i++) {
-                addCoordRow();
-            }
+            for (let i = 0; i < 20; i++) { addCoordRow(); }
             updateRowNumbers();
         }
+        addRowButton.addEventListener('click', () => { addCoordRow(); updateRowNumbers(); });
+        pasteAllButton.addEventListener('click', pasteAllFromClipboard);
+        generateRouterButton.addEventListener('click', generateRouterGpxFile);
+        generateJoystickButton.addEventListener('click', generateJoystickGpxFile);
+        initializePage();
     </script>
 </body>
 </html>
