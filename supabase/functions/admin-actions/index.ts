@@ -510,23 +510,50 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 6. 編輯美片 (僅更新資訊)
+    // 6. 編輯美片 (支援換圖)
     if (action === 'edit-postcard') {
-        const { postcardId, coordinate, tags } = payload;
+        const { postcardId, coordinate, tags, imageUrl } = payload;
         
+        // 1. 查出舊資料 (驗證權限 + 取得舊圖路徑用)
+        const { data: oldCard } = await adminSupabaseClient.from('postcards').select('uploader_id, image_url').eq('id', postcardId).single();
+        if (!oldCard) throw new Error('找不到該美片');
+
         // 驗證權限
-        const { data: card } = await adminSupabaseClient.from('postcards').select('uploader_id').eq('id', postcardId).single();
         const { data: operatorProfile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
         const isAdmin = operatorProfile?.role === '管理者';
 
-        if (card?.uploader_id !== user.id && !isAdmin) throw new Error('權限不足');
+        if (oldCard.uploader_id !== user.id && !isAdmin) throw new Error('權限不足');
 
+        // 2. 準備更新資料
+        const updateData: any = { coordinate, tags };
+        if (imageUrl) {
+            updateData.image_url = imageUrl; // 如果有新圖，才更新欄位
+        }
+
+        // 3. 執行更新
         const { error } = await adminSupabaseClient
             .from('postcards')
-            .update({ coordinate, tags })
+            .update(updateData)
             .eq('id', postcardId);
 
         if (error) throw error;
+
+        // 4. ★ 關鍵：如果有換圖 (imageUrl 存在)，且更新成功，就刪除舊圖
+        if (imageUrl && oldCard.image_url) {
+            try {
+                const oldFileName = oldCard.image_url.split('/').pop();
+                // 簡單防呆：確保新舊檔名不同才刪 (雖然檔名有時間戳記通常不同，但以防萬一)
+                const newFileName = imageUrl.split('/').pop();
+                
+                if (oldFileName && oldFileName !== newFileName) {
+                    await adminSupabaseClient.storage.from('postcard-images').remove([oldFileName]);
+                    console.log(`[Postcard] 舊圖已刪除: ${oldFileName}`);
+                }
+            } catch (e) {
+                console.error('舊圖刪除失敗 (不影響更新):', e);
+            }
+        }
+
         return new Response(JSON.stringify({ success: true, data: { message: '更新成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 

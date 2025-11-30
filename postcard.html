@@ -392,7 +392,12 @@
             form.reset();
             document.getElementById('edit-id').value = '';
             document.getElementById('modal-title').textContent = '分享新美片';
-            document.getElementById('image-upload-section').classList.remove('hidden');
+            
+            // ★ 修改：還原 label 文字
+            const uploadSection = document.getElementById('image-upload-section');
+            uploadSection.classList.remove('hidden');
+            uploadSection.querySelector('label').textContent = '上傳圖片';
+            
             document.getElementById('preview-image').src = '';
             document.getElementById('preview-section').classList.add('hidden');
             document.getElementById('submit-btn').textContent = '發布';
@@ -420,8 +425,7 @@
             const originalText = btn.textContent;
             btn.textContent = '處理中...';
 
-            // ★ 新增：用來追蹤剛剛上傳的檔案名稱，以便發生錯誤時回滾(刪除)
-            let uploadedFileName = null;
+            let uploadedFileName = null; // 用於回滾
 
             try {
                 const editId = document.getElementById('edit-id').value;
@@ -432,27 +436,29 @@
                 const tags = [t1, t2, t3].filter(t => t.length > 0);
 
                 let imageUrl = null;
+                const fileInput = document.getElementById('image-upload');
 
-                if (!editId) {
-                    // === 新增模式 ===
-                    const fileInput = document.getElementById('image-upload');
+                // ★ 判斷是否需要上傳圖片
+                // 情況A: 新增模式 (必須上傳)
+                // 情況B: 編輯模式 且 使用者有選新檔案 (選擇性上傳)
+                if (!editId || (editId && fileInput.files.length > 0)) {
                     if (fileInput.files.length === 0) throw new Error('請選擇圖片');
-                    
+
                     const file = fileInput.files[0];
-                    // 產生檔名
                     uploadedFileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.${file.name.split('.').pop()}`;
                     
-                    // 1. 先上傳圖片
                     const { error: upErr } = await supabaseClient.storage.from('postcard-images').upload(uploadedFileName, file);
                     if (upErr) {
-                        uploadedFileName = null; // 上傳失敗，不需要回滾
+                        uploadedFileName = null;
                         throw upErr;
                     }
                     
                     const { data: publicData } = supabaseClient.storage.from('postcard-images').getPublicUrl(uploadedFileName);
                     imageUrl = publicData.publicUrl;
+                }
 
-                    // 2. 再呼叫後端寫入資料庫
+                if (!editId) {
+                    // === 新增模式 ===
                     const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
                         body: { 
                             action: 'add-postcard', 
@@ -465,25 +471,27 @@
                             } 
                         }
                     });
-
-                    // ★ 關鍵檢查：如果後端回傳 error，這裡會捕捉到
                     if (error) throw error;
                     if (data && data.error) throw new Error(data.error);
-
                     showToast('發布成功！', false);
 
                 } else {
-                    // === 編輯模式 (邏輯不變) ===
+                    // === 編輯模式 ===
+                    // 如果 imageUrl 有值，代表有換圖；如果是 null，代表沒換圖 (後端會忽略更新)
                     const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
                         body: { 
                             action: 'edit-postcard', 
-                            payload: { postcardId: editId, coordinate: coords, tags: tags } 
+                            payload: { 
+                                postcardId: editId, 
+                                coordinate: coords, 
+                                tags: tags,
+                                imageUrl: imageUrl // 傳入新圖片網址 (或 null)
+                            } 
                         }
                     });
                     
                     if (error) throw error;
                     if (data && data.error) throw new Error(data.error);
-                    
                     showToast('更新成功！', false);
                 }
 
@@ -493,10 +501,8 @@
             } catch (e) {
                 console.error(e);
                 
-                // ★ 新增：錯誤處理與回滾機制 (Rollback)
-                // 如果剛剛有成功上傳圖片，但後續流程失敗了，立刻刪除該圖片
+                // ★ 回滾機制：如果剛剛有上傳新圖但失敗了，把新圖刪掉
                 if (uploadedFileName) {
-                    console.warn('偵測到流程失敗，正在刪除殘留圖片:', uploadedFileName);
                     await supabaseClient.storage.from('postcard-images').remove([uploadedFileName]);
                 }
 
@@ -532,16 +538,25 @@
             document.getElementById('modal-title').textContent = '編輯美片資訊';
             document.getElementById('coordinate-input').value = card.coordinate || '';
             
-            // ★ 修改：將舊標籤填入三個輸入框
+            // 填入舊標籤
             const oldTags = card.tags || [];
             document.getElementById('tag-1').value = oldTags[0] || '';
             document.getElementById('tag-2').value = oldTags[1] || '';
             document.getElementById('tag-3').value = oldTags[2] || '';
             
-            document.getElementById('image-upload-section').classList.add('hidden');
+            // ★ 修改：編輯模式也要顯示上傳區塊，但修改文字提示
+            const uploadSection = document.getElementById('image-upload-section');
+            uploadSection.classList.remove('hidden');
+            // 改變 label 文字提醒使用者
+            uploadSection.querySelector('label').textContent = '更換圖片 (若不修改請留空)';
+            // 清空 file input 防止誤傳
+            document.getElementById('image-upload').value = '';
+
+            // 顯示目前的圖片預覽
             const preview = document.getElementById('preview-image');
             preview.src = card.image_url;
             document.getElementById('preview-section').classList.remove('hidden');
+            
             document.getElementById('submit-btn').textContent = '儲存變更';
             modal.classList.remove('hidden');
         };
