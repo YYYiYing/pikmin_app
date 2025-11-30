@@ -630,6 +630,28 @@
             }
         });
 
+        // ★ 補回遺失的 Toast 訊息顯示函式
+        function showToast(msg, isErr) {
+            const el = document.getElementById('toast-message');
+            // 設定圖示與文字
+            el.innerHTML = `${isErr ? '❌' : '✅'} ${msg}`;
+            
+            // 設定顏色與樣式
+            el.className = `fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-[70] font-bold flex items-center gap-2 transform transition-all duration-300 ${isErr ? 'bg-red-600/95' : 'bg-green-600/95'} translate-y-0`;
+            
+            // 顯示
+            el.classList.remove('hidden');
+            
+            // 3秒後自動消失動畫
+            setTimeout(() => {
+                el.classList.add('translate-y-[-20px]', 'opacity-0');
+                setTimeout(() => {
+                    el.classList.add('hidden');
+                    el.classList.remove('translate-y-[-20px]', 'opacity-0');
+                }, 300);
+            }, 3000);
+        }
+        
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
