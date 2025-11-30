@@ -8,6 +8,9 @@
     <link rel="apple-touch-icon" href="./mashroom_s.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
     <style>
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
         .dark-input { background-color: #374151; border-color: #4b5563; color: #d1d5db; }
@@ -171,6 +174,29 @@
         let currentUser = null;
         let allPostcards = [];
         let activeTag = 'all';
+
+        // ★ 新增：封裝圖片壓縮功能的 Promise 函式
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                new Compressor(file, {
+                    quality: 0.6,      // 壓縮品質 (0 ~ 1)，0.6 通常能壓到 500KB 以下且畫質良好
+                    maxWidth: 1600,    // 最大寬度 (像素)，避免上傳 4K/8K 超大圖
+                    maxHeight: 1600,   // 最大高度
+                    mimeType: 'image/jpeg', // 統一轉為 JPEG (以獲得最佳壓縮率)
+                    success(result) {
+                        // result 是一個 Blob 物件，我們把它轉回 File 物件以便上傳
+                        const compressedFile = new File([result], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(compressedFile);
+                    },
+                    error(err) {
+                        reject(err);
+                    },
+                });
+            });
+        }
 
         // 初始化
         async function init() {
@@ -441,13 +467,26 @@
                 // ★ 判斷是否需要上傳圖片
                 // 情況A: 新增模式 (必須上傳)
                 // 情況B: 編輯模式 且 使用者有選新檔案 (選擇性上傳)
+                // 加入壓縮邏輯
                 if (!editId || (editId && fileInput.files.length > 0)) {
                     if (fileInput.files.length === 0) throw new Error('請選擇圖片');
 
-                    const file = fileInput.files[0];
-                    uploadedFileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.${file.name.split('.').pop()}`;
+                    // 1. 取得原始檔案
+                    const originalFile = fileInput.files[0];
                     
-                    const { error: upErr } = await supabaseClient.storage.from('postcard-images').upload(uploadedFileName, file);
+                    // 2. 執行壓縮 (顯示 Toast 讓使用者知道正在處理)
+                    showToast('正在壓縮圖片...', false);
+                    const compressedFile = await compressImage(originalFile);
+                    
+                    // (除錯用) 您可以在 Console 看到壓縮前後的大小差異
+                    console.log(`壓縮前: ${(originalFile.size/1024/1024).toFixed(2)}MB, 壓縮後: ${(compressedFile.size/1024/1024).toFixed(2)}MB`);
+
+                    // 3. 使用「壓縮後的檔案」產生檔名並上傳
+                    // 注意：這邊改用 compressedFile 來處理
+                    uploadedFileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`; // 統一存為 jpg
+                    
+                    const { error: upErr } = await supabaseClient.storage.from('postcard-images').upload(uploadedFileName, compressedFile);
+                    
                     if (upErr) {
                         uploadedFileName = null;
                         throw upErr;
@@ -651,7 +690,7 @@
                 }, 300);
             }, 3000);
         }
-        
+
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
