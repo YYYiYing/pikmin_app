@@ -84,11 +84,14 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-400 mb-1">分類標籤 (最多3個)</label>
                     <div class="grid grid-cols-3 gap-2">
-                        <input type="text" id="tag-1" placeholder="標籤1" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm">
-                        <input type="text" id="tag-2" placeholder="標籤2" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm">
-                        <input type="text" id="tag-3" placeholder="標籤3" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm">
+                        <input type="text" id="tag-1" list="tag-suggestions" placeholder="標籤1" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm" autocomplete="off">
+                        <input type="text" id="tag-2" list="tag-suggestions" placeholder="標籤2" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm" autocomplete="off">
+                        <input type="text" id="tag-3" list="tag-suggestions" placeholder="標籤3" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm" autocomplete="off">
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">無需輸入 # 號，留白則不顯示。</p>
+                    
+                    <datalist id="tag-suggestions"></datalist>
+
+                    <p class="text-xs text-gray-500 mt-1">無需輸入 # 號，點擊可選擇現有熱門標籤。</p>
                 </div>
 
                 <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-700">
@@ -148,6 +151,7 @@
                 allPostcards.forEach(p => { p.isLiked = likedSet.has(p.id); });
                 
                 updateFilterTags();
+                updateTagDatalist();
                 renderGrid();
             } catch (e) {
                 console.error(e);
@@ -191,6 +195,33 @@
                 activeTag = 'all';
                 renderGrid();
             };
+        }
+
+        // ★ 新增：更新輸入框的建議清單
+        function updateTagDatalist() {
+            const tagCounts = {};
+            
+            // 1. 統計所有標籤出現次數
+            allPostcards.forEach(p => {
+                if (p.tags) p.tags.forEach(t => {
+                    const cleanTag = t.trim();
+                    if(cleanTag) tagCounts[cleanTag] = (tagCounts[cleanTag] || 0) + 1;
+                });
+            });
+
+            // 2. 依照熱門程度排序 (次數多的在前面)
+            const sortedTags = Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a]);
+
+            // 3. 填入 datalist
+            const datalist = document.getElementById('tag-suggestions');
+            datalist.innerHTML = ''; // 清空舊的
+
+            sortedTags.forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                // option.label = `${tag} (${tagCounts[tag]})`; // 若想顯示次數可打開這行(部分瀏覽器支援)
+                datalist.appendChild(option);
+            });
         }
 
         function renderGrid() {
