@@ -22,6 +22,46 @@
         .modal-backdrop { background-color: rgba(0, 0, 0, 0.8); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* === 自訂下拉選單樣式 (仿登入頁風格) === */
+        .custom-dropdown-container {
+            position: relative;
+            width: 100%;
+        }
+        .dropdown-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background-color: #374151; /* 深灰背景 */
+            border: 1px solid #4b5563;
+            border-radius: 0.5rem; /* rounded-lg */
+            max-height: 200px;      /* 限制高度 */
+            overflow-y: auto;       /* 超出捲動 */
+            z-index: 60;            /* 確保蓋在其他元素上 */
+            display: none;          /* 預設隱藏 */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+        .dropdown-options.show {
+            display: block;
+        }
+        .dropdown-option {
+            padding: 10px 12px;
+            color: #d1d5db;
+            cursor: pointer;
+            transition: background-color 0.1s;
+            font-size: 0.875rem; /* text-sm */
+            border-bottom: 1px solid #4b5563;
+            text-align: left;
+        }
+        .dropdown-option:last-child {
+            border-bottom: none;
+        }
+        .dropdown-option:hover {
+            background-color: #ec4899; /* Pink-500 */
+            color: white;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8 min-h-screen">
@@ -84,14 +124,24 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-400 mb-1">分類標籤 (最多3個)</label>
                     <div class="grid grid-cols-3 gap-2">
-                        <input type="text" id="tag-1" list="tag-suggestions" placeholder="標籤1" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm" autocomplete="off">
-                        <input type="text" id="tag-2" list="tag-suggestions" placeholder="標籤2" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm" autocomplete="off">
-                        <input type="text" id="tag-3" list="tag-suggestions" placeholder="標籤3" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm" autocomplete="off">
-                    </div>
-                    
-                    <datalist id="tag-suggestions"></datalist>
+                        
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="tag-1" placeholder="標籤1" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm" autocomplete="off">
+                            <div id="dropdown-1" class="dropdown-options text-left"></div>
+                        </div>
 
-                    <p class="text-xs text-gray-500 mt-1">無需輸入 # 號，點擊可選擇現有熱門標籤。</p>
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="tag-2" placeholder="標籤2" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm" autocomplete="off">
+                            <div id="dropdown-2" class="dropdown-options text-left"></div>
+                        </div>
+
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="tag-3" placeholder="標籤3" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm" autocomplete="off">
+                            <div id="dropdown-3" class="dropdown-options text-left"></div>
+                        </div>
+
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">無需輸入 # 號，點擊可選擇熱門標籤 (已選過的會自動過濾)。</p>
                 </div>
 
                 <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-700">
@@ -127,7 +177,7 @@
             currentUser = { ...session.user, ...profile };
 
             loadPostcards();
-            // ★ 修改：移除了這裡原本呼叫 setupEvents() 的錯誤代碼
+            initTagDropdowns(); // ★ 啟動下拉選單功能
         }
 
         // 載入資料
@@ -150,8 +200,7 @@
                 const likedSet = new Set(likes ? likes.map(l => l.postcard_id) : []);
                 allPostcards.forEach(p => { p.isLiked = likedSet.has(p.id); });
                 
-                updateFilterTags();
-                updateTagDatalist();
+                updateFilterTags();  
                 renderGrid();
             } catch (e) {
                 console.error(e);
@@ -197,31 +246,78 @@
             };
         }
 
-        // ★ 新增：更新輸入框的建議清單
-        function updateTagDatalist() {
+        // ★ 新增：取得排序後的熱門標籤列表
+        function getSortedGlobalTags() {
             const tagCounts = {};
-            
-            // 1. 統計所有標籤出現次數
             allPostcards.forEach(p => {
                 if (p.tags) p.tags.forEach(t => {
                     const cleanTag = t.trim();
                     if(cleanTag) tagCounts[cleanTag] = (tagCounts[cleanTag] || 0) + 1;
                 });
             });
+            return Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a]);
+        }
 
-            // 2. 依照熱門程度排序 (次數多的在前面)
-            const sortedTags = Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a]);
+        // ★ 新增：初始化單個下拉選單的邏輯
+        function setupTagDropdown(inputId, dropdownId, otherInputIds) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            
+            // 渲染選單內容 (含過濾邏輯)
+            const renderOptions = (filterText = '') => {
+                const allTags = getSortedGlobalTags();
+                
+                // 1. 取得「其他輸入框」目前的值 (做成排除清單)
+                const excludedValues = otherInputIds.map(id => document.getElementById(id).value.trim()).filter(v => v);
+                
+                // 2. 過濾：(符合搜尋文字) AND (不在排除清單中)
+                const filteredTags = allTags.filter(tag => {
+                    const matchText = tag.toLowerCase().includes(filterText.toLowerCase());
+                    const notExcluded = !excludedValues.includes(tag);
+                    return matchText && notExcluded;
+                });
 
-            // 3. 填入 datalist
-            const datalist = document.getElementById('tag-suggestions');
-            datalist.innerHTML = ''; // 清空舊的
+                dropdown.innerHTML = '';
+                if (filteredTags.length === 0) {
+                    dropdown.innerHTML = '<div class="dropdown-option text-gray-500 cursor-default">無符合標籤</div>';
+                } else {
+                    filteredTags.forEach(tag => {
+                        const div = document.createElement('div');
+                        div.className = 'dropdown-option';
+                        div.textContent = tag;
+                        div.onclick = () => {
+                            input.value = tag;
+                            dropdown.classList.remove('show');
+                        };
+                        dropdown.appendChild(div);
+                    });
+                }
+            };
 
-            sortedTags.forEach(tag => {
-                const option = document.createElement('option');
-                option.value = tag;
-                // option.label = `${tag} (${tagCounts[tag]})`; // 若想顯示次數可打開這行(部分瀏覽器支援)
-                datalist.appendChild(option);
+            // 事件監聽
+            input.onfocus = () => {
+                renderOptions(input.value);
+                dropdown.classList.add('show');
+            };
+            
+            input.oninput = () => {
+                renderOptions(input.value);
+                dropdown.classList.add('show');
+            };
+
+            // 點擊外部關閉
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
             });
+        }
+
+        // ★ 新增：一次初始化所有三個輸入框
+        function initTagDropdowns() {
+            setupTagDropdown('tag-1', 'dropdown-1', ['tag-2', 'tag-3']);
+            setupTagDropdown('tag-2', 'dropdown-2', ['tag-1', 'tag-3']);
+            setupTagDropdown('tag-3', 'dropdown-3', ['tag-1', 'tag-2']);
         }
 
         function renderGrid() {
