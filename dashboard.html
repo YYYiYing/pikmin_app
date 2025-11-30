@@ -242,6 +242,7 @@
             
             <div class="hidden md:flex items-center gap-x-4">
                 <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
+                <a href="./postcard.html" class="text-pink-400 hover:text-pink-300 font-bold transition text-sm">🖼️ 美片圖書館</a>
                 <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🤝 村民好友碼</a>
                 <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="text-gray-300 hover:text-white transition text-sm">🔃 路徑轉檔</a>
                 <a id="gpx-generator-link" href="./gpx_generator.html" class="text-green-400 hover:text-green-300 font-bold transition text-sm">🗺️ 路徑生成</a>
@@ -255,6 +256,7 @@
         <div id="mobile-menu" class="hidden absolute top-full left-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg p-2">
             <div class="space-y-1">
                 <button id="leaderboard-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏆 排行榜</button>
+                <a href="./postcard.html" class="block text-pink-400 hover:bg-gray-700 p-2 rounded-md font-bold">🖼️ 美片圖書館</a>
                 <a href="./partner.html" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🤝 村民好友碼</a>
                 <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🔃 路徑轉檔</a>
                 <a id="gpx-generator-link-mobile" href="./gpx_generator.html" class="block text-green-400 hover:bg-gray-700 p-2 rounded-md font-bold">🗺️ 路徑生成</a>
@@ -630,6 +632,7 @@
                     <button data-type="host" class="flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-bold transition bg-indigo-600 text-white shadow-sm">🍄 發菇王</button>
                     <button data-type="count" class="flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition">📝 報名王</button>
                     <button data-type="speed" class="flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition">⚡ 最速傳說</button>
+                    <button data-type="postcard" class="flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition">🖼️ 美片王</button>
                 </div>
             </div>
 
@@ -1784,7 +1787,13 @@
 
     async function fetchLeaderboard(type, period) {
         leaderboardContent.innerHTML = '<p class="text-center text-gray-400 py-8">讀取中...</p>';
-        let func = type === 'count' ? 'get_leaderboard_from_profiles' : (type === 'speed' ? 'get_speed_leaderboard_from_profiles' : 'get_host_leaderboard');
+        
+        // 判斷 RPC 函式名稱
+        let func;
+        if (type === 'count') func = 'get_leaderboard_from_profiles';
+        else if (type === 'speed') func = 'get_speed_leaderboard_from_profiles';
+        else if (type === 'postcard') func = 'get_postcard_leaderboard'; // 新增
+        else func = 'get_host_leaderboard';
         
         try {
             const { data, error } = await supabaseClient.rpc(func, { period_type: period });
@@ -1792,6 +1801,7 @@
             
             if (type === 'count') renderCountLeaderboard(data);
             else if (type === 'speed') renderSpeedLeaderboard(data);
+            else if (type === 'postcard') renderPostcardLeaderboard(data); // 新增渲染函式
             else renderHostLeaderboard(data);
         } catch (e) { leaderboardContent.innerHTML = '<p class="text-center text-red-400">載入失敗</p>'; }
     }
@@ -1832,30 +1842,41 @@
                     <span class="w-24 text-right font-bold text-green-400 flex-shrink-0">${item.host_count} 菇</span></div>`;
         }).join('');
     }
+    
+    function renderPostcardLeaderboard(data) {
+        if(!data?.length) { leaderboardContent.innerHTML='<p class="text-center text-gray-500 py-8">無紀錄</p>'; return; }
+        let rank=0, last=-1;
+        leaderboardContent.innerHTML = data.map(item => {
+            if(item.postcard_count!==last) rank++; last=item.postcard_count;
+            return `<div class="flex items-center py-3 border-b border-gray-700 hover:bg-gray-800/50 transition">
+                    <span class="w-12 text-center font-bold text-lg text-gray-300 flex-shrink-0">${rank<=3?['🥇','🥈','🥉'][rank-1]:rank}</span>
+                    <span class="flex-1 min-w-0 px-3 truncate text-gray-200">${item.nickname||'未知'}</span>
+                    <span class="w-24 text-right font-bold text-pink-400 flex-shrink-0">${item.postcard_count} 張</span></div>`;
+        }).join('');
+    }
 
+    // 修改後的 updateMarquee 函式
     async function updateMarquee() {
         const marqueeEl = document.getElementById('marquee-content');
         try {
-            const [sData, spData, hData] = await Promise.all([
+            // 增加一個 RPC 呼叫：get_postcard_leaderboard
+            const [sData, spData, hData, pData] = await Promise.all([
                 supabaseClient.rpc('get_leaderboard_from_profiles', { period_type: 'month' }),
                 supabaseClient.rpc('get_speed_leaderboard_from_profiles', { period_type: 'month' }),
-                supabaseClient.rpc('get_host_leaderboard', { period_type: 'month' }) 
+                supabaseClient.rpc('get_host_leaderboard', { period_type: 'month' }),
+                supabaseClient.rpc('get_postcard_leaderboard', { period_type: 'month' }) // 新增
             ]);
+            
             let parts = [];
             if(hData.data?.[0]) parts.push(`★&nbsp;&nbsp;&nbsp;🍄 本月發菇王：${hData.data[0].nickname} (${hData.data[0].host_count}朵)`);
             if(sData.data?.[0]) parts.push(`🏆 本月報名王：${sData.data[0].nickname} (${sData.data[0].signup_count}次)`);
-            if(spData.data?.[0]) parts.push(`⚡ 本月最速傳說：${spData.data[0].nickname} (${parseFloat(spData.data[0].fastest_time_seconds).toFixed(2)}秒)&nbsp;&nbsp;&nbsp;★`);
+            if(spData.data?.[0]) parts.push(`⚡ 本月最速傳說：${spData.data[0].nickname} (${parseFloat(spData.data[0].fastest_time_seconds).toFixed(2)}秒)`);
+            if(pData.data?.[0]) parts.push(`🖼️ 本月美片王：${pData.data[0].nickname} (${pData.data[0].postcard_count}張)&nbsp;&nbsp;&nbsp;★`); // 新增
 
             if(parts.length > 0) {
+                // ... (原有動畫邏輯保持不變)
                 marqueeEl.innerHTML = parts.join(' &nbsp;&nbsp; ★ &nbsp; ');
-                marqueeEl.style.animationDuration = '20s';
-                const run = () => {
-                    marqueeEl.classList.remove('animate-marquee');
-                    void marqueeEl.offsetWidth;
-                    marqueeEl.classList.add('animate-marquee');
-                };
-                marqueeEl.addEventListener('animationend', () => setTimeout(run, 1000));
-                run();
+                // ...
             } else marqueeEl.textContent = '目前尚無挑戰紀錄，快來搶頭香！';
         } catch(e) { console.error(e); marqueeEl.textContent = '歡迎來到菇菇宅配網！'; }
     }

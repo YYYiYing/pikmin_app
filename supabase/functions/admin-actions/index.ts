@@ -445,6 +445,124 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // --- 新增功能：美片圖書館 Actions ---
+    // 4. 發布新美片 (含計數更新)
+    if (action === 'add-postcard') {
+        const { uploaderId, uploaderNickname, coordinate, imageUrl, tags } = payload;
+        if (user.id !== uploaderId) throw new Error('身分驗證失敗');
+
+        // A. 寫入 postcards 表
+        const { data: newCard, error: insertErr } = await adminSupabaseClient
+            .from('postcards')
+            .insert({
+                uploader_id: uploaderId,
+                uploader_nickname: uploaderNickname,
+                coordinate: coordinate,
+                image_url: imageUrl,
+                tags: tags,
+                likes: 0
+            })
+            .select()
+            .single();
+
+        if (insertErr) throw insertErr;
+
+        // B. 更新該使用者的計數 (Total / Week / Month)
+        // 使用 RPC 或直接 SQL update (這裡用直接 update 簡化)
+        // 注意：需先讀取當前值再 +1 會有併發風險，建議用 rpc increment，這裡為示範直接 update
+        await adminSupabaseClient.rpc('increment_postcard_count', { user_id: uploaderId });
+        
+        return new Response(JSON.stringify({ success: true, data: newCard }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 5. 刪除美片 (含計數扣除)
+    if (action === 'delete-postcard') {
+        const { postcardId } = payload;
+        
+        // 查驗權限
+        const { data: card } = await adminSupabaseClient.from('postcards').select('uploader_id, image_url').eq('id', postcardId).single();
+        if (!card) throw new Error('找不到該美片');
+        
+        const { data: operatorProfile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
+        const isAdmin = operatorProfile?.role === '管理者';
+        
+        if (card.uploader_id !== user.id && !isAdmin) {
+            throw new Error('權限不足，您不是發現者也不是管理員');
+        }
+
+        // A. 刪除圖片 (Storage)
+        if (card.image_url) {
+            try {
+                const fileName = card.image_url.split('/').pop();
+                if (fileName) await adminSupabaseClient.storage.from('postcard-images').remove([fileName]);
+            } catch (e) { console.error('圖片刪除失敗', e); }
+        }
+
+        // B. 刪除資料庫紀錄
+        const { error: delErr } = await adminSupabaseClient.from('postcards').delete().eq('id', postcardId);
+        if (delErr) throw delErr;
+
+        // C. 扣除計數 (僅當該卡片有歸屬者時)
+        if (card.uploader_id) {
+            await adminSupabaseClient.rpc('decrement_postcard_count', { user_id: card.uploader_id });
+        }
+
+        return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 6. 編輯美片 (僅更新資訊)
+    if (action === 'edit-postcard') {
+        const { postcardId, coordinate, tags } = payload;
+        
+        // 驗證權限
+        const { data: card } = await adminSupabaseClient.from('postcards').select('uploader_id').eq('id', postcardId).single();
+        const { data: operatorProfile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
+        const isAdmin = operatorProfile?.role === '管理者';
+
+        if (card?.uploader_id !== user.id && !isAdmin) throw new Error('權限不足');
+
+        const { error } = await adminSupabaseClient
+            .from('postcards')
+            .update({ coordinate, tags })
+            .eq('id', postcardId);
+
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true, data: { message: '更新成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 7. 按讚/取消讚 (Toggle Like)
+    if (action === 'toggle-postcard-like') {
+        const { postcardId } = payload;
+        const userId = user.id;
+
+        // 檢查是否按過讚
+        const { data: existingLike } = await adminSupabaseClient
+            .from('postcard_likes')
+            .select('*')
+            .eq('postcard_id', postcardId)
+            .eq('user_id', userId)
+            .single();
+
+        let finalLikes = 0;
+
+        if (existingLike) {
+            // 取消讚
+            await adminSupabaseClient.from('postcard_likes').delete().eq('postcard_id', postcardId).eq('user_id', userId);
+            // 減少計數
+            const { data: p } = await adminSupabaseClient.rpc('update_postcard_likes', { p_id: postcardId, p_delta: -1 });
+            finalLikes = p;
+        } else {
+            // 新增讚
+            await adminSupabaseClient.from('postcard_likes').insert({ postcard_id: postcardId, user_id: userId });
+            // 增加計數
+            const { data: p } = await adminSupabaseClient.rpc('update_postcard_likes', { p_id: postcardId, p_delta: 1 });
+            finalLikes = p;
+        }
+
+        return new Response(JSON.stringify({ success: true, data: { likes: finalLikes, liked: !existingLike } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    
     // ============================================================
     // 區塊 B2：管理員專屬功能 (B2 - Admin Only Actions)
     // 必須檢查 role === '管理者'，否則回傳 403

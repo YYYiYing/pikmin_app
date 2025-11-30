@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>美片圖書館 - 菇菇宅配網</title>
+    <link rel="icon" href="./mashroom_s.png" type="image/png">
+    <link rel="apple-touch-icon" href="./mashroom_s.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
+        .dark-input { background-color: #374151; border-color: #4b5563; color: #d1d5db; }
+        .dark-input:focus { border-color: #ec4899; --tw-ring-color: #ec4899; outline: none; ring: 2px; } 
+        .card-bg { background-color: #1f2937; border: 1px solid #374151; transition: all 0.3s; }
+        .card-bg:hover { border-color: #ec4899; transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+        .filter-tag { cursor: pointer; transition: all 0.2s; border-radius: 9999px; padding: 4px 12px; font-size: 0.85rem; border: 1px solid #4b5563; background-color: #374151; color: #d1d5db; }
+        .filter-tag:hover, .filter-tag.active { background-color: #ec4899; color: white; border-color: #ec4899; }
+        .like-btn { cursor: pointer; transition: transform 0.2s; user-select: none; }
+        .like-btn:active { transform: scale(1.2); }
+        .like-btn.liked { color: #f43f5e; } /* Rose-500 */
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.8); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+    
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4 border-b border-gray-700 pb-6">
+            <h1 class="text-3xl font-bold text-white flex items-center gap-2">
+                <span>🖼️</span> 美片圖書館
+            </h1>
+            <div class="flex items-center gap-4">
+                <button id="add-postcard-btn" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transition flex items-center gap-2 transform hover:scale-105">
+                    <span>➕</span> 分享美片
+                </button>
+                <a href="./dashboard.html" class="text-gray-400 hover:text-white font-bold transition flex items-center gap-1">
+                    <span>↩️</span> 返回主頁
+                </a>
+            </div>
+        </header>
+
+        <div class="mb-8">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-gray-400 text-sm">🏷️ 熱門標籤：</span>
+            </div>
+            <div id="filter-container" class="flex flex-wrap gap-2 items-center">
+                <button class="filter-tag active" data-tag="all">全部顯示</button>
+                </div>
+        </div>
+
+        <div id="postcard-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <p class="col-span-full text-center py-12 text-gray-500 animate-pulse">正在從資料庫讀取美片...</p>
+        </div>
+    </div>
+
+    <div id="postcard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="bg-gray-800 border border-gray-600 w-full max-w-md rounded-2xl shadow-2xl p-6 relative">
+            <button id="close-modal-x" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">&times;</button>
+            <h2 id="modal-title" class="text-2xl font-bold text-white mb-6">分享新美片</h2>
+            
+            <form id="postcard-form" class="space-y-4">
+                <input type="hidden" id="edit-id">
+                
+                <div id="image-upload-section">
+                    <label class="block text-sm font-medium text-gray-400 mb-1">上傳圖片</label>
+                    <input type="file" id="image-upload" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-600 file:text-white hover:file:bg-pink-700 transition cursor-pointer"/>
+                </div>
+
+                <div id="preview-section" class="hidden text-center">
+                    <p class="text-sm text-gray-400 mb-1 text-left">圖片預覽</p>
+                    <img id="preview-image" src="" class="rounded-lg max-h-48 mx-auto object-contain border border-gray-600 shadow-md">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">座標 (緯度, 經度)</label>
+                    <div class="relative">
+                        <input type="text" id="coordinate-input" required placeholder="例如: 22.6123, 120.3456" class="dark-input w-full rounded-lg shadow-sm pl-3 pr-10 py-2.5">
+                        <button type="button" id="paste-coord-btn" class="absolute right-2 top-2 text-gray-400 hover:text-white p-1" title="貼上剪貼簿內容">📋</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">分類標籤 (最多3個)</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="text" id="tag-1" placeholder="標籤1" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm">
+                        <input type="text" id="tag-2" placeholder="標籤2" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm">
+                        <input type="text" id="tag-3" placeholder="標籤3" maxlength="10" class="dark-input w-full rounded-lg shadow-sm px-2 py-2.5 text-center text-sm">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">無需輸入 # 號，留白則不顯示。</p>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-700">
+                    <button type="button" id="close-modal-btn" class="px-5 py-2.5 bg-gray-600 text-gray-200 rounded-lg hover:bg-gray-500 font-bold transition">取消</button>
+                    <button type="submit" id="submit-btn" class="px-5 py-2.5 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed font-bold transition shadow-lg">發布</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-message" class="hidden fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-50 font-bold flex items-center gap-2 transform transition-all duration-300 translate-y-0"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUser = null;
+        let allPostcards = [];
+        let activeTag = 'all';
+
+        // 初始化
+        async function init() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                alert('請先登入才能使用美片圖書館');
+                window.location.replace('./index.html');
+                return;
+            }
+            
+            const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
+            currentUser = { ...session.user, ...profile };
+
+            loadPostcards();
+            // ★ 修改：移除了這裡原本呼叫 setupEvents() 的錯誤代碼
+        }
+
+        // 載入資料
+        async function loadPostcards() {
+            const grid = document.getElementById('postcard-grid');
+            try {
+                const { data, error } = await supabaseClient
+                    .from('postcards')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                allPostcards = data;
+
+                const { data: likes } = await supabaseClient
+                    .from('postcard_likes')
+                    .select('postcard_id')
+                    .eq('user_id', currentUser.id);
+                
+                const likedSet = new Set(likes ? likes.map(l => l.postcard_id) : []);
+                allPostcards.forEach(p => { p.isLiked = likedSet.has(p.id); });
+                
+                updateFilterTags();
+                renderGrid();
+            } catch (e) {
+                console.error(e);
+                grid.innerHTML = '<p class="col-span-full text-center text-red-400">無法載入資料，請稍後再試。</p>';
+            }
+        }
+
+        function updateFilterTags() {
+            const tagCounts = {};
+            allPostcards.forEach(p => {
+                if (p.tags) p.tags.forEach(t => {
+                    const cleanTag = t.trim();
+                    if(cleanTag) tagCounts[cleanTag] = (tagCounts[cleanTag] || 0) + 1;
+                });
+            });
+
+            const topTags = Object.entries(tagCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(x => x[0]);
+
+            const container = document.getElementById('filter-container');
+            container.innerHTML = '<button class="filter-tag active" data-tag="all">全部顯示</button>';
+            
+            topTags.forEach(tag => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-tag';
+                btn.textContent = `#${tag} (${tagCounts[tag]})`;
+                btn.onclick = () => {
+                    document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    activeTag = tag;
+                    renderGrid();
+                };
+                container.appendChild(btn);
+            });
+            
+            container.querySelector('[data-tag="all"]').onclick = function() {
+                document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                activeTag = 'all';
+                renderGrid();
+            };
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('postcard-grid');
+            const filtered = activeTag === 'all' 
+                ? allPostcards 
+                : allPostcards.filter(p => p.tags && p.tags.includes(activeTag));
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<p class="col-span-full text-center py-12 text-gray-500 text-lg">目前沒有符合條件的美片。</p>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(p => {
+                const cleanName = (p.uploader_nickname || '').trim().replace(/[\s\uFEFF\xA0]*\d{12}$/, '');
+                const tagsHtml = (p.tags || []).map(t => `<span class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full mr-1 mb-1 inline-block border border-gray-600">#${t}</span>`).join('');
+                
+                const canEdit = (p.uploader_id === currentUser.id) || (currentUser.role === '管理者');
+                const controlsHtml = canEdit ? `
+                    <div class="absolute top-2 right-2 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition duration-200">
+                        <button onclick="editCard(${p.id}, event)" class="text-gray-300 hover:text-white p-1.5 hover:bg-gray-700 rounded" title="編輯">✏️</button>
+                        <button onclick="deleteCard(${p.id}, event)" class="text-red-400 hover:text-red-300 p-1.5 hover:bg-gray-700 rounded" title="刪除">🗑️</button>
+                    </div>
+                ` : '';
+
+                const heartClass = p.isLiked ? 'liked' : 'text-gray-500 hover:text-pink-400';
+                const heartIcon = p.isLiked ? '❤️' : '🤍';
+
+                return `
+                    <div class="card-bg rounded-xl overflow-hidden relative group flex flex-col h-full">
+                        <div class="aspect-video overflow-hidden bg-gray-900 cursor-pointer relative" onclick="viewImage('${p.image_url}')">
+                            <img src="${p.image_url}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out">
+                            ${controlsHtml}
+                        </div>
+                        <div class="p-4 flex flex-col flex-grow justify-between">
+                            <div>
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="flex items-center gap-1 overflow-hidden">
+                                        <span class="text-xs text-gray-400 flex-shrink-0">By</span>
+                                        <span class="font-bold text-gray-200 truncate" title="${cleanName}">${cleanName}</span>
+                                    </div>
+                                    <button onclick="toggleLike(${p.id}, this)" class="like-btn flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-full ${heartClass}">
+                                        <span class="text-base icon filter drop-shadow-md">${heartIcon}</span>
+                                        <span class="text-xs font-bold count">${p.likes}</span>
+                                    </button>
+                                </div>
+                                <div class="bg-gray-800/50 rounded-lg p-2 flex justify-between items-center mb-3 border border-gray-700 group-hover:border-gray-600 transition">
+                                    <span class="text-xs font-mono text-gray-400 truncate select-all flex-1 mr-2">${p.coordinate || '未知座標'}</span>
+                                    <button onclick="copyText('${p.coordinate}')" class="text-xs bg-gray-700 hover:bg-gray-600 text-green-400 px-2 py-1.5 rounded transition flex-shrink-0 font-bold flex items-center gap-1">📋 複製</button>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap content-end">${tagsHtml}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- 互動功能 ---
+        const modal = document.getElementById('postcard-modal');
+        const form = document.getElementById('postcard-form');
+        
+        document.getElementById('add-postcard-btn').onclick = () => {
+            form.reset();
+            document.getElementById('edit-id').value = '';
+            document.getElementById('modal-title').textContent = '分享新美片';
+            document.getElementById('image-upload-section').classList.remove('hidden');
+            document.getElementById('preview-image').src = '';
+            document.getElementById('preview-section').classList.add('hidden');
+            document.getElementById('submit-btn').textContent = '發布';
+            modal.classList.remove('hidden');
+        };
+        
+        const closeModal = () => modal.classList.add('hidden');
+        document.getElementById('close-modal-btn').onclick = closeModal;
+        document.getElementById('close-modal-x').onclick = closeModal;
+        
+        document.getElementById('paste-coord-btn').onclick = async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                if(text) document.getElementById('coordinate-input').value = text;
+                else showToast('剪貼簿是空的', true);
+            } catch(e) { showToast('無法讀取剪貼簿，請手動貼上', true); }
+        };
+
+        // 修改 postcard.html 中的 form.onsubmit 部分
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true; 
+            const originalText = btn.textContent;
+            btn.textContent = '處理中...';
+
+            // ★ 新增：用來追蹤剛剛上傳的檔案名稱，以便發生錯誤時回滾(刪除)
+            let uploadedFileName = null;
+
+            try {
+                const editId = document.getElementById('edit-id').value;
+                const coords = document.getElementById('coordinate-input').value.trim();
+                const t1 = document.getElementById('tag-1').value.trim();
+                const t2 = document.getElementById('tag-2').value.trim();
+                const t3 = document.getElementById('tag-3').value.trim();
+                const tags = [t1, t2, t3].filter(t => t.length > 0);
+
+                let imageUrl = null;
+
+                if (!editId) {
+                    // === 新增模式 ===
+                    const fileInput = document.getElementById('image-upload');
+                    if (fileInput.files.length === 0) throw new Error('請選擇圖片');
+                    
+                    const file = fileInput.files[0];
+                    // 產生檔名
+                    uploadedFileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.${file.name.split('.').pop()}`;
+                    
+                    // 1. 先上傳圖片
+                    const { error: upErr } = await supabaseClient.storage.from('postcard-images').upload(uploadedFileName, file);
+                    if (upErr) {
+                        uploadedFileName = null; // 上傳失敗，不需要回滾
+                        throw upErr;
+                    }
+                    
+                    const { data: publicData } = supabaseClient.storage.from('postcard-images').getPublicUrl(uploadedFileName);
+                    imageUrl = publicData.publicUrl;
+
+                    // 2. 再呼叫後端寫入資料庫
+                    const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                        body: { 
+                            action: 'add-postcard', 
+                            payload: { 
+                                uploaderId: currentUser.id, 
+                                uploaderNickname: currentUser.nickname,
+                                coordinate: coords, 
+                                imageUrl: imageUrl, 
+                                tags: tags 
+                            } 
+                        }
+                    });
+
+                    // ★ 關鍵檢查：如果後端回傳 error，這裡會捕捉到
+                    if (error) throw error;
+                    if (data && data.error) throw new Error(data.error);
+
+                    showToast('發布成功！', false);
+
+                } else {
+                    // === 編輯模式 (邏輯不變) ===
+                    const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                        body: { 
+                            action: 'edit-postcard', 
+                            payload: { postcardId: editId, coordinate: coords, tags: tags } 
+                        }
+                    });
+                    
+                    if (error) throw error;
+                    if (data && data.error) throw new Error(data.error);
+                    
+                    showToast('更新成功！', false);
+                }
+
+                modal.classList.add('hidden');
+                loadPostcards();
+
+            } catch (e) {
+                console.error(e);
+                
+                // ★ 新增：錯誤處理與回滾機制 (Rollback)
+                // 如果剛剛有成功上傳圖片，但後續流程失敗了，立刻刪除該圖片
+                if (uploadedFileName) {
+                    console.warn('偵測到流程失敗，正在刪除殘留圖片:', uploadedFileName);
+                    await supabaseClient.storage.from('postcard-images').remove([uploadedFileName]);
+                }
+
+                let msg = e.message;
+                if (msg === 'Edge Function returned a non-2xx status code') {
+                    msg = '後端連線錯誤 (請確認 index.ts 已重新部署)';
+                }
+                showToast(`操作失敗: ${msg}`, true);
+            } finally {
+                btn.disabled = false; btn.textContent = originalText;
+            }
+        };
+
+        window.deleteCard = async (id, event) => {
+            event.stopPropagation();
+            if (!confirm('【警告】確定要刪除這張美片嗎？此操作無法復原。')) return;
+            try {
+                const { error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: { action: 'delete-postcard', payload: { postcardId: id } }
+                });
+                if (error) throw error;
+                showToast('已刪除美片', false);
+                loadPostcards();
+            } catch (e) { showToast('刪除失敗', true); console.error(e); }
+        };
+
+        window.editCard = (id, event) => {
+            event.stopPropagation();
+            const card = allPostcards.find(p => p.id === id);
+            if (!card) return;
+            
+            document.getElementById('edit-id').value = id;
+            document.getElementById('modal-title').textContent = '編輯美片資訊';
+            document.getElementById('coordinate-input').value = card.coordinate || '';
+            
+            // ★ 修改：將舊標籤填入三個輸入框
+            const oldTags = card.tags || [];
+            document.getElementById('tag-1').value = oldTags[0] || '';
+            document.getElementById('tag-2').value = oldTags[1] || '';
+            document.getElementById('tag-3').value = oldTags[2] || '';
+            
+            document.getElementById('image-upload-section').classList.add('hidden');
+            const preview = document.getElementById('preview-image');
+            preview.src = card.image_url;
+            document.getElementById('preview-section').classList.remove('hidden');
+            document.getElementById('submit-btn').textContent = '儲存變更';
+            modal.classList.remove('hidden');
+        };
+
+        window.toggleLike = async (id, btn) => {
+            const card = allPostcards.find(p => p.id === id);
+            if (!card) return;
+            const iconSpan = btn.querySelector('.icon');
+            const countSpan = btn.querySelector('.count');
+            const wasLiked = card.isLiked;
+
+            card.isLiked = !wasLiked;
+            card.likes += (wasLiked ? -1 : 1);
+            
+            iconSpan.textContent = card.isLiked ? '❤️' : '🤍';
+            countSpan.textContent = card.likes;
+            btn.className = `like-btn flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-full ${card.isLiked ? 'liked' : 'text-gray-500 hover:text-pink-400'}`;
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: { action: 'toggle-postcard-like', payload: { postcardId: id } }
+                });
+                if (error) throw error;
+                if (data.data) {
+                    card.likes = data.data.likes;
+                    countSpan.textContent = card.likes;
+                }
+            } catch (e) {
+                card.isLiked = wasLiked;
+                card.likes += (wasLiked ? 1 : -1);
+                iconSpan.textContent = card.isLiked ? '❤️' : '🤍';
+                countSpan.textContent = card.likes;
+                console.error('Like failed', e);
+            }
+        };
+
+        window.viewImage = (url) => window.open(url, '_blank');
+        window.copyText = (text) => { navigator.clipboard.writeText(text).then(() => showToast('已複製座標', false)); };
+
+        function showToast(msg, isErr) {
+            const el = document.getElementById('toast-message');
+            el.innerHTML = `${isErr ? '❌' : '✅'} ${msg}`;
+            el.className = `fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-50 font-bold flex items-center gap-2 transform transition-all duration-300 ${isErr?'bg-red-600/90':'bg-green-600/90'} translate-y-0`;
+            el.classList.remove('hidden');
+            setTimeout(() => {
+                el.classList.add('translate-y-[-20px]', 'opacity-0');
+                setTimeout(() => { el.classList.add('hidden'); el.classList.remove('translate-y-[-20px]', 'opacity-0'); }, 300);
+            }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
