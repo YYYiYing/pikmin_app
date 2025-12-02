@@ -1865,19 +1865,35 @@
                 supabaseClient.rpc('get_postcard_leaderboard', { period_type: 'month' })
             ]);
             
-            // ★ 新增：定義清洗暱稱的小工具 (移除尾端12位好友碼，保留 Emoji 與文字)
+            // 定義清洗暱稱的小工具
             const clean = (name) => (name || '').trim().replace(/[\s\uFEFF\xA0]*\d{12}$/, '');
 
             let parts = [];
             
-            // ★ 修改：在 nickname 外面套用 clean() 函式
-            if(hData.data?.[0]) parts.push(`★&nbsp;&nbsp;&nbsp;🍄 本月發菇王：${clean(hData.data[0].nickname)} (${hData.data[0].host_count}朵)`);
-            if(sData.data?.[0]) parts.push(`🏆 本月報名王：${clean(sData.data[0].nickname)} (${sData.data[0].signup_count}次)`);
-            if(spData.data?.[0]) parts.push(`⚡ 本月最速傳說：${clean(spData.data[0].nickname)} (${parseFloat(spData.data[0].fastest_time_seconds).toFixed(2)}秒)`);
-            if(pData.data?.[0]) parts.push(`🖼️ 本月美片王：${clean(pData.data[0].nickname)} (${pData.data[0].postcard_count}張)&nbsp;&nbsp;&nbsp;★`);
+            // ★ 修改：為每一項冠軍加上對應的顏色與粗體 class
+            
+            // 1. 發菇王 (綠色)
+            if(hData.data?.[0]) {
+                parts.push(`<span class="text-gray-400">★&nbsp;&nbsp;&nbsp;</span>🍄 本月發菇王：<span class="text-green-400 font-bold">${clean(hData.data[0].nickname)} (${hData.data[0].host_count}朵)</span>`);
+            }
+            
+            // 2. 報名王 (靛藍色)
+            if(sData.data?.[0]) {
+                parts.push(`🏆 本月報名王：<span class="text-indigo-400 font-bold">${clean(sData.data[0].nickname)} (${sData.data[0].signup_count}次)</span>`);
+            }
+            
+            // 3. 最速傳說 (黃色)
+            if(spData.data?.[0]) {
+                parts.push(`⚡ 本月最速傳說：<span class="text-yellow-400 font-bold">${clean(spData.data[0].nickname)} (${parseFloat(spData.data[0].fastest_time_seconds).toFixed(2)}秒)</span>`);
+            }
+            
+            // 4. 美片王 (粉色)
+            if(pData.data?.[0]) {
+                parts.push(`🖼️ 本月美片王：<span class="text-pink-400 font-bold">${clean(pData.data[0].nickname)} (${pData.data[0].postcard_count}張)</span><span class="text-gray-400">&nbsp;&nbsp;&nbsp;★</span>`);
+            }
 
             if(parts.length > 0) {
-                marqueeEl.innerHTML = parts.join(' &nbsp;&nbsp; ★ &nbsp; ');
+                marqueeEl.innerHTML = parts.join(' &nbsp;&nbsp; <span class="text-gray-400">★</span> &nbsp; '); // 中間用灰色星星隔開，視覺更整潔
                 
                 // 重置動畫
                 marqueeEl.classList.remove('animate-marquee');
