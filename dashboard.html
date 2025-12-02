@@ -1858,7 +1858,6 @@
     async function updateMarquee() {
         const marqueeEl = document.getElementById('marquee-content');
         try {
-            // ★ 修正：這裡列出完整的 RPC 呼叫，不使用省略符號
             const [sData, spData, hData, pData] = await Promise.all([
                 supabaseClient.rpc('get_leaderboard_from_profiles', { period_type: 'month' }),
                 supabaseClient.rpc('get_speed_leaderboard_from_profiles', { period_type: 'month' }),
@@ -1866,19 +1865,23 @@
                 supabaseClient.rpc('get_postcard_leaderboard', { period_type: 'month' })
             ]);
             
+            // ★ 新增：定義清洗暱稱的小工具 (移除尾端12位好友碼，保留 Emoji 與文字)
+            const clean = (name) => (name || '').trim().replace(/[\s\uFEFF\xA0]*\d{12}$/, '');
+
             let parts = [];
-            // 組裝顯示文字
-            if(hData.data?.[0]) parts.push(`★&nbsp;&nbsp;&nbsp;🍄 本月發菇王：${hData.data[0].nickname} (${hData.data[0].host_count}朵)`);
-            if(sData.data?.[0]) parts.push(`🏆 本月報名王：${sData.data[0].nickname} (${sData.data[0].signup_count}次)`);
-            if(spData.data?.[0]) parts.push(`⚡ 本月最速傳說：${spData.data[0].nickname} (${parseFloat(spData.data[0].fastest_time_seconds).toFixed(2)}秒)`);
-            if(pData.data?.[0]) parts.push(`🖼️ 本月美片王：${pData.data[0].nickname} (${pData.data[0].postcard_count}張)&nbsp;&nbsp;&nbsp;★`);
+            
+            // ★ 修改：在 nickname 外面套用 clean() 函式
+            if(hData.data?.[0]) parts.push(`★&nbsp;&nbsp;&nbsp;🍄 本月發菇王：${clean(hData.data[0].nickname)} (${hData.data[0].host_count}朵)`);
+            if(sData.data?.[0]) parts.push(`🏆 本月報名王：${clean(sData.data[0].nickname)} (${sData.data[0].signup_count}次)`);
+            if(spData.data?.[0]) parts.push(`⚡ 本月最速傳說：${clean(spData.data[0].nickname)} (${parseFloat(spData.data[0].fastest_time_seconds).toFixed(2)}秒)`);
+            if(pData.data?.[0]) parts.push(`🖼️ 本月美片王：${clean(pData.data[0].nickname)} (${pData.data[0].postcard_count}張)&nbsp;&nbsp;&nbsp;★`);
 
             if(parts.length > 0) {
                 marqueeEl.innerHTML = parts.join(' &nbsp;&nbsp; ★ &nbsp; ');
                 
-                // 重置動畫 (配合 CSS infinite)
+                // 重置動畫
                 marqueeEl.classList.remove('animate-marquee');
-                void marqueeEl.offsetWidth; // 強制瀏覽器重繪 (Reflow)
+                void marqueeEl.offsetWidth; 
                 marqueeEl.classList.add('animate-marquee');
                 
             } else {
