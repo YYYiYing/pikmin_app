@@ -120,8 +120,13 @@
                     <label class="block text-sm font-medium text-gray-400 mb-1">座標 (緯度, 經度)</label>
                     <div class="relative">
                         <input type="text" id="coordinate-input" required placeholder="例如: 22.6123, 120.3456" class="dark-input w-full rounded-lg shadow-sm pl-3 pr-10 py-2.5">
-                        <button type="button" id="paste-coord-btn" class="absolute right-2 top-2 text-gray-400 hover:text-white p-1" title="貼上剪貼簿內容">📋</button>
-                    </div>
+                        
+                        <button type="button" id="paste-coord-btn" 
+                            class="absolute right-2 top-2 bg-gray-700 hover:bg-gray-600 text-green-400 px-2 py-1.5 rounded transition font-bold flex items-center gap-1 text-xs" 
+                            title="貼上剪貼簿內容">
+                            📋 貼上
+                        </button>
+                        </div>
                 </div>
 
                 <div>
@@ -694,6 +699,25 @@
                 countSpan.textContent = card.likes;
                 console.error('Like failed', e);
             }
+        };
+
+        window.copyText = (text) => {
+            // 確保文本不為空
+            if (!text || text.trim() === '' || text.includes('未知座標')) {
+                showToast('座標資料為空或無效，無法複製', true);
+                return;
+            }
+
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    // 複製成功
+                    showToast('已複製座標', false);
+                })
+                .catch(err => {
+                    // 複製失敗 (可能是權限問題或瀏覽器限制)
+                    console.error('複製失敗:', err);
+                    showToast('複製失敗，請檢查權限設定', true);
+                });
         };
 
         // ★ 修改：開啟圖片檢視器 (不再另開視窗)
