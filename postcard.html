@@ -242,6 +242,7 @@
             }
         }
 
+        // 修改 postcard.html 中的 updateFilterTags 函式
         function updateFilterTags() {
             const tagCounts = {};
             allPostcards.forEach(p => {
@@ -251,33 +252,96 @@
                 });
             });
 
-            const topTags = Object.entries(tagCounts)
+            // 依照熱門程度排序的所有標籤
+            const allTags = Object.entries(tagCounts)
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, 10)
                 .map(x => x[0]);
 
             const container = document.getElementById('filter-container');
-            container.innerHTML = '<button class="filter-tag active" data-tag="all">全部顯示</button>';
-            
-            topTags.forEach(tag => {
-                const btn = document.createElement('button');
-                btn.className = 'filter-tag';
-                btn.textContent = `#${tag} (${tagCounts[tag]})`;
-                btn.onclick = () => {
-                    document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    activeTag = tag;
-                    renderGrid();
-                };
-                container.appendChild(btn);
-            });
-            
-            container.querySelector('[data-tag="all"]').onclick = function() {
+            container.innerHTML = ''; // 清空
+
+            // 1. 永遠顯示「全部顯示」按鈕
+            const allBtn = document.createElement('button');
+            allBtn.className = 'filter-tag active';
+            allBtn.dataset.tag = 'all';
+            allBtn.textContent = `全部顯示 (${allPostcards.length})`;
+            allBtn.onclick = function() {
                 document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 activeTag = 'all';
                 renderGrid();
             };
+            container.appendChild(allBtn);
+
+            // 2. 設定顯示數量限制 (例如預設顯示 6 個)
+            const DISPLAY_LIMIT = 6;
+            const hasMore = allTags.length > DISPLAY_LIMIT;
+            
+            // 決定要渲染哪些標籤 (如果沒展開，就只拿前6個；如果展開了，就拿全部)
+            // 這裡我們用一個簡單的變數來控制介面，不需要全域變數，直接操作 DOM
+            const tagsToShow = allTags.slice(0, DISPLAY_LIMIT);
+            const hiddenTags = allTags.slice(DISPLAY_LIMIT);
+
+            // 3. 渲染前 6 個標籤
+            tagsToShow.forEach(tag => createTagButton(tag, tagCounts[tag], container));
+
+            // 4. 如果有更多標籤，建立「收納區」與「更多按鈕」
+            if (hasMore) {
+                // 建立一個隱藏的容器放剩下的標籤
+                const hiddenContainer = document.createElement('span');
+                hiddenContainer.className = 'hidden flex flex-wrap gap-2 items-center'; // 使用 flex 排列
+                hiddenContainer.id = 'more-tags-container';
+                
+                hiddenTags.forEach(tag => createTagButton(tag, tagCounts[tag], hiddenContainer));
+                container.appendChild(hiddenContainer);
+
+                // 建立「更多/收起」切換按鈕
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'text-xs text-pink-400 hover:text-pink-300 underline ml-1 font-bold';
+                toggleBtn.textContent = `▼ 更多 (${hiddenTags.length})`;
+                
+                toggleBtn.onclick = () => {
+                    const isHidden = hiddenContainer.classList.contains('hidden');
+                    if (isHidden) {
+                        hiddenContainer.classList.remove('hidden');
+                        toggleBtn.textContent = '▲ 收起';
+                    } else {
+                        hiddenContainer.classList.add('hidden');
+                        toggleBtn.textContent = `▼ 更多 (${hiddenTags.length})`;
+                    }
+                };
+                container.appendChild(toggleBtn);
+            }
+        }
+
+        // 輔助函式：建立標籤按鈕
+        function createTagButton(tag, count, parent) {
+            const btn = document.createElement('button');
+            btn.className = 'filter-tag';
+            btn.textContent = `#${tag} (${count})`;
+            btn.dataset.tag = tag;
+            btn.onclick = () => {
+                document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeTag = tag;
+                renderGrid();
+            };
+            parent.appendChild(btn);
+        }
+
+        // 輔助函式：建立標籤按鈕
+        function createTagButton(tag, count, parent) {
+            const btn = document.createElement('button');
+            btn.className = 'filter-tag';
+            btn.textContent = `#${tag} (${count})`;
+            btn.dataset.tag = tag;
+            btn.onclick = () => {
+                document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeTag = tag;
+                renderGrid();
+            };
+            parent.appendChild(btn);
         }
 
         // ★ 新增：取得排序後的熱門標籤列表

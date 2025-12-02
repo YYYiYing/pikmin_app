@@ -135,9 +135,9 @@
             100% { transform: translateX(-100%); }
         }
         .animate-marquee {
-            /* 這裡的時間 20s 是預設值，稍後 JS 會動態覆寫 */
-            animation: marquee 20s linear forwards; 
-            padding-left: 0; /* 移除之前的 padding，由 transform 控制位置 */
+            /* 修改：將 forwards 改為 infinite，實現無限循環 */
+            animation: marquee 20s linear infinite; 
+            padding-left: 0;
             display: inline-block;
             white-space: nowrap;
         }
@@ -241,10 +241,10 @@
             <span id="daily-quota-display" class="text-sm text-gray-400 border-l border-gray-600 pl-4 ml-2"></span>
             
             <div class="hidden md:flex items-center gap-x-4">
-                <button id="leaderboard-button" class="text-gray-300 hover:text-white transition text-sm">🏆 排行榜</button>
+                <button id="leaderboard-button" class="text-yellow-400 hover:text-yellow-300 transition text-sm font-bold">🏆 排行榜</button>
                 <a href="./postcard.html" class="text-pink-400 hover:text-pink-300 font-bold transition text-sm">🖼️ 美片圖書館</a>
-                <a href="./partner.html" class="text-gray-300 hover:text-white transition text-sm">🤝 村民好友碼</a>
-                <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="text-gray-300 hover:text-white transition text-sm">🔃 路徑轉檔</a>
+                <a href="./partner.html" class="text-cyan-400 hover:text-cyan-300 transition text-sm font-bold">🤝 村民好友碼</a>
+                <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="text-green-400 hover:text-green-300 transition text-sm font-bold">🔃 路徑轉檔</a>
                 <a id="gpx-generator-link" href="./gpx_generator.html" class="text-green-400 hover:text-green-300 font-bold transition text-sm">🗺️ 路徑生成</a>
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
                 <button id="change-nickname-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">🏷️ 改暱稱</button>
@@ -255,10 +255,10 @@
 
         <div id="mobile-menu" class="hidden absolute top-full left-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg p-2">
             <div class="space-y-1">
-                <button id="leaderboard-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏆 排行榜</button>
+                <button id="leaderboard-button-mobile" class="w-full text-left text-yellow-400 hover:bg-gray-700 p-2 rounded-md font-bold">🏆 排行榜</button>
                 <a href="./postcard.html" class="block text-pink-400 hover:bg-gray-700 p-2 rounded-md font-bold">🖼️ 美片圖書館</a>
-                <a href="./partner.html" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🤝 村民好友碼</a>
-                <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="block text-gray-300 hover:bg-gray-700 p-2 rounded-md">🔃 路徑轉檔</a>
+                <a href="./partner.html" class="block text-cyan-400 hover:bg-gray-700 p-2 rounded-md font-bold">🤝 村民好友碼</a>
+                <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="block text-green-400 hover:bg-gray-700 p-2 rounded-md font-bold">🔃 路徑轉檔</a>
                 <a id="gpx-generator-link-mobile" href="./gpx_generator.html" class="block text-green-400 hover:bg-gray-700 p-2 rounded-md font-bold">🗺️ 路徑生成</a>
             </div>
             <hr class="border-gray-600 my-2">
@@ -411,15 +411,15 @@
                 <div class="flex space-x-2 mb-6">
                     <div class="flex-1">
                         <label class="block text-xs text-gray-400 mb-1">天</label>
-                        <input type="number" id="sync-days" min="0" value="0" class="dark-input w-full rounded-md text-center">
+                        <input type="number" id="sync-days" min="0" value="0" class="dark-input w-full rounded-md text-center" onfocus="this.select()">
                     </div>
                     <div class="flex-1">
                         <label class="block text-xs text-gray-400 mb-1">小時</label>
-                        <input type="number" id="sync-hours" min="0" max="23" value="0" class="dark-input w-full rounded-md text-center">
+                        <input type="number" id="sync-hours" min="0" max="23" value="0" class="dark-input w-full rounded-md text-center" onfocus="this.select()">
                     </div>
                     <div class="flex-1">
                         <label class="block text-xs text-gray-400 mb-1">分鐘</label>
-                        <input type="number" id="sync-minutes" min="0" max="59" value="0" class="dark-input w-full rounded-md text-center">
+                        <input type="number" id="sync-minutes" min="0" max="59" value="0" class="dark-input w-full rounded-md text-center" onfocus="this.select()">
                     </div>
                 </div>
 
@@ -1855,30 +1855,39 @@
         }).join('');
     }
 
-    // 修改後的 updateMarquee 函式
     async function updateMarquee() {
         const marqueeEl = document.getElementById('marquee-content');
         try {
-            // 增加一個 RPC 呼叫：get_postcard_leaderboard
+            // ★ 修正：這裡列出完整的 RPC 呼叫，不使用省略符號
             const [sData, spData, hData, pData] = await Promise.all([
                 supabaseClient.rpc('get_leaderboard_from_profiles', { period_type: 'month' }),
                 supabaseClient.rpc('get_speed_leaderboard_from_profiles', { period_type: 'month' }),
                 supabaseClient.rpc('get_host_leaderboard', { period_type: 'month' }),
-                supabaseClient.rpc('get_postcard_leaderboard', { period_type: 'month' }) // 新增
+                supabaseClient.rpc('get_postcard_leaderboard', { period_type: 'month' })
             ]);
             
             let parts = [];
+            // 組裝顯示文字
             if(hData.data?.[0]) parts.push(`★&nbsp;&nbsp;&nbsp;🍄 本月發菇王：${hData.data[0].nickname} (${hData.data[0].host_count}朵)`);
             if(sData.data?.[0]) parts.push(`🏆 本月報名王：${sData.data[0].nickname} (${sData.data[0].signup_count}次)`);
             if(spData.data?.[0]) parts.push(`⚡ 本月最速傳說：${spData.data[0].nickname} (${parseFloat(spData.data[0].fastest_time_seconds).toFixed(2)}秒)`);
-            if(pData.data?.[0]) parts.push(`🖼️ 本月美片王：${pData.data[0].nickname} (${pData.data[0].postcard_count}張)&nbsp;&nbsp;&nbsp;★`); // 新增
+            if(pData.data?.[0]) parts.push(`🖼️ 本月美片王：${pData.data[0].nickname} (${pData.data[0].postcard_count}張)&nbsp;&nbsp;&nbsp;★`);
 
             if(parts.length > 0) {
-                // ... (原有動畫邏輯保持不變)
                 marqueeEl.innerHTML = parts.join(' &nbsp;&nbsp; ★ &nbsp; ');
-                // ...
-            } else marqueeEl.textContent = '目前尚無挑戰紀錄，快來搶頭香！';
-        } catch(e) { console.error(e); marqueeEl.textContent = '歡迎來到菇菇宅配網！'; }
+                
+                // 重置動畫 (配合 CSS infinite)
+                marqueeEl.classList.remove('animate-marquee');
+                void marqueeEl.offsetWidth; // 強制瀏覽器重繪 (Reflow)
+                marqueeEl.classList.add('animate-marquee');
+                
+            } else {
+                marqueeEl.textContent = '目前尚無挑戰紀錄，快來搶頭香！';
+            }
+        } catch(e) { 
+            console.error(e); 
+            marqueeEl.textContent = '歡迎來到菇菇宅配網！'; 
+        }
     }
 
 
