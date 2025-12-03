@@ -434,97 +434,98 @@
     
     <!-- 新增/發布挑戰 Modal -->
     <div id="challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-            <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
-                <h2 class="text-2xl font-bold mb-6 text-gray-100">發布一個新挑戰</h2>
-                <form id="challenge-form">
-                <div class="space-y-4">
-                    <div>
-                        <label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
-                        <select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="巨菇" selected>巨菇</option>
-                            <option value="活動菇">活動菇</option>
-                            <option value="美片菇">美片菇</option>
-                            <option value="大晶">大晶</option>
-                            <option value="大火">大火</option>
-                            <option value="大水">大水</option>
-                            <option value="大電">大電</option>
-                            <option value="大毒">大毒</option>
-                            <option value="大冰藍">大冰藍</option>
-                            <option value="大紅">大紅</option>
-                            <option value="大黃">大黃</option>
-                            <option value="大藍">大藍</option>
-                            <option value="大紫">大紫</option>
-                            <option value="大粉">大粉</option>
-                            <option value="大灰">大灰</option>
-                            <option value="大白">大白</option>
-                            <option value="晶">晶</option>
-                            <option value="水">水</option>
-                            <option value="火">火</option>
-                            <option value="電">電</option>
-                            <option value="毒">毒</option>
-                            <option value="測試">測試</option>
-                        </select>
-                    </div>
+        <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
+            <h2 class="text-2xl font-bold mb-6 text-gray-100">發布一個新挑戰</h2>
+            <form id="challenge-form">
+            <div class="space-y-4">
+                <div>
+                    <label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
+                    <select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                        <option value="巨菇" selected>巨菇</option>
+                        <option value="活動菇">活動菇</option>
+                        <option value="美片菇">美片菇</option>
+                        <option value="大晶">大晶</option>
+                        <option value="大火">大火</option>
+                        <option value="大水">大水</option>
+                        <option value="大電">大電</option>
+                        <option value="大毒">大毒</option>
+                        <option value="大冰藍">大冰藍</option>
+                        <option value="大紅">大紅</option>
+                        <option value="大黃">大黃</option>
+                        <option value="大藍">大藍</option>
+                        <option value="大紫">大紫</option>
+                        <option value="大粉">大粉</option>
+                        <option value="大灰">大灰</option>
+                        <option value="大白">大白</option>
+                        <option value="晶">晶</option>
+                        <option value="水">水</option>
+                        <option value="火">火</option>
+                        <option value="電">電</option>
+                        <option value="毒">毒</option>
+                        <option value="測試">測試</option>
+                    </select>
+                </div>
 
-                    <div>
-                        <label for="slots" class="block text-sm font-medium text-gray-400">名額</label>
-                        <input type="number" id="slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm" value="4">
-                    </div>
+                <div>
+                    <label for="slots" class="block text-sm font-medium text-gray-400">名額</label>
+                    <input type="number" id="slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm" value="4">
+                </div>
 
-                    <div>
-                        <div class="flex justify-between items-center">
-                            <label for="start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label>
-                            <button type="button" id="set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button>
-                        </div>
-                        <input type="datetime-local" id="start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                <div>
+                    <div class="flex justify-between items-center">
+                        <label for="start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label>
+                        <button type="button" id="set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button>
+                    </div>
+                    <input type="datetime-local" id="start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
                         
-                        <div class="mt-2 flex items-center">
-                            <input id="remember-time-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-600 dark:border-gray-500">
-                            <label for="remember-time-checkbox" class="ml-2 block text-sm text-gray-400">記住時間 (下次自動帶入)</label>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="details" class="block text-sm font-medium text-gray-400">用餐時段</label>
-                        <select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="宵夜" selected>宵夜</option>
-                            <option value="早餐">早餐</option>
-                            <option value="午餐">午餐</option>
-                            <option value="下午茶">下午茶</option>
-                            <option value="晚餐">晚餐</option>
-                            <option value="滿人開">滿人開</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
-                        <select id="cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
-                            <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
-                            <option value="隨便亂炒（不限戰力）"selected>隨便亂炒（不限戰力）</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label for="challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
-                        <div class="flex gap-2 mt-1">
-                            <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"/>
-                            <button type="button" onclick="openLibraryModal('challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
-                                📖 圖書館
-                            </button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，或從圖書館選擇。</p>
+                    <div class="mt-2 flex items-center">
+                        <input id="remember-time-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-600 dark:border-gray-500">
+                        <label for="remember-time-checkbox" class="ml-2 block text-sm text-gray-400">記住時間 (下次自動帶入)</label>
                     </div>
                 </div>
+
+                <div>
+                    <label for="details" class="block text-sm font-medium text-gray-400">用餐時段</label>
+                    <select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                        <option value="宵夜" selected>宵夜</option>
+                        <option value="早餐">早餐</option>
+                        <option value="午餐">午餐</option>
+                        <option value="下午茶">下午茶</option>
+                        <option value="晚餐">晚餐</option>
+                        <option value="滿人開">滿人開</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
+                    <select id="cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                        <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
+                        <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
+                        <option value="隨便亂炒（不限戰力）"selected>隨便亂炒（不限戰力）</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
+                    <div class="flex gap-2 mt-1">
+                        <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"/>
+                        <button type="button" onclick="openLibraryModal('challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
+                            📖 圖書館
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，或從圖書館選擇。</p>
+                    </div>
+                </div>
+                
                 <div class="mt-8 flex justify-end space-x-4">       
                     <button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
                     <button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button>
                 </div>
             </form>
-            </div>
         </div>
+    </div>
 
     <!-- 編輯挑戰 Modal -->
-<div id="edit-challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div id="edit-challenge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
         <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
             <h2 class="text-2xl font-bold mb-6 text-gray-100">編輯挑戰內容</h2>
             <form id="edit-challenge-form">
@@ -842,19 +843,32 @@
         }
     }
 
-    // 渲染圖書館格狀列表
+    // 渲染圖書館格狀列表 (UI 修正版)
     function renderLibraryGrid() {
         const grid = document.getElementById('library-grid');
+        if(!grid) return;
+
         if (libraryPostcards.length === 0) {
             grid.innerHTML = '<p class="col-span-full text-center text-gray-500 mt-10">目前沒有美片可選</p>';
             return;
         }
 
+        // 修改重點：
+        // 1. 移除 aspect-square (避免手機版高度塌陷)
+        // 2. 加入 h-40 md:h-48 (設定固定高度，手機版較矮，電腦版較高)
+        // 3. 確保 w-full (寬度填滿格子)
         grid.innerHTML = libraryPostcards.map(p => `
-            <div class="lib-item rounded-lg overflow-hidden bg-gray-900 aspect-square group" onclick="selectLibImage('${p.image_url}', this)">
-                <img src="${p.image_url}" loading="lazy" class="w-full h-full object-cover">
+            <div class="lib-item w-full h-20 md:h-40 rounded-lg overflow-hidden bg-gray-900 group relative border border-gray-700 shadow-sm" onclick="selectLibImage('${p.image_url}', this)">
+                <img src="${p.image_url}" loading="lazy" class="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-110">
+                
                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                    <span class="text-white font-bold bg-pink-600 px-3 py-1 rounded-full text-sm">點擊選擇</span>
+                    <span class="text-white font-bold bg-pink-600 px-3 py-1 rounded-full text-sm select-none shadow-lg transform scale-95 group-hover:scale-100 transition">
+                        點擊選擇
+                    </span>
+                </div>
+                
+                <div class="selection-indicator absolute top-2 right-2 hidden">
+                    <span class="bg-pink-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md">✓</span>
                 </div>
             </div>
         `).join('');
