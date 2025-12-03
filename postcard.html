@@ -506,7 +506,17 @@
         document.getElementById('paste-coord-btn').onclick = async () => {
             try {
                 const text = await navigator.clipboard.readText();
-                if(text) document.getElementById('coordinate-input').value = text;
+                if(text) {
+                    // ★ 修改這裡：貼上後直接進行格式化
+                    const formatted = formatCoordinateString(text);
+                    document.getElementById('coordinate-input').value = formatted;
+                    
+                    if (formatted !== text) {
+                        showToast('已自動轉換座標格式', false);
+                    } else {
+                        showToast('已貼上座標', false);
+                    }
+                }
                 else showToast('剪貼簿是空的', true);
             } catch(e) { showToast('無法讀取剪貼簿，請手動貼上', true); }
         };
@@ -720,6 +730,80 @@
                 });
         };
 
+        // ★ 工具函式：座標格式標準化
+        // 支援格式：
+        // 1. 標準: 22.123, 120.456
+        // 2. 中文: 北29.963° 東31.121°
+        // 3. 度分秒: 23°20'12.8"N 120°08'17.3"E
+        function formatCoordinateString(input) {
+            if (!input) return "";
+            let str = input.trim();
+            
+            // 嘗試找出分隔點 (逗號或空格)，將經緯度分開
+            // 先把全形逗號轉半形
+            str = str.replace(/，/g, ',');
+            
+            // 簡單判斷是否為度分秒 (含有 ° 且含有 ' 或 " )
+            const isDMS = str.includes('°') && (str.includes("'") || str.includes('"') || str.includes('’'));
+
+            let lat = 0, lng = 0;
+            let success = false;
+
+            if (isDMS) {
+                // === 處理度分秒 (DMS) ===
+                // 格式範例: 23°20'12.8"N 120°08'17.3"E
+                // 利用正則表達式抓出所有數字群組
+                const numbers = str.match(/(\d+(\.\d+)?)/g);
+                const directions = str.match(/[NSEW北南東西]/gi) || [];
+                
+                if (numbers && numbers.length >= 6) {
+                    // 假設前三個是緯度(D,M,S)，後三個是經度(D,M,S)
+                    const d1 = parseFloat(numbers[0]), m1 = parseFloat(numbers[1]), s1 = parseFloat(numbers[2]);
+                    const d2 = parseFloat(numbers[3]), m2 = parseFloat(numbers[4]), s2 = parseFloat(numbers[5]);
+
+                    lat = d1 + (m1 / 60) + (s1 / 3600);
+                    lng = d2 + (m2 / 60) + (s2 / 3600);
+
+                    // 判斷方向 (S或南 為負, W或西 為負)
+                    const dirStr = directions.join('');
+                    if (/[S南]/.test(dirStr) && lat > 0) lat = -lat; // 如果有S或南，緯度轉負
+                    // 注意：通常緯度在前，但需防止誤判，這裡簡單假設第一組方向對應緯度(若混亂則難解)
+                    // 若字串包含 W 或 西，且經度位置在後，通常經度轉負
+                    if (/[W西]/.test(dirStr) && lng > 0) lng = -lng;
+
+                    success = true;
+                }
+            } else {
+                // === 處理一般小數格式 (DD) 含文字 ===
+                // 格式範例: 北29.96316° 東31.12104°
+                // 1. 移除非數字字符 (保留 . , - )
+                // 先判斷方向負號
+                let isLatNeg = /[S南]/.test(str);
+                let isLngNeg = /[W西]/.test(str);
+
+                // 抓出所有浮點數
+                const numbers = str.match(/(-?\d+(\.\d+)?)/g);
+                
+                if (numbers && numbers.length >= 2) {
+                    lat = parseFloat(numbers[0]);
+                    lng = parseFloat(numbers[1]);
+                    
+                    if (isLatNeg && lat > 0) lat = -lat;
+                    if (isLngNeg && lng > 0) lng = -lng;
+                    
+                    success = true;
+                }
+            }
+
+            if (success) {
+                // 格式化輸出：小數點後 7 位 (足夠精確)
+                return `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+            } else {
+                // 解析失敗回傳原字串 (避免破壞使用者的輸入)
+                return input;
+            }
+        }
+
         // ★ 修改：開啟圖片檢視器 (不再另開視窗)
         window.viewImage = function(url) {
             const modal = document.getElementById('image-viewer-modal');
@@ -780,6 +864,30 @@
         }
 
         document.addEventListener('DOMContentLoaded', init);
+
+        // 監聽座標輸入框的 blur 事件 (離開焦點時自動轉換)
+        const coordInput = document.getElementById('coordinate-input');
+        if (coordInput) {
+            coordInput.addEventListener('blur', function() {
+                const original = this.value;
+                const formatted = formatCoordinateString(original);
+                if (original !== formatted) {
+                    this.value = formatted;
+                    // 可選：轉換成功閃爍一下提示
+                    this.classList.add('ring-2', 'ring-green-500');
+                    setTimeout(() => this.classList.remove('ring-2', 'ring-green-500'), 500);
+                }
+            });
+            
+            // 額外增加：按下 Enter 鍵也觸發轉換
+            coordInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); // 防止送出表單
+                    this.blur(); // 觸發 blur 事件
+                }
+            });
+        }
+
     </script>
 </body>
 </html>
