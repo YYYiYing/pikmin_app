@@ -506,16 +506,20 @@
 
                     <div>
                         <label for="challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
-                        <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 mt-1"/>
-                        <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，支援jpg, png格式，檔案別太大。</p>
+                        <div class="flex gap-2 mt-1">
+                            <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"/>
+                            <button type="button" onclick="openLibraryModal('challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
+                                📖 圖書館
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，或從圖書館選擇。</p>
                     </div>
-                    </div>
-
+                </div>
                 <div class="mt-8 flex justify-end space-x-4">       
                     <button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
                     <button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button>
                 </div>
-                </form>
+            </form>
             </div>
         </div>
 
@@ -584,12 +588,18 @@
                             <option value="隨便亂炒（不限戰力）">隨便亂炒（不限戰力）</option>
                         </select>
                     </div>
+
                     <div>
                         <label for="edit-challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
-                        <input type="file" id="edit-challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 mt-1"/>
-                        <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，支援jpg, png格式，檔案別太大。</p>
+                        <div class="flex gap-2 mt-1">
+                            <input type="file" id="edit-challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"/>
+                            <button type="button" onclick="openLibraryModal('edit-challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
+                                📖 圖書館
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，或從圖書館選擇。</p>
                     </div>
-                    </div>
+                </div>
                 <div class="mt-8 flex justify-end space-x-4">
                     <button type="button" id="cancel-edit-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
                     <button type="submit" id="submit-edit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認儲存</button>
@@ -689,6 +699,39 @@
 
         <div id="toast-message" class="hidden fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg"></div>
 
+<div id="library-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 modal-backdrop">
+    <div class="modal-content w-full max-w-4xl rounded-2xl shadow-xl p-6 bg-gray-800 border border-gray-600 flex flex-col max-h-[90vh]">
+        <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+            <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                <span>🖼️</span> 選擇美片
+                <span id="lib-loading" class="text-sm text-gray-400 font-normal hidden">(載入中...)</span>
+            </h3>
+            <button type="button" onclick="closeLibraryModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        
+        <div id="library-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 overflow-y-auto p-2 min-h-[300px]">
+            </div>
+
+        <div class="mt-4 flex justify-end pt-2 border-t border-gray-700">
+            <button type="button" onclick="closeLibraryModal()" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* 選圖專用樣式 */
+    .lib-item { cursor: pointer; border: 2px solid transparent; transition: all 0.2s; position: relative; }
+    .lib-item:hover { transform: scale(1.02); }
+    .lib-item.selected { border-color: #ec4899; box-shadow: 0 0 10px rgba(236, 72, 153, 0.5); }
+    .lib-item.selected::after {
+        content: '✔'; position: absolute; top: 5px; right: 5px;
+        background: #ec4899; color: white; width: 24px; height: 24px;
+        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        font-weight: bold; font-size: 14px;
+    }
+</style>
+
+
 <script>
     // =========================================================================
     // 1. 初始化配置與全域變數 (Configuration & Globals)
@@ -752,6 +795,111 @@
     };
     const wishOrder = ['巨菇', '活動菇', '白', '紅', '黃', '藍'];
 
+    // === 圖書館選圖功能變數 ===
+    let currentLibraryTargetInputId = null; // 紀錄目前是要幫哪個 input 選圖
+    let libraryPostcards = []; // 快取下載的美片列表
+
+    // 開啟圖書館視窗
+    window.openLibraryModal = async function(targetInputId) {
+        currentLibraryTargetInputId = targetInputId;
+        const modal = document.getElementById('library-modal');
+        modal.classList.remove('hidden');
+        
+        // 如果還沒載入過資料，就去抓取
+        if (libraryPostcards.length === 0) {
+            await fetchLibraryImages();
+        } else {
+            renderLibraryGrid();
+        }
+    };
+
+    window.closeLibraryModal = function() {
+        document.getElementById('library-modal').classList.add('hidden');
+        // 清除選取狀態
+        document.querySelectorAll('.lib-item').forEach(el => el.classList.remove('selected'));
+    };
+
+    // 從資料庫抓取最新美片 (只抓 ID 和 URL 以節省流量)
+    async function fetchLibraryImages() {
+        const loadingEl = document.getElementById('lib-loading');
+        loadingEl.classList.remove('hidden');
+        try {
+            // 限制抓取最新的 50 張，避免太卡
+            const { data, error } = await supabaseClient
+                .from('postcards')
+                .select('id, image_url')
+                .order('created_at', { ascending: false })
+                .limit(50);
+            
+            if (error) throw error;
+            libraryPostcards = data;
+            renderLibraryGrid();
+        } catch (err) {
+            console.error(err);
+            showToast('圖書館載入失敗', true);
+        } finally {
+            loadingEl.classList.add('hidden');
+        }
+    }
+
+    // 渲染圖書館格狀列表
+    function renderLibraryGrid() {
+        const grid = document.getElementById('library-grid');
+        if (libraryPostcards.length === 0) {
+            grid.innerHTML = '<p class="col-span-full text-center text-gray-500 mt-10">目前沒有美片可選</p>';
+            return;
+        }
+
+        grid.innerHTML = libraryPostcards.map(p => `
+            <div class="lib-item rounded-lg overflow-hidden bg-gray-900 aspect-square group" onclick="selectLibImage('${p.image_url}', this)">
+                <img src="${p.image_url}" loading="lazy" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                    <span class="text-white font-bold bg-pink-600 px-3 py-1 rounded-full text-sm">點擊選擇</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ★ 核心邏輯：深層複製 (Deep Copy)
+    // 下載圖片 -> 轉成 File 物件 -> 塞入 Input
+    window.selectLibImage = async function(imageUrl, element) {
+        // UI 回饋：標示選取中
+        document.querySelectorAll('.lib-item').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        showToast('正在下載圖片...', false); // 提示使用者稍等
+
+        try {
+            // 1. 下載圖片 Blob
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            
+            // 2. 建立新的 File 物件 (給予一個獨特檔名，避免重複)
+            const filename = `lib_${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
+            const file = new File([blob], filename, { type: blob.type });
+
+            // 3. 模擬檔案選擇行為
+            const container = new DataTransfer();
+            container.items.add(file);
+            
+            const targetInput = document.getElementById(currentLibraryTargetInputId);
+            if (targetInput) {
+                targetInput.files = container.files;
+                
+                // 額外提示：在輸入框旁顯示檔名 (因為這不是使用者自己選的，可能沒注意到變化)
+                // 這裡我們簡單閃爍一下 input 外框提示成功
+                targetInput.classList.add('ring-2', 'ring-pink-500');
+                setTimeout(() => targetInput.classList.remove('ring-2', 'ring-pink-500'), 1000);
+            }
+
+            showToast('已套用美片！', false);
+            setTimeout(closeLibraryModal, 500); // 稍微延遲關閉體驗較好
+
+        } catch (err) {
+            console.error('圖片轉換失敗:', err);
+            showToast('圖片套用失敗，請重試', true);
+        }
+    };
 
     // =========================================================================
     // 2. DOM 元素選取 (DOM Elements)
@@ -1448,6 +1596,7 @@
         if (!c) { showToast('找不到資料', true); return; }
         
         document.getElementById('edit-challenge-id').value = c.id;
+        document.getElementById('edit-challenge-form').dataset.originalImage = c.image_url || '';
         document.getElementById('edit-mushroom-type').value = c.mushroom_type;
         document.getElementById('edit-slots').value = c.slots;
         
@@ -1464,15 +1613,21 @@
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('edit-start-time').value = now.toISOString().slice(0, 16);
     });
+
+    // 編輯挑戰表單送出 (含垃圾圖檔清理邏輯)
     editChallengeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submit-edit-challenge-button');
-        btn.disabled = true; btn.textContent = '儲存中...';
+        btn.disabled = true; 
+        btn.textContent = '儲存中...';
         
         const id = document.getElementById('edit-challenge-id').value;
         const newSlots = parseInt(document.getElementById('edit-slots').value);
         const newTime = new Date(document.getElementById('edit-start-time').value);
         
+        // 取得暫存的舊圖網址 (注意：如果 openEditModal 沒正確設定 dataset，這裡會是 undefined，但不會報錯)
+        const oldImageUrl = editChallengeForm.dataset.originalImage;
+
         const curSignups = challengesData[id]?.signups?.length || 0;
         let status = (newTime > new Date()) ? '預計開放' : (curSignups >= newSlots ? '已額滿' : '開放報名中');
 
@@ -1486,29 +1641,55 @@
         };
 
         const fileInput = document.getElementById('edit-challenge-image');
-        if (fileInput.files.length > 0) {
-            try {
+        let newUploadedFileName = null; 
+
+        try {
+            // ★ 上傳圖片邏輯
+            if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
                 const fileName = `${Date.now()}_edit_${Math.floor(Math.random()*1000)}.${file.name.split('.').pop()}`;
+                
                 const { error: upErr } = await supabaseClient.storage.from('challenge-images').upload(fileName, file);
                 if(upErr) throw upErr;
+                
+                newUploadedFileName = fileName; 
                 const { data } = supabaseClient.storage.from('challenge-images').getPublicUrl(fileName);
                 updateData.image_url = data.publicUrl;
-            } catch (err) {
-                console.error(err);
-                showToast('圖片上傳失敗', true);
             }
-        }
 
-        const { error } = await supabaseClient.from('challenges').update(updateData).eq('id', id);
-        if(error) showToast(`更新失敗: ${error.message}`, true);
-        else {
+            // ★ 更新資料庫
+            const { error } = await supabaseClient.from('challenges').update(updateData).eq('id', id);
+            if(error) throw error;
+
+            // ★ 垃圾清理邏輯
+            if (updateData.image_url && oldImageUrl && oldImageUrl !== updateData.image_url) {
+                try {
+                    const oldFileName = oldImageUrl.split('/').pop();
+                    if (oldFileName) {
+                        await supabaseClient.storage.from('challenge-images').remove([oldFileName]);
+                        console.log('已清理舊圖:', oldFileName);
+                    }
+                } catch (delErr) {
+                    console.error('舊圖刪除失敗 (不影響更新):', delErr);
+                }
+            }
+
             showToast('更新成功', false);
             editChallengeModal.classList.add('hidden');
-            fileInput.value = '';
+            fileInput.value = ''; 
             reloadChallengeCard(id);
+
+        } catch (err) {
+            console.error(err);
+            showToast(`更新失敗: ${err.message}`, true);
+            
+            if (newUploadedFileName) {
+                await supabaseClient.storage.from('challenge-images').remove([newUploadedFileName]);
+            }
+        } finally {
+            btn.disabled = false; 
+            btn.textContent = '確認儲存';
         }
-        btn.disabled = false; btn.textContent = '確認儲存';
     });
 
     /** [刪除] */
