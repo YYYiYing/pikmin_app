@@ -2095,6 +2095,25 @@
         if(m) { m.classList.add('hidden'); setTimeout(() => { if(i) i.src=''; }, 300); }
     };
 
+    window.copyText = (text) => {
+        // 確保文本不為空
+        if (!text || text.trim() === '') {
+            showToast('座標資料為空，無法複製', true);
+            return;
+        }
+
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                // 複製成功
+                showToast('已複製座標', false);
+            })
+            .catch(err => {
+                // 複製失敗 (可能是權限問題或瀏覽器限制)
+                console.error('複製失敗:', err);
+                showToast('複製失敗，請檢查權限設定', true);
+            });
+    };
+
     // 在線列表
     onlineUsersContainer.addEventListener('click', (e) => {
         if(e.target.closest('#refresh-button')) return;
