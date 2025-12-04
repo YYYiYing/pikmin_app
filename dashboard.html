@@ -747,7 +747,9 @@
     let challengesData = {};        // 儲存所有挑戰資料 (Key: ID)
     let userSignedUpChallengeIds = new Set(); // 使用者已報名的 ID
     let onlineNicknames = [];       // 在線名單
-    
+    // 報名ID 對應 挑戰ID 的快取表
+    let signupIdToChallengeMap = {};
+
     // 控制狀態
     let countdownInterval = null;   // 全域計時器
     let activeFilter = 'all';       // 篩選條件
@@ -1411,6 +1413,12 @@
         let participantsHtml = '';
         if (signupCount > 0) {
             const sortedSignups = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
+            
+            // ★★★ 新增這段迴圈：建立 ID 對照索引 ★★★
+            sortedSignups.forEach(s => {
+                signupIdToChallengeMap[s.id] = challenge.id;
+            });
+
             const list = sortedSignups.map((signup, index) => {
                 const rankText = `${index + 1}${getRankSuffix(index + 1)}`;
                 const nickname = signup.profile ? signup.profile.nickname : '未知';
@@ -2198,20 +2206,39 @@
         }
     }
 
-    /** [Realtime] */
+    /** [Realtime] 最終完美版監聽器 (含前端查表) */
     function setupRealtimeListeners() {
-        supabaseClient.channel('public:challenges')
+        supabaseClient.channel('room_db_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, payload => {
-                if(payload.eventType==='DELETE') {
+                if (payload.eventType === 'DELETE') {
                     const el = document.getElementById(`challenge-${payload.old.id}`);
-                    if(el) el.remove();
-                } else reloadChallengeCard(payload.new.id);
-            }).subscribe();
-        supabaseClient.channel('public:signups')
+                    if (el) el.remove();
+                } else {
+                    reloadChallengeCard(payload.new.id);
+                }
+            })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, payload => {
-                const cid = payload.new?.challenge_id || payload.old?.challenge_id;
-                if(cid) fetchUserSignups().then(() => reloadChallengeCard(cid));
-            }).subscribe();
+                
+                // 1. 嘗試直接取得 (新增/修改會有 new.challenge_id，刪除若有開 Full 會有 old.challenge_id)
+                let cid = payload.new?.challenge_id || payload.old?.challenge_id;
+
+                // 2. ★ 關鍵補救：如果是刪除 (DELETE) 且資料庫沒給 challenge_id，我們自己查表！
+                if (!cid && payload.eventType === 'DELETE' && payload.old?.id) {
+                    const deletedSignupId = payload.old.id;
+                    cid = signupIdToChallengeMap[deletedSignupId];
+                    
+                    if (cid) {
+                        console.log(`[前端查表成功] 報名ID ${deletedSignupId} 屬於 挑戰ID ${cid}`);
+                        // 刪除快取，避免記憶體洩漏 (雖然 JS 物件很小沒差，但養成好習慣)
+                        delete signupIdToChallengeMap[deletedSignupId];
+                    }
+                }
+
+                if (cid) {
+                    fetchUserSignups().then(() => reloadChallengeCard(cid));
+                }
+            })
+            .subscribe();
     }
 
     /** [在線狀態] */
