@@ -1,7 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>管理後台 - 菇菇宅配網</title> <script src="https://cdn.tailwindcss.com"></script> <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> 
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理後台 - 菇菇宅配網</title>
+    <link rel="icon" href="./mashroom_s.png" type="image/png">
+    <link rel="apple-touch-icon" href="./mashroom_s.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> 
     <style>
         /* CSS 註解：以下是本頁面的樣式設定 */
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
@@ -133,23 +139,17 @@
                 <div>
                     <div class="flex flex-col gap-6">
                         <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="font-bold text-indigo-400">📧 報名通知名單</h3>
-                                <span id="sub-count" class="text-xs bg-indigo-900 text-indigo-200 px-2 py-1 rounded-full">讀取中...</span>
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-bold text-indigo-400">📧 報名通知訂閱</h3>
+                                <p class="text-2xl font-bold text-white"><span id="sub-count">...</span> <span class="text-sm text-gray-500">人</span></p>
                             </div>
-                            <button id="copy-subs-button" class="secondary-button w-full py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-900 border border-indigo-700">
-                                📋 複製報名清單
-                            </button>
                         </div>
 
                         <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="font-bold text-pink-400">🔔 額滿通知名單</h3>
-                                <span id="full-sub-count" class="text-xs bg-pink-900 text-pink-200 px-2 py-1 rounded-full">讀取中...</span>
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-bold text-pink-400">🔔 額滿通知訂閱</h3>
+                                <p class="text-2xl font-bold text-white"><span id="full-sub-count">...</span> <span class="text-sm text-gray-500">人</span></p>
                             </div>
-                            <button id="copy-full-subs-button" class="secondary-button w-full py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-pink-900 border border-pink-700">
-                                📋 複製額滿清單
-                            </button>
                         </div>
 
                         <div class="grid grid-cols-3 gap-2">
@@ -284,21 +284,7 @@
                 </form>
             </div>
         </div>
-        
-        <div id="copy-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-            <div class="admin-container w-full max-w-2xl p-6 rounded-2xl shadow-xl flex flex-col gap-4">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-xl font-bold text-white">📋 訂閱信箱清單</h3>
-                    <button type="button" id="close-copy-modal-x" class="text-gray-400 hover:text-white text-2xl">&times;</button>
-                </div>
-                <p class="text-gray-400 text-sm">系統已自動全選，請直接按下 <strong>Ctrl+C</strong> (或是右鍵複製) 即可。</p>
-                <textarea id="copy-textarea" class="dark-input w-full h-64 p-4 rounded-lg font-mono text-sm leading-relaxed focus:ring-2 focus:ring-orange-500" readonly></textarea>
-                <div class="flex justify-end">
-                    <button type="button" id="close-copy-modal" class="secondary-button px-6 py-2 rounded-lg font-bold">關閉</button>
-                </div>
-            </div>
-        </div>
-
+    
     <script>
         // --- 1. 初始化設定 ---
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
@@ -335,20 +321,11 @@
         const saveSettingsButton = document.getElementById('save-settings-button');
         const settingsStatusText = document.getElementById('settings-status-text');
         const subCountEl = document.getElementById('sub-count');
-        const copySubsButton = document.getElementById('copy-subs-button');
-        const subLastUpdateEl = document.getElementById('sub-last-update');
+        const fullSubCountEl = document.getElementById('full-sub-count');
+
         const sendTestEmailButton = document.getElementById('send-test-email-button');
         const triggerCheckButton = document.getElementById('trigger-check-button');
         const triggerFullNotifyButton = document.getElementById('trigger-full-notify-button');
-        // 額滿通知相關元素 
-        const fullSubCountEl = document.getElementById('full-sub-count');
-        const copyFullSubsButton = document.getElementById('copy-full-subs-button');
-
-        // 複製 Modal 相關
-        const copyModal = document.getElementById('copy-modal');
-        const copyTextarea = document.getElementById('copy-textarea');
-        const closeCopyModalButton = document.getElementById('close-copy-modal');
-        const closeCopyModalX = document.getElementById('close-copy-modal-x');
 
         // --- 3. 狀態變數 ---
         let userToEdit = null;
@@ -359,7 +336,7 @@
 
         // --- 4. 核心功能函式 ---
 
-        // ★ 修改：在載入資料後，呼叫更新訂閱人數的函式
+        // ★ 核心 1：載入使用者 (單純顯示)
         async function loadUsers() {
             userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4">讀取中...</td></tr>`;
             try {
@@ -367,64 +344,35 @@
                 if (error) throw error;
                 
                 allUsersData = data.users || []; 
-                renderUserList(); // 渲染列表
-                updateSubscriptionUI(); // ★ 新增：計算並顯示訂閱人數 (這下不會報錯了，因為 HTML 元素已補上)
+                renderUserList(); 
+                // 這裡不再自己計算訂閱人數，改用 API
             } catch (error) {
                 userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-400">無法載入使用者列表: ${error.message}</td></tr>`;
             }
         }
 
-        // ★ 新增：更新訂閱統計 UI
-        function updateSubscriptionUI() {
-            if (!allUsersData) return;
+        // ★ 核心 2：載入訂閱統計 (呼叫後端 API)
+        async function loadSubscriptionStats() {
+            // 介面顯示讀取中
+            if (subCountEl) subCountEl.textContent = '...';
+            if (fullSubCountEl) fullSubCountEl.textContent = '...';
 
-            // 1. 報名通知統計
-            const signupEmails = allUsersData.map(u => u.notification_email).filter(e => e && e.includes('@'));
-            if (subCountEl) subCountEl.textContent = `${signupEmails.length} 人`;
+            try {
+                // 呼叫 index.ts 中的 get-subscriber-counts
+                const { data, error } = await invokeAdminFunction('get-subscriber-counts', {});
+                
+                if (error) throw error;
 
-            // 2. 額滿通知統計
-            const fullEmails = allUsersData.map(u => u.full_notification_email).filter(e => e && e.includes('@'));
-            if (fullSubCountEl) fullSubCountEl.textContent = `${fullEmails.length} 人`;
-        }
-
-        // ★ 新增：複製訂閱名單邏輯
-        if (copyFullSubsButton) {
-            copyFullSubsButton.addEventListener('click', () => {
-                const emails = allUsersData
-                    .map(user => user.full_notification_email)
-                    .filter(email => email && email.includes('@'))
-                    .sort();
-
-                if (emails.length === 0) {
-                    showMessage('目前沒有人訂閱額滿通知。', true);
-                    return;
+                if (data) {
+                    if (subCountEl) subCountEl.textContent = data.signupCount;
+                    if (fullSubCountEl) fullSubCountEl.textContent = data.fullCount;
                 }
-                copyToModal(emails);
-            });
+            } catch (err) {
+                console.error('訂閱統計讀取失敗', err);
+                if (subCountEl) subCountEl.textContent = 'err';
+                if (fullSubCountEl) fullSubCountEl.textContent = 'err';
+            }
         }
-
-        // 為了避免代碼重複，建議將原本的 copySubsButton 邏輯內的複製動作提取為 copyToModal 函式
-        function copyToModal(emailList) {
-            copyTextarea.value = emailList.join(', ');
-            copyModal.classList.remove('hidden');
-            copyTextarea.focus();
-            copyTextarea.select();
-            try { document.execCommand('copy'); showMessage('已自動複製到剪貼簿！', false); } catch (e) {}
-        }
-
-        // 修改原本的 copySubsButton 使用新函式
-        if (copySubsButton) {
-            copySubsButton.addEventListener('click', () => {
-                const emails = allUsersData.map(u => u.notification_email).filter(e => e && e.includes('@')).sort();
-                if (emails.length === 0) { showMessage('目前沒有人訂閱報名通知。', true); return; }
-                copyToModal(emails);
-            });
-        }
-
-        // Modal 關閉邏輯
-        function hideCopyModal() { copyModal.classList.add('hidden'); }
-        if (closeCopyModalButton) closeCopyModalButton.addEventListener('click', hideCopyModal);
-        if (closeCopyModalX) closeCopyModalX.addEventListener('click', hideCopyModal);
 
         // ★ 新增：發送測試信按鈕邏輯
         if (sendTestEmailButton) {
@@ -688,6 +636,7 @@
             loadGlobalSettings();
             loadUsers();
             loadChallenges();
+            loadSubscriptionStats(); // ★ 關鍵：載入訂閱人數
             setupAdminRealtime();
             checkDbConnection();
             dbConnectionInterval = setInterval(checkDbConnection, 30000);
@@ -1013,9 +962,6 @@
                 adminDropdown.classList.remove('show');
             }
         });
-        
-        // 別忘了更新 adminLoginForm 的監聽器，將原本的 nickname 變數來源改成：
-        // const nickname = adminInput.value.trim();
         
         function showMessage(text, isError) {
             adminMessageBox.textContent = text;

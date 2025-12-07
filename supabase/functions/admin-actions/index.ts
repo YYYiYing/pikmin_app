@@ -354,24 +354,24 @@ serve(async (req) => {
     // 只要是登入的使用者皆可執行，無需管理員權限
     // ============================================================
 
-    // 1. 更新訂閱 (整合至此)
+    // 1. 更新訂閱狀態 (改為布林值切換)
     if (action === 'update-subscription') {
         if (payload.userId !== user.id) throw new Error('權限不足 (ID 不符)');
         
-        // payload.type 預設為 'signup' (報名通知), 若為 'full' 則更新額滿通知
-        const column = payload.type === 'full' ? 'full_notification_email' : 'notification_email';
-        
+        // 判斷是哪種訂閱
+        const column = payload.type === 'full' ? 'is_subscribed_full' : 'is_subscribed_signup';
+        const newStatus = payload.status; // 前端會傳來 true (訂閱) 或 false (取消)
+
         const updateData: any = {};
-        updateData[column] = payload.email;
+        updateData[column] = newStatus;
 
         const { error } = await adminSupabaseClient.from('profiles').update(updateData).eq('id', user.id);
         
         if (error) throw error;
         
-        const typeText = payload.type === 'full' ? '額滿通知' : '報名通知';
         return new Response(JSON.stringify({ 
             success: true, 
-            data: { message: payload.email ? `${typeText}訂閱成功` : `已取消${typeText}` } 
+            data: { message: '狀態已更新' } 
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
@@ -675,10 +675,25 @@ serve(async (req) => {
             data = await checkAndSendNotification(adminSupabaseClient, RESEND_API_KEY, true);
             break;
 
-        case 'get-subscriber-emails': 
-            const { data: subscribers, error: subErr } = await adminSupabaseClient.from('profiles').select('notification_email').not('notification_email', 'is', null).order('notification_email');
-            if (subErr) throw subErr;
-            data = { emails: subscribers.map((p: any) => p.notification_email).filter((e: string) => e && e.includes('@')) };
+       case 'get-subscriber-counts': 
+            // 統計報名通知人數
+            const { count: signupCount, error: cErr1 } = await adminSupabaseClient
+                .from('profiles')
+                .select('*', { count: 'exact', head: true })
+                .eq('is_subscribed_signup', true);
+            
+            // 統計額滿通知人數
+            const { count: fullCount, error: cErr2 } = await adminSupabaseClient
+                .from('profiles')
+                .select('*', { count: 'exact', head: true })
+                .eq('is_subscribed_full', true);
+
+            if (cErr1 || cErr2) throw new Error('統計失敗');
+            
+            data = { 
+                signupCount: signupCount || 0,
+                fullCount: fullCount || 0
+            };
             break;
 
         case 'delete-challenge':

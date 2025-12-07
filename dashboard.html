@@ -2120,31 +2120,82 @@
     /** [訂閱] */
     function checkSubscriptionStatus() {
         if(!currentUserProfile) return;
-        updateSubBtn(signupSubButton, signupIcon, signupText, !!currentUserProfile.notification_email, currentUserProfile.notification_email, 'text-green-500', '報名通知', 'signup');
-        updateSubBtn(fullSubButton, fullIcon, fullText, !!currentUserProfile.full_notification_email, currentUserProfile.full_notification_email, 'text-pink-500', '額滿通知', 'full');
+        // 修改：讀取新的 is_subscribed_... 欄位
+        updateSubBtn(signupSubButton, signupIcon, signupText, currentUserProfile.is_subscribed_signup, 'text-green-500', '報名通知', 'signup');
+        updateSubBtn(fullSubButton, fullIcon, fullText, currentUserProfile.is_subscribed_full, 'text-pink-500', '額滿通知', 'full');
     }
-    function updateSubBtn(btn, icon, txt, isSub, email, color, name, type) {
+
+    // 修改 updateSubBtn 簽名 (拿掉 email 參數)
+    function updateSubBtn(btn, icon, txt, isSub, color, name, type) {
         if(isSub) {
-            icon.textContent='📭'; txt.textContent='已訂閱';
+            icon.textContent='📭'; txt.textContent='已加入';
             btn.className=`${color} hover:opacity-80 transition text-xs md:text-base flex items-center gap-1`;
-            btn.title=`接收信箱: ${email} (點擊取消)`;
+            btn.title=`已加入${name}群組 (點擊前往設定/退出)`;
         } else {
             icon.textContent= name==='額滿通知'?'🔔':'📧'; txt.textContent=name;
             btn.className=`text-gray-400 hover:${name==='額滿通知'?'text-red-400':'text-indigo-400'} transition text-xs md:text-base flex items-center gap-1`;
-            btn.title=`訂閱${name}`;
+            btn.title=`點擊前往 Google Groups 加入${name}`;
         }
-        btn.onclick = () => handleSubClick(type, isSub, email, name);
+        btn.onclick = () => handleSubClick(type, isSub, name);
     }
-    async function handleSubClick(type, isSub, currentEmail, name) {
-        if(!isSub) {
-            let email = prompt(`【訂閱${name}】\n請輸入 Gmail：`);
-            if(email) {
-                email=email.trim(); if(!email.includes('@')) email+='@gmail.com';
-                if(!email.endsWith('@gmail.com')) { alert('請用 Gmail'); return; }
-                await doSub(email, type);
-            }
-        } else {
-            if(confirm(`目前信箱：${currentEmail}\n確定取消？`)) await doSub(null, type);
+
+    /** [訂閱] 執行訂閱/退訂動作 (導引至 Google Groups) */
+    async function handleSubClick(type, isCurrentlySubscribed, name) {
+        const btn = type === 'full' ? fullSubButton : signupSubButton;
+        btn.disabled = true;
+        
+        // 定義網址
+        const joinUrl = type === 'full' 
+            ? "https://groups.google.com/g/full_quota_notify" 
+            : "https://groups.google.com/g/mushroom_notify";
+            
+        const leaveUrl = type === 'full' 
+            ? "https://groups.google.com/g/full_quota_notify/membership" 
+            : "https://groups.google.com/u/1/g/mushroom_notify/membership";
+
+        const targetUrl = isCurrentlySubscribed ? leaveUrl : joinUrl;
+        const actionText = isCurrentlySubscribed ? '退出' : '加入';
+        
+        // 提示訊息
+        const confirmMsg = isCurrentlySubscribed
+            ? `您確定要退出【${name}】嗎？\n\n系統將標記為未訂閱，並引導您至 Google Groups 頁面，請手動點擊「退出群組」。`
+            : `您想要加入【${name}】嗎？\n\n系統將引導您至 Google Groups 頁面，請手動點擊「申請加入」。`;
+
+        if (!confirm(confirmMsg)) {
+            btn.disabled = false;
+            return;
+        }
+
+        try {
+            // 呼叫後端更新狀態 (單純紀錄 True/False)
+            const { data, error } = await supabaseClient.functions.invoke('admin-actions', { 
+                body: { 
+                    action: 'update-subscription', 
+                    payload: { 
+                        userId: currentUserProfile.id, 
+                        type: type,
+                        status: !isCurrentlySubscribed // 切換狀態
+                    } 
+                } 
+            });
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+
+            // 更新本地狀態
+            if (type === 'full') currentUserProfile.is_subscribed_full = !isCurrentlySubscribed;
+            else currentUserProfile.is_subscribed_signup = !isCurrentlySubscribed;
+            
+            checkSubscriptionStatus();
+
+            // 跳轉
+            window.location.href = targetUrl;
+
+        } catch (e) { 
+            showToast('狀態更新失敗', true); 
+            console.error(e); 
+        } finally { 
+            btn.disabled = false; 
         }
     }
 
