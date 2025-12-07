@@ -278,6 +278,19 @@
             };
             container.appendChild(allBtn);
 
+            // ★★★ 新增：絕版區按鈕 ★★★
+            const obsoleteBtn = document.createElement('button');
+            obsoleteBtn.className = 'filter-tag text-red-400 border-red-900/50 hover:bg-red-900/30';
+            obsoleteBtn.textContent = `🚫 絕版區`;
+            obsoleteBtn.dataset.tag = 'obsolete';
+            obsoleteBtn.onclick = function() {
+                document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                activeTag = 'obsolete'; // 設定特殊標籤
+                renderGrid();
+            };
+            container.appendChild(obsoleteBtn);
+
             // 2. 設定顯示數量限制 (例如預設顯示 6 個)
             const DISPLAY_LIMIT = 6;
             const hasMore = allTags.length > DISPLAY_LIMIT;
@@ -425,12 +438,24 @@
 
         function renderGrid() {
             const grid = document.getElementById('postcard-grid');
-            const filtered = activeTag === 'all' 
-                ? allPostcards 
-                : allPostcards.filter(p => p.tags && p.tags.includes(activeTag));
+            
+            // ★ 修改過濾邏輯 ★
+            const filtered = allPostcards.filter(p => {
+                // 1. 如果目前在「絕版區」，只顯示已絕版的
+                if (activeTag === 'obsolete') {
+                    return p.is_obsolete === true;
+                }
+                // 2. 如果在其他區域 (全部 or 標籤)，只顯示「未絕版」的
+                if (p.is_obsolete === true) return false;
+
+                // 3. 接著執行原本的標籤過濾
+                if (activeTag === 'all') return true;
+                return p.tags && p.tags.includes(activeTag);
+            });
 
             if (filtered.length === 0) {
-                grid.innerHTML = '<p class="col-span-full text-center py-12 text-gray-500 text-lg">目前沒有符合條件的美片。</p>';
+                const msg = activeTag === 'obsolete' ? '目前沒有絕版的美片。' : '目前沒有符合條件的美片。';
+                grid.innerHTML = `<p class="col-span-full text-center py-12 text-gray-500 text-lg">${msg}</p>`;
                 return;
             }
 
@@ -438,9 +463,10 @@
                 const cleanName = (p.uploader_nickname || '').trim().replace(/[\s\uFEFF\xA0]*\d{12}$/, '');
                 const tagsHtml = (p.tags || []).map(t => `<span class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full mr-1 mb-1 inline-block border border-gray-600">#${t}</span>`).join('');
                 
+                // 權限判斷 (編輯/刪除)
                 const canEdit = (p.uploader_id === currentUser.id) || (currentUser.role === '管理者');
                 const controlsHtml = canEdit ? `
-                    <div class="absolute top-2 right-2 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition duration-200">
+                    <div class="absolute top-2 right-2 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition duration-200 z-10">
                         <button onclick="editCard(${p.id}, event)" class="text-gray-300 hover:text-white p-1.5 hover:bg-gray-700 rounded" title="編輯">✏️</button>
                         <button onclick="deleteCard(${p.id}, event)" class="text-red-400 hover:text-red-300 p-1.5 hover:bg-gray-700 rounded" title="刪除">🗑️</button>
                     </div>
@@ -449,11 +475,19 @@
                 const heartClass = p.isLiked ? 'liked' : 'text-gray-500 hover:text-pink-400';
                 const heartIcon = p.isLiked ? '❤️' : '🤍';
 
+                // ★ 絕版按鈕樣式判斷
+                // 如果在絕版區，按鈕變成「恢復」樣式；否則為「回報」樣式
+                const isObsoleteView = activeTag === 'obsolete';
+                const obsBtnIcon = isObsoleteView ? '✅上架' : '🚫'; // 絕版區顯示回收符號(恢復)，一般區顯示枯萎花朵(回報)
+                const obsBtnTitle = isObsoleteView ? '恢復上架' : '回報絕版';
+                const obsBtnClass = isObsoleteView ? 'text-green-500 hover:text-green-300' : 'text-gray-500 hover:text-red-500';
+
                 return `
-                    <div class="card-bg rounded-xl overflow-hidden relative group flex flex-col h-full">
+                    <div class="card-bg rounded-xl overflow-hidden relative group flex flex-col h-full ${p.is_obsolete ? 'opacity-75 border-red-900/30' : ''}">
                         <div class="aspect-video overflow-hidden bg-gray-900 cursor-pointer relative" onclick="viewImage('${p.image_url}')">
-                            <img src="${p.image_url}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out">
+                            <img src="${p.image_url}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out ${p.is_obsolete ? 'grayscale' : ''}">
                             ${controlsHtml}
+                            ${p.is_obsolete ? '<div class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="bg-red-600/80 text-white px-3 py-1 rounded-full text-xs font-bold transform -rotate-12 border border-red-400">已絕版</span></div>' : ''}
                         </div>
                         <div class="p-4 flex flex-col flex-grow justify-between">
                             <div>
@@ -462,10 +496,17 @@
                                         <span class="text-xs text-gray-400 flex-shrink-0">By</span>
                                         <span class="font-bold text-gray-200 truncate" title="${cleanName}">${cleanName}</span>
                                     </div>
-                                    <button onclick="toggleLike(${p.id}, this)" class="like-btn flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-full ${heartClass}">
-                                        <span class="text-base icon filter drop-shadow-md">${heartIcon}</span>
-                                        <span class="text-xs font-bold count">${p.likes}</span>
-                                    </button>
+                                    
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="toggleObsolete(${p.id}, '${cleanName}')" class="flex items-center justify-center w-7 h-7 rounded-full bg-gray-800/50 ${obsBtnClass} transition transform active:scale-90" title="${obsBtnTitle}">
+                                            <span class="text-sm filter drop-shadow-md">${obsBtnIcon}</span>
+                                        </button>
+
+                                        <button onclick="toggleLike(${p.id}, this)" class="like-btn flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-full ${heartClass}">
+                                            <span class="text-base icon filter drop-shadow-md">${heartIcon}</span>
+                                            <span class="text-xs font-bold count">${p.likes}</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="bg-gray-800/50 rounded-lg p-2 flex justify-between items-center mb-3 border border-gray-700 group-hover:border-gray-600 transition">
                                     <span class="text-xs font-mono text-gray-400 truncate select-all flex-1 mr-2">${p.coordinate || '未知座標'}</span>
@@ -708,6 +749,48 @@
                 iconSpan.textContent = card.isLiked ? '❤️' : '🤍';
                 countSpan.textContent = card.likes;
                 console.error('Like failed', e);
+            }
+        };
+
+        // ★ 回報/切換絕版狀態
+        window.toggleObsolete = async (id, uploaderName) => {
+            // 防止點擊穿透
+            if (event) event.stopPropagation();
+
+            const card = allPostcards.find(p => p.id === id);
+            if (!card) return;
+
+            const isCurrentlyObsolete = card.is_obsolete;
+            const actionText = isCurrentlyObsolete ? '恢復上架' : '回報絕版';
+            
+            // 確認對話框 (防止誤觸)
+            const confirmMsg = isCurrentlyObsolete 
+                ? `確定要將這張美片「${actionText}」嗎？\n恢復後它將重新出現在列表中。`
+                : `您確定要回報這張美片為「絕版/失效」嗎？\n\n回報後：\n1. 此卡片將從一般列表中隱藏\n2. 移動至「絕版區」歸檔\n3. 建議您確認該座標確實已消失或改版`;
+
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                // 1. 樂觀 UI 更新 (立刻從畫面移除或切換狀態)
+                card.is_obsolete = !isCurrentlyObsolete;
+                renderGrid(); // 重新渲染，卡片會依照新狀態移動位置
+
+                // 2. 呼叫後端 API
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: { action: 'toggle-postcard-obsolete', payload: { postcardId: id } }
+                });
+
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                showToast(`已${data.data.message}`, false);
+
+            } catch (e) {
+                console.error(e);
+                // 失敗回滾
+                card.is_obsolete = isCurrentlyObsolete;
+                renderGrid();
+                showToast(`操作失敗: ${e.message}`, true);
             }
         };
 

@@ -589,6 +589,37 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { likes: finalLikes, liked: !existingLike } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // 8. 回報/取消絕版 (Toggle Obsolete)
+    if (action === 'toggle-postcard-obsolete') {
+        const { postcardId } = payload;
+        
+        // 1. 查詢目前狀態
+        const { data: card, error: fetchErr } = await adminSupabaseClient
+            .from('postcards')
+            .select('is_obsolete')
+            .eq('id', postcardId)
+            .single();
+            
+        if (fetchErr || !card) throw new Error('找不到該美片');
+
+        // 2. 切換狀態 (True <-> False)
+        const newStatus = !card.is_obsolete;
+
+        const { error: updateErr } = await adminSupabaseClient
+            .from('postcards')
+            .update({ is_obsolete: newStatus })
+            .eq('id', postcardId);
+
+        if (updateErr) throw updateErr;
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: { 
+                is_obsolete: newStatus,
+                message: newStatus ? '已標記為絕版' : '已恢復為上架狀態'
+            } 
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
     
     // ============================================================
     // 區塊 B2：管理員專屬功能 (B2 - Admin Only Actions)
