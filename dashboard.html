@@ -247,6 +247,7 @@
                 <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="text-green-400 hover:text-green-300 transition text-sm font-bold">🔃 路徑轉檔</a>
                 <a id="gpx-generator-link" href="./gpx_generator.html" class="text-green-400 hover:text-green-300 font-bold transition text-sm">🗺️ 路徑生成</a>
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
+                <button id="manage-alts-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">🎭 分身</button>
                 <button id="change-nickname-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">🏷️ 改暱稱</button>
                 <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">㊙️ 改密碼</button>
                 <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">🏃‍♂️ 登出</button>
@@ -267,6 +268,7 @@
             </div>
             <hr class="border-gray-600 my-2">
             <div class="space-y-1">
+                <button id="manage-alts-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🎭 分身設定</button>
                 <button id="change-nickname-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏷️ 改暱稱</button>
                 <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">㊙️ 改密碼</button>
                 <button id="logout-button-mobile" class="w-full text-left text-red-400 hover:bg-gray-700 p-2 rounded-md">🏃‍♂️ 登出</button>
@@ -437,88 +439,94 @@
         <div class="modal-content w-full max-w-lg rounded-2xl shadow-xl p-8">
             <h2 class="text-2xl font-bold mb-6 text-gray-100">發布一個新挑戰</h2>
             <form id="challenge-form">
-            <div class="space-y-4">
-                <div>
-                    <label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
-                    <select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                        <option value="巨菇" selected>巨菇</option>
-                        <option value="活動菇">活動菇</option>
-                        <option value="美片菇">美片菇</option>
-                        <option value="大晶">大晶</option>
-                        <option value="大火">大火</option>
-                        <option value="大水">大水</option>
-                        <option value="大電">大電</option>
-                        <option value="大毒">大毒</option>
-                        <option value="大冰藍">大冰藍</option>
-                        <option value="大紅">大紅</option>
-                        <option value="大黃">大黃</option>
-                        <option value="大藍">大藍</option>
-                        <option value="大紫">大紫</option>
-                        <option value="大粉">大粉</option>
-                        <option value="大灰">大灰</option>
-                        <option value="大白">大白</option>
-                        <option value="晶">晶</option>
-                        <option value="水">水</option>
-                        <option value="火">火</option>
-                        <option value="電">電</option>
-                        <option value="毒">毒</option>
-                        <option value="測試">測試</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="slots" class="block text-sm font-medium text-gray-400">名額</label>
-                    <input type="number" id="slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm" value="4">
-                </div>
-
-                <div>
-                    <div class="flex justify-between items-center">
-                        <label for="start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label>
-                        <button type="button" id="set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button>
+                <div class="space-y-4">
+                    <div>
+                        <label for="post-identity" class="block text-sm font-medium text-gray-400">發布身分</label>
+                        <select id="post-identity" class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="main">主帳號 (讀取中...)</option>
+                        </select>
                     </div>
-                    <input type="datetime-local" id="start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                        
-                    <div class="mt-2 flex items-center">
-                        <input id="remember-time-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-600 dark:border-gray-500">
-                        <label for="remember-time-checkbox" class="ml-2 block text-sm text-gray-400">記住時間 (下次自動帶入)</label>
+                    <div>
+                        <label for="mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
+                        <select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="巨菇" selected>巨菇</option>
+                            <option value="活動菇">活動菇</option>
+                            <option value="美片菇">美片菇</option>
+                            <option value="大晶">大晶</option>
+                            <option value="大火">大火</option>
+                            <option value="大水">大水</option>
+                            <option value="大電">大電</option>
+                            <option value="大毒">大毒</option>
+                            <option value="大冰藍">大冰藍</option>
+                            <option value="大紅">大紅</option>
+                            <option value="大黃">大黃</option>
+                            <option value="大藍">大藍</option>
+                            <option value="大紫">大紫</option>
+                            <option value="大粉">大粉</option>
+                            <option value="大灰">大灰</option>
+                            <option value="大白">大白</option>
+                            <option value="晶">晶</option>
+                            <option value="水">水</option>
+                            <option value="火">火</option>
+                            <option value="電">電</option>
+                            <option value="毒">毒</option>
+                            <option value="測試">測試</option>
+                        </select>
                     </div>
-                </div>
 
-                <div>
-                    <label for="details" class="block text-sm font-medium text-gray-400">用餐時段</label>
-                    <select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                        <option value="宵夜" selected>宵夜</option>
-                        <option value="早餐">早餐</option>
-                        <option value="午餐">午餐</option>
-                        <option value="下午茶">下午茶</option>
-                        <option value="晚餐">晚餐</option>
-                        <option value="滿人開">滿人開</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
-                    <select id="cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                        <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
-                        <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
-                        <option value="隨便亂炒（不限戰力）"selected>隨便亂炒（不限戰力）</option>
-                    </select>
-                </div>
+                    <div>
+                        <label for="slots" class="block text-sm font-medium text-gray-400">名額</label>
+                        <input type="number" id="slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm" value="4">
+                    </div>
 
-                <div>
-                    <label for="challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
-                    <div class="flex gap-2 mt-1">
-                        <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"/>
-                        <button type="button" onclick="openLibraryModal('challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
-                            📖 圖書館
-                        </button>
+                    <div>
+                        <div class="flex justify-between items-center">
+                            <label for="start-time" class="block text-sm font-medium text-gray-400">開放報名時間</label>
+                            <button type="button" id="set-time-now-button" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded-md hover:bg-indigo-600">立即開放</button>
+                        </div>
+                        <input type="datetime-local" id="start-time" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            
+                        <div class="mt-2 flex items-center">
+                            <input id="remember-time-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-600 dark:border-gray-500">
+                            <label for="remember-time-checkbox" class="ml-2 block text-sm text-gray-400">記住時間 (下次自動帶入)</label>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，或從圖書館選擇。</p>
+
+                    <div>
+                        <label for="details" class="block text-sm font-medium text-gray-400">用餐時段</label>
+                        <select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="宵夜" selected>宵夜</option>
+                            <option value="早餐">早餐</option>
+                            <option value="午餐">午餐</option>
+                            <option value="下午茶">下午茶</option>
+                            <option value="晚餐">晚餐</option>
+                            <option value="滿人開">滿人開</option>
+                        </select>
                     </div>
-                </div>
-                
-                <div class="mt-8 flex justify-end space-x-4">       
-                    <button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
-                    <button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button>
+                    <div>
+                        <label for="cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
+                        <select id="cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
+                            <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
+                            <option value="隨便亂炒（不限戰力）"selected>隨便亂炒（不限戰力）</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
+                        <div class="flex gap-2 mt-1">
+                            <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"/>
+                            <button type="button" onclick="openLibraryModal('challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
+                                📖 圖書館
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，或從圖書館選擇。</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-8 flex justify-end space-x-4">       
+                        <button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
+                        <button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button>
                 </div>
             </form>
         </div>
@@ -531,6 +539,12 @@
             <form id="edit-challenge-form">
                 <input type="hidden" id="edit-challenge-id">
                 <div class="space-y-4">
+                    <div>
+                        <label for="edit-post-identity" class="block text-sm font-medium text-gray-400">發布身分</label>
+                        <select id="edit-post-identity" class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                            <option value="main">主帳號</option>
+                        </select>
+                    </div>
                     <div>
                         <label for="edit-mushroom-type" class="block text-sm font-medium text-gray-400">蘑菇種類</label>
                         <select id="edit-mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
@@ -715,6 +729,37 @@
 
         <div class="mt-4 flex justify-end pt-2 border-t border-gray-700">
             <button type="button" onclick="closeLibraryModal()" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
+        </div>
+    </div>
+</div>
+
+<div id="alts-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="modal-content w-full max-w-md rounded-2xl shadow-xl p-6 bg-gray-800 border border-gray-600">
+        <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+            <h2 class="text-xl font-bold text-gray-100">🎭 管理分身帳號</h2>
+            <button type="button" id="close-alts-modal" class="text-gray-500 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="mb-6">
+            <h3 class="text-sm font-bold text-gray-400 mb-2">已建立的分身</h3>
+            <ul id="alts-list" class="space-y-2 max-h-40 overflow-y-auto pr-2">
+                <li class="text-center text-gray-500 text-sm">讀取中...</li>
+            </ul>
+        </div>
+
+        <div class="bg-gray-900/50 p-4 rounded-xl border border-gray-700">
+            <h3 class="text-sm font-bold text-indigo-400 mb-3">➕ 新增分身</h3>
+            <div class="space-y-3">
+                <div>
+                    <input type="text" id="alt-nickname-input" placeholder="分身暱稱 (例: 小號)" class="dark-input w-full rounded-md text-sm px-3 py-2">
+                </div>
+                <div>
+                    <input type="text" id="alt-code-input" placeholder="好友碼 (12位數字)" maxlength="14" class="dark-input w-full rounded-md text-sm px-3 py-2">
+                </div>
+                <button id="add-alt-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition">
+                    新增至列表
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -1348,7 +1393,7 @@
         applyFilter();
     }
 
-    // ★ 核心渲染邏輯 (這是您原本 renderChallenge 的優化版)
+    // ★ 核心渲染邏輯 (含分身顯示功能優化版)
     function renderChallenge(challenge) {
         if (!challenge || !challenge.host) return;
         challengesData[challenge.id] = challenge; // 更新快取
@@ -1372,6 +1417,13 @@
 
         if (isHost) card.dataset.isHosted = 'true';
         if (isSignedUp) card.dataset.isSignedUp = 'true';
+
+        // ★★★ 關鍵修改：優先顯示自訂的發布者名稱 (分身) ★★★
+        // =========================================================
+        const realHostNickname = challenge.host ? challenge.host.nickname : '未知';
+        // 如果 display_host_name 有值就用它，否則回退顯示主帳號
+        const displayString = challenge.display_host_name || realHostNickname;
+        // =========================================================
 
         // 操作按鈕邏輯 (包含冷卻與權限)
         let actionButtonHtml;
@@ -1414,7 +1466,7 @@
         if (signupCount > 0) {
             const sortedSignups = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
             
-            // ★★★ 新增這段迴圈：建立 ID 對照索引 ★★★
+            // ★★★ 建立 ID 對照索引 ★★★
             sortedSignups.forEach(s => {
                 signupIdToChallengeMap[s.id] = challenge.id;
             });
@@ -1467,6 +1519,7 @@
         `;
 
         // 組合 HTML
+        // ★ 修正：將 "發菇者" 的顯示內容改為 displayString，並加上顯眼的樣式
         card.innerHTML = `
             <div>
                 <div class="flex justify-between items-start mb-2">
@@ -1485,7 +1538,7 @@
                     ${harvestHtmlBlock}
                 </div>
                 <div class="text-gray-400 space-y-2 mb-4">
-                    <p><strong>發菇者:</strong> ${challenge.host ? challenge.host.nickname : '未知'}</p>
+                    <p><strong>發菇者:</strong> <span class="text-indigo-300 font-bold">${displayString}</span></p>
                     <p><strong>用餐時段:</strong> ${challenge.details || '未指定'}</p>
                     <p><strong>名額:</strong> <span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}</p>
                     ${startTimeHtml}
@@ -1523,8 +1576,10 @@
     // 7. 互動操作 (Interactions: Post, Edit, Delete, Signup)
     // =========================================================================
 
-    /** [發布] */
-    postChallengeButton.addEventListener('click', () => {
+    /** [發布] 開啟發布視窗 */
+    // ★ 修正：這裡加上了 async
+    postChallengeButton.addEventListener('click', async () => {
+        // 1. 重置表單與預設值 (保留既有功能)
         challengeForm.reset();
         challengeForm['mushroom-type'].value = '巨菇';
         challengeForm['slots'].value = 4;
@@ -1546,8 +1601,53 @@
             document.getElementById('remember-time-checkbox').checked = false;
         }
         document.getElementById('challenge-image').value = '';
+
+        // ★ 新增功能：載入身分選單邏輯
+        const identitySelect = document.getElementById('post-identity');
+        
+        // A. 先重置為「主帳號」
+        if (currentUserProfile) {
+            identitySelect.innerHTML = `<option value="main">${currentUserProfile.nickname} (主帳號)</option>`;
+        }
+
+        // B. 確保分身列表已從資料庫載入 (若 myAlts 為空，則即時抓取一次)
+        // 因為這裡用了 await，所以外層必須是 async function
+        if (typeof myAlts === 'undefined' || myAlts.length === 0) {
+            try {
+                const { data } = await supabaseClient.from('user_alts').select('*');
+                if (data) myAlts = data;
+            } catch (e) {
+                console.error('分身載入失敗', e);
+            }
+        }
+
+        // C. 將分身加入選單
+        if (myAlts && myAlts.length > 0) {
+            myAlts.forEach(alt => {
+                const option = document.createElement('option');
+                option.value = alt.full_display; // 值直接存 "暱稱✈️好友碼"
+                option.textContent = `🎭 ${alt.full_display}`;
+                identitySelect.appendChild(option);
+            });
+        }
+        
+        // 3. 顯示 Modal
         challengeModal.classList.remove('hidden');
     });
+
+    // ★ 修復：編輯視窗的取消按鈕邏輯
+    // ---------------------------------------------------------
+    const cancelEditBtn = document.getElementById('cancel-edit-modal-button');
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', () => {
+            // 隱藏編輯視窗
+            document.getElementById('edit-challenge-modal').classList.add('hidden');
+            // 建議：重置表單，避免下次打開殘留資料 (選用)
+            document.getElementById('edit-challenge-form').reset(); 
+        });
+    }
+
+    //  關閉發布視窗
     cancelModalButton.addEventListener('click', () => challengeModal.classList.add('hidden'));
     setTimeNowButton.addEventListener('click', () => {
         const now = new Date();
@@ -1555,14 +1655,17 @@
         challengeForm['start-time'].value = now.toISOString().slice(0, 16);
     });
 
+    // 【發布】表單送出
     challengeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        submitChallengeButton.disabled = true; submitChallengeButton.textContent = '發布中...';
+        submitChallengeButton.disabled = true; 
+        submitChallengeButton.textContent = '發布中...';
         
         const form = e.target;
         const timeVal = form['start-time'].value;
         const styleVal = document.getElementById('cooking-style').value;
 
+        // 1. 記憶時間設定
         if (document.getElementById('remember-time-checkbox').checked) {
             localStorage.setItem('rememberedChallengeTime', timeVal.split('T')[1]);
             localStorage.setItem('rememberedChallengeDetails', form['details'].value);
@@ -1573,8 +1676,15 @@
             localStorage.removeItem('rememberedCookingStyle');
         }
 
+        const selectedIdentity = document.getElementById('post-identity').value;
+        // 如果選的是 'main'，使用當前登入者的暱稱，否則使用分身字串
+        const displayHostName = selectedIdentity === 'main' ? currentUserProfile.nickname : selectedIdentity;
+        // =========================================================
+
         let publicImageUrl = null;
         const fileInput = document.getElementById('challenge-image');
+        
+        // 2. 圖片上傳邏輯
         if (fileInput.files.length > 0) {
             try {
                 const file = fileInput.files[0];
@@ -1590,8 +1700,11 @@
         }
 
         const startTime = new Date(timeVal);
+        
+        // 3. 寫入資料庫
         const { data: newChal, error } = await supabaseClient.from('challenges').insert({
             host_id: currentUserProfile.id,
+            display_host_name: displayHostName, // ★ 現在這裡可以讀取到正確變數了
             mushroom_type: form['mushroom-type'].value,
             slots: parseInt(form['slots'].value),
             start_time: startTime.toISOString(),
@@ -1601,42 +1714,86 @@
             image_url: publicImageUrl
         }).select().single();
 
-        if (error) showToast(`發布失敗: ${error.message}`, true);
-        else {
+        if (error) {
+            showToast(`發布失敗: ${error.message}`, true);
+        } else {
             showToast('發布成功！', false);
             challengeModal.classList.add('hidden');
-            const fullObj = { ...newChal, host: { id: currentUserProfile.id, nickname: currentUserProfile.nickname }, signups: [] };
+            
+            // 4. 前端渲染更新
+            // ★這裡建議明確帶入 display_host_name，確保剛發布完卡片上就立刻顯示正確的分身名字
+            const fullObj = { 
+                ...newChal, 
+                host: { id: currentUserProfile.id, nickname: currentUserProfile.nickname }, 
+                signups: [],
+                display_host_name: displayHostName 
+            };
+            
             renderChallenge(fullObj);
             applyFilter();
         }
-        submitChallengeButton.disabled = false; submitChallengeButton.textContent = '確認發布';
+        submitChallengeButton.disabled = false; 
+        submitChallengeButton.textContent = '確認發布';
     });
 
-    /** [編輯] */
-    function openEditModal(challengeId) {
+    /** [編輯] 開啟編輯視窗 (含分身選單載入) */
+    async function openEditModal(challengeId) {
         const c = challengesData[challengeId];
         if (!c) { showToast('找不到資料', true); return; }
         
+        // --- 1. 填入既有資料 (保留您原本的邏輯) ---
         document.getElementById('edit-challenge-id').value = c.id;
+        // 暫存舊圖網址 (給後續垃圾清理用)
         document.getElementById('edit-challenge-form').dataset.originalImage = c.image_url || '';
+        
         document.getElementById('edit-mushroom-type').value = c.mushroom_type;
         document.getElementById('edit-slots').value = c.slots;
         
+        // 時間處理
         const localTime = new Date(c.start_time);
         localTime.setMinutes(localTime.getMinutes() - localTime.getTimezoneOffset());
         document.getElementById('edit-start-time').value = localTime.toISOString().slice(0, 16);
+        
         document.getElementById('edit-details').value = c.details;
         document.getElementById('edit-cooking-style').value = c.cooking_style || '大火快炒（戰力全開）';
+
+        // --- 2. ★ 新增：載入與設定「發布身分」 ---
+        const identitySelect = document.getElementById('edit-post-identity');
+        
+        // 重置選單，先放入主帳號
+        identitySelect.innerHTML = `<option value="main">${currentUserProfile.nickname} (主帳號)</option>`;
+        
+        // 確保有分身資料 (若尚未載入過，嘗試載入一次)
+        if (typeof myAlts === 'undefined' || myAlts.length === 0) {
+            const { data } = await supabaseClient.from('user_alts').select('*');
+            if (data) myAlts = data;
+        }
+
+        // 將分身加入選項
+        if (myAlts && myAlts.length > 0) {
+            myAlts.forEach(alt => {
+                const option = document.createElement('option');
+                option.value = alt.full_display;
+                option.textContent = `🎭 ${alt.full_display}`;
+                identitySelect.appendChild(option);
+            });
+        }
+
+        // ★ 設定當前選中的值
+        // 如果資料庫欄位是空的，或是等於主帳號暱稱，就選 'main'
+        // 否則選對應的分身字串
+        if (!c.display_host_name || c.display_host_name === currentUserProfile.nickname) {
+            identitySelect.value = 'main';
+        } else {
+            // 如果該分身已被刪除，select 預設會停在 'main'，這也是合理的 fallback
+            identitySelect.value = c.display_host_name;
+        }
+
+        // 3. 顯示 Modal
         editChallengeModal.classList.remove('hidden');
     }
-    cancelEditModalButton.addEventListener('click', () => editChallengeModal.classList.add('hidden'));
-    editSetTimeNowButton.addEventListener('click', () => {
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        document.getElementById('edit-start-time').value = now.toISOString().slice(0, 16);
-    });
 
-    // 編輯挑戰表單送出 (含垃圾圖檔清理邏輯)
+    // 編輯挑戰表單送出 (含分身邏輯與垃圾圖檔清理)
     editChallengeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submit-edit-challenge-button');
@@ -1647,11 +1804,16 @@
         const newSlots = parseInt(document.getElementById('edit-slots').value);
         const newTime = new Date(document.getElementById('edit-start-time').value);
         
-        // 取得暫存的舊圖網址 (注意：如果 openEditModal 沒正確設定 dataset，這裡會是 undefined，但不會報錯)
+        // 取得暫存的舊圖網址 (用於垃圾清理)
         const oldImageUrl = editChallengeForm.dataset.originalImage;
 
+        // 計算狀態 (保留您原本的邏輯)
         const curSignups = challengesData[id]?.signups?.length || 0;
         let status = (newTime > new Date()) ? '預計開放' : (curSignups >= newSlots ? '已額滿' : '開放報名中');
+
+        // ★ 修正點：這裡是編輯視窗，ID 必須是 edit-post-identity，不能用 post-identity
+        const selectedIdentity = document.getElementById('edit-post-identity').value;
+        const displayHostName = selectedIdentity === 'main' ? currentUserProfile.nickname : selectedIdentity;
 
         const updateData = {
             mushroom_type: document.getElementById('edit-mushroom-type').value,
@@ -1659,14 +1821,15 @@
             start_time: newTime.toISOString(),
             details: document.getElementById('edit-details').value,
             status: status,
-            cooking_style: document.getElementById('edit-cooking-style').value
+            cooking_style: document.getElementById('edit-cooking-style').value,
+            display_host_name: displayHostName // ★ 寫入新的顯示名稱
         };
 
         const fileInput = document.getElementById('edit-challenge-image');
         let newUploadedFileName = null; 
 
         try {
-            // ★ 上傳圖片邏輯
+            // --- 圖片上傳邏輯 (保留) ---
             if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
                 const fileName = `${Date.now()}_edit_${Math.floor(Math.random()*1000)}.${file.name.split('.').pop()}`;
@@ -1679,11 +1842,12 @@
                 updateData.image_url = data.publicUrl;
             }
 
-            // ★ 更新資料庫
+            // --- 更新資料庫 ---
             const { error } = await supabaseClient.from('challenges').update(updateData).eq('id', id);
             if(error) throw error;
 
-            // ★ 垃圾清理邏輯
+            // --- 舊圖垃圾清理邏輯 (保留) ---
+            // 只有當「有上傳新圖」且「原本有舊圖」且「新舊圖不同」時才刪除
             if (updateData.image_url && oldImageUrl && oldImageUrl !== updateData.image_url) {
                 try {
                     const oldFileName = oldImageUrl.split('/').pop();
@@ -1705,6 +1869,7 @@
             console.error(err);
             showToast(`更新失敗: ${err.message}`, true);
             
+            // 若資料庫更新失敗，但圖已上傳，則刪除剛上傳的新圖 (回滾機制)
             if (newUploadedFileName) {
                 await supabaseClient.storage.from('challenge-images').remove([newUploadedFileName]);
             }
@@ -2521,6 +2686,128 @@
             }
         });
     }
+
+    // --- 分身功能變數 ---
+    const manageAltsBtn = document.getElementById('manage-alts-button');
+    const manageAltsBtnMob = document.getElementById('manage-alts-button-mobile');
+    const altsModal = document.getElementById('alts-modal');
+    const closeAltsModalBtn = document.getElementById('close-alts-modal');
+    const altsListEl = document.getElementById('alts-list');
+    const addAltBtn = document.getElementById('add-alt-btn');
+    const altNicknameInput = document.getElementById('alt-nickname-input');
+    const altCodeInput = document.getElementById('alt-code-input');
+    let myAlts = []; // 儲存分身列表
+
+    // 綁定事件
+    if(manageAltsBtn) manageAltsBtn.addEventListener('click', openAltsModal);
+    if(manageAltsBtnMob) manageAltsBtnMob.addEventListener('click', openAltsModal);
+    if(closeAltsModalBtn) closeAltsModalBtn.addEventListener('click', () => altsModal.classList.add('hidden'));
+
+    // 點擊 Modal 外部關閉
+    altsModal.addEventListener('click', (e) => {
+        if (e.target === altsModal) altsModal.classList.add('hidden');
+    });
+
+    addAltBtn.addEventListener('click', handleAddAlt);
+
+    // 開啟管理視窗
+    async function openAltsModal() {
+        altsModal.classList.remove('hidden');
+        await fetchAlts();
+    }
+
+    // 從資料庫讀取分身
+    async function fetchAlts() {
+        altsListEl.innerHTML = '<li class="text-center text-gray-500 text-sm">讀取中...</li>';
+        try {
+            const { data, error } = await supabaseClient
+                .from('user_alts')
+                .select('*')
+                .order('created_at', { ascending: true });
+            
+            if (error) throw error;
+            myAlts = data || [];
+            renderAltsList();
+        } catch (e) {
+            console.error(e);
+            altsListEl.innerHTML = '<li class="text-center text-red-400 text-sm">讀取失敗</li>';
+        }
+    }
+
+    // 渲染列表
+    function renderAltsList() {
+        if (myAlts.length === 0) {
+            altsListEl.innerHTML = '<li class="text-center text-gray-500 text-sm py-2">尚未建立分身</li>';
+            return;
+        }
+        
+        altsListEl.innerHTML = myAlts.map(alt => `
+            <div class="flex justify-between items-center bg-gray-700/50 p-2 rounded-lg border border-gray-600">
+                <span class="text-sm text-gray-200 font-mono">${alt.full_display}</span>
+                <button onclick="deleteAlt(${alt.id})" class="text-red-400 hover:text-red-300 px-2 text-xs font-bold">刪除</button>
+            </div>
+        `).join('');
+    }
+
+    // 新增分身
+    async function handleAddAlt() {
+        const nick = altNicknameInput.value.trim();
+        let code = altCodeInput.value.trim();
+        
+        if (!nick || !code) {
+            showToast('請輸入完整資訊', true);
+            return;
+        }
+        
+        // 簡單過濾好友碼 (只留數字)
+        code = code.replace(/\D/g, '');
+        if (code.length !== 12) {
+            showToast('好友碼必須為 12 位數字', true);
+            return;
+        }
+        
+        const fullDisplay = `${nick}✈️${code}`; // 自動組合
+        
+        addAltBtn.disabled = true;
+        addAltBtn.textContent = '處理中...';
+        
+        try {
+            const { error } = await supabaseClient
+                .from('user_alts')
+                .insert({
+                    user_id: currentUserProfile.id,
+                    alt_nickname: nick,
+                    friend_code: code,
+                    full_display: fullDisplay
+                });
+                
+            if (error) throw error;
+            
+            showToast('分身新增成功', false);
+            altNicknameInput.value = '';
+            altCodeInput.value = '';
+            await fetchAlts(); // 重新讀取
+        } catch (e) {
+            showToast('新增失敗: ' + e.message, true);
+        } finally {
+            addAltBtn.disabled = false;
+            addAltBtn.textContent = '新增至列表';
+        }
+    }
+
+    // 刪除分身 (需掛載到 window)
+    window.deleteAlt = async (id) => {
+        if (!confirm('確定要刪除這個分身嗎？')) return;
+        try {
+            const { error } = await supabaseClient.from('user_alts').delete().eq('id', id);
+            if (error) throw error;
+            await fetchAlts();
+        } catch (e) {
+            showToast('刪除失敗', true);
+        }
+    };
+
+
 </script>
 </body>
 </html>
