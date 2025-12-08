@@ -1740,20 +1740,68 @@
     cancelDeleteButton.addEventListener('click', hideDeleteConfirmModal);
     confirmDeleteButton.addEventListener('click', () => { if(challengeToDeleteId) deleteChallenge(challengeToDeleteId); });
 
+    // ★ 新增：用來鎖定/解鎖所有報名按鈕的工具函式
+    function setAllButtonsLoading(isLoading) {
+        // 選取所有帶有 .signup-button class 的按鈕
+        const btns = document.querySelectorAll('.signup-button');
+        
+        btns.forEach(btn => {
+            if (isLoading) {
+                // === 鎖定模式 ===
+                // 只有當按鈕原本是「可點擊」的狀態 (沒被 disabled)，我們才標記並鎖定它
+                // 這樣可以避免誤開那些原本就在冷卻中或無權限的按鈕
+                if (!btn.disabled) {
+                    btn.dataset.wasEnabled = "true"; // 暫存標記：記住它原本是活的
+                    btn.disabled = true;             // 鎖定
+                    btn.classList.add('cursor-not-allowed', 'opacity-50'); // 視覺變灰
+                }
+            } else {
+                // === 解鎖模式 ===
+                // 只恢復那些「原本是活的」按鈕
+                if (btn.dataset.wasEnabled === "true") {
+                    btn.disabled = false;
+                    btn.classList.remove('cursor-not-allowed', 'opacity-50');
+                    delete btn.dataset.wasEnabled;   // 清除標記
+                }
+            }
+        });
+    }
+
     /** [報名] */
     async function handleSignUp(challengeId, buttonEl) {
-        buttonEl.disabled = true; buttonEl.textContent = '報名中...';
+        // ★ 1. 按下的瞬間，立刻鎖定「全場」按鈕！防止使用者在等待期間去點別張
+        setAllButtonsLoading(true); 
+        
+        // 更改當前按鈕文字，提供視覺回饋
+        buttonEl.textContent = '報名中...';
+
         const nid = parseInt(challengeId);
+        // 呼叫後端 (這裡已經有 SQL 悲觀鎖保護了)
         const { error } = await supabaseClient.rpc('signup_for_challenge', { challenge_id_to_signup: nid });
 
         if (error) {
+            // ★ 2a. 報名失敗 (例如：手速慢了被搶光、或額度不足)
             showToast(`報名失敗: ${error.message.includes('limit') ? '本日額度已滿' : error.message}`, true);
-            buttonEl.disabled = false; buttonEl.textContent = '報名';
+            
+            // 恢復當前按鈕的文字
+            buttonEl.textContent = '報名'; 
+            
+            // ★ 關鍵：失敗了要「解鎖全場」，讓使用者可以趕快去搶別張！
+            setAllButtonsLoading(false);
+            
+            // 重新整理這張卡片 (例如更新顯示為已額滿)
             reloadChallengeCard(challengeId);
         } else {
+            // ★ 2b. 報名成功！
             showToast('報名成功！', false);
+            
+            // 注意：這裡「不需要」呼叫 setAllButtonsLoading(false)
+            // 因為接下來 refreshAllChallengeCards() 會重繪整個列表 (舊按鈕會消失)
+            // 且 triggerGlobalCooldown() 會接手進行 3 秒全域鎖定
+            
             userSignedUpChallengeIds.add(nid);
-            triggerGlobalCooldown();
+            triggerGlobalCooldown(); // 啟動全域 3 秒冷卻
+            
             await reloadChallengeCard(challengeId);
             await refreshUserProfile();
             refreshAllChallengeCards();
