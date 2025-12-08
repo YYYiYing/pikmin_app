@@ -524,6 +524,11 @@
                         </div>
                     </div>
                     
+                    <div>
+                        <label for="challenge-notes" class="block text-sm font-medium text-gray-400">備註 (選填)</label>
+                        <input type="text" id="challenge-notes" maxlength="50" class="dark-input mt-1 block w-full rounded-md shadow-sm" placeholder="補充說明...">
+                    </div>
+
                     <div class="mt-8 flex justify-end space-x-4">       
                         <button type="button" id="cancel-modal-button" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
                         <button type="submit" id="submit-challenge-button" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">確認發布</button>
@@ -613,6 +618,11 @@
                             </button>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">可上傳明信片圖檔，或從圖書館選擇。</p>
+                    </div>
+
+                    <div>
+                        <label for="edit-challenge-notes" class="block text-sm font-medium text-gray-400">備註 (選填)</label>
+                        <input type="text" id="edit-challenge-notes" maxlength="50" class="dark-input mt-1 block w-full rounded-md shadow-sm" placeholder="補充說明...">
                     </div>
                 </div>
                 <div class="mt-8 flex justify-end space-x-4">
@@ -1507,6 +1517,18 @@
         else if (cStyle.includes('細火慢燉')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
         else if (cStyle.includes('隨便亂炒')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
 
+        // ★★★ 新增：備註顯示邏輯 ★★★
+        // =========================================================
+        let notesHtml = '';
+        if (challenge.notes && challenge.notes.trim() !== '') {
+            // 使用明顯的顏色 (例如黃色) 並加上引言圖示，增加區隔感
+            notesHtml = `
+                <div class="mt-2 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">
+                    📝 ${challenge.notes}
+                </div>
+            `;
+        }
+
         // 倒數與收成時間
         let countdownDisplayHtml = '<span class="text-gray-500">倒數:--</span>';
         let dataEndTime = challenge.countdown_end_time || '';
@@ -1543,6 +1565,7 @@
                     <p><strong>名額:</strong> <span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}</p>
                     ${startTimeHtml}
                     <div class="flex items-center mt-1"><strong class="mr-2">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>
+                    ${notesHtml}
                     ${imageBtnHtml}
                 </div>
                 ${participantsHtml}
@@ -1601,6 +1624,8 @@
             document.getElementById('remember-time-checkbox').checked = false;
         }
         document.getElementById('challenge-image').value = '';
+        // ★ 新增：清空備註欄位
+        document.getElementById('challenge-notes').value = ''; 
 
         // ★ 新增功能：載入身分選單邏輯
         const identitySelect = document.getElementById('post-identity');
@@ -1684,6 +1709,9 @@
         let publicImageUrl = null;
         const fileInput = document.getElementById('challenge-image');
         
+        // ★ 新增：取得備註內容
+        const notesVal = document.getElementById('challenge-notes').value.trim();
+
         // 2. 圖片上傳邏輯
         if (fileInput.files.length > 0) {
             try {
@@ -1711,7 +1739,8 @@
             details: form['details'].value,
             status: startTime > new Date() ? '預計開放' : '開放報名中',
             cooking_style: styleVal,
-            image_url: publicImageUrl
+            image_url: publicImageUrl,
+            notes: notesVal // ★ 寫入備註
         }).select().single();
 
         if (error) {
@@ -1756,6 +1785,9 @@
         
         document.getElementById('edit-details').value = c.details;
         document.getElementById('edit-cooking-style').value = c.cooking_style || '大火快炒（戰力全開）';
+
+        // ★ 新增：填入備註 (若無則為空字串)
+        document.getElementById('edit-challenge-notes').value = c.notes || '';
 
         // --- 2. ★ 新增：載入與設定「發布身分」 ---
         const identitySelect = document.getElementById('edit-post-identity');
@@ -1807,6 +1839,9 @@
         // 取得暫存的舊圖網址 (用於垃圾清理)
         const oldImageUrl = editChallengeForm.dataset.originalImage;
 
+        // ★ 新增：取得備註
+        const notesVal = document.getElementById('edit-challenge-notes').value.trim();
+        
         // 計算狀態 (保留您原本的邏輯)
         const curSignups = challengesData[id]?.signups?.length || 0;
         let status = (newTime > new Date()) ? '預計開放' : (curSignups >= newSlots ? '已額滿' : '開放報名中');
@@ -1822,7 +1857,8 @@
             details: document.getElementById('edit-details').value,
             status: status,
             cooking_style: document.getElementById('edit-cooking-style').value,
-            display_host_name: displayHostName // ★ 寫入新的顯示名稱
+            display_host_name: displayHostName, // ★ 寫入新的顯示名稱
+            notes: notesVal // ★ 更新備註
         };
 
         const fileInput = document.getElementById('edit-challenge-image');
