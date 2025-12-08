@@ -212,7 +212,7 @@
     <div class="container mx-auto px-4 py-3 flex justify-between items-center relative">
         
         <div class="flex items-center gap-4">
-            <button id="hamburger-button" class="p-2 md:hidden">
+            <button id="hamburger-button" class="p-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-list text-white" viewBox="0 0 16 16">
                     <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
                 </svg>
@@ -241,11 +241,6 @@
             <span id="daily-quota-display" class="text-sm text-gray-400 border-l border-gray-600 pl-4 ml-2"></span>
             
             <div class="hidden md:flex items-center gap-x-4">
-                <button id="leaderboard-button" class="text-yellow-400 hover:text-yellow-300 transition text-sm font-bold">🏆 排行榜</button>
-                <a href="./postcard.html" class="text-pink-400 hover:text-pink-300 font-bold transition text-sm">🖼️ 美片圖書館</a>
-                <a href="./partner.html" class="text-cyan-400 hover:text-cyan-300 transition text-sm font-bold">🤝 村民好友碼</a>
-                <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="text-green-400 hover:text-green-300 transition text-sm font-bold">🔃 路徑轉檔</a>
-                <a id="gpx-generator-link" href="./gpx_generator.html" class="text-green-400 hover:text-green-300 font-bold transition text-sm">🗺️ 路徑生成</a>
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
                 <button id="manage-alts-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">🎭 分身</button>
                 <button id="change-nickname-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">🏷️ 改暱稱</button>
@@ -256,7 +251,7 @@
 
         <div id="mobile-menu" class="hidden absolute top-full left-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg p-2">
             <div class="space-y-1">
-                <button id="leaderboard-button-mobile" class="w-full text-left text-yellow-400 hover:bg-gray-700 p-2 rounded-md font-bold">🏆 排行榜</button>
+                <button id="leaderboard-button" class="w-full text-left text-yellow-400 hover:bg-gray-700 p-2 rounded-md font-bold">🏆 排行榜</button>
                 <a href="./postcard.html" class="block text-pink-400 hover:bg-gray-700 p-2 rounded-md font-bold">🖼️ 美片圖書館</a>
                 <a href="./partner.html" class="block text-cyan-400 hover:bg-gray-700 p-2 rounded-md font-bold">🤝 村民好友碼</a>
                 <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="block text-green-400 hover:bg-gray-700 p-2 rounded-md font-bold">🔃 路徑轉檔</a>
@@ -265,10 +260,10 @@
             <hr class="border-gray-600 my-2">
             <div class="space-y-1">
                 <a id="admin-link-mobile" href="./admin.html" class="hidden block text-orange-400 hover:bg-gray-700 p-2 rounded-md font-bold">⚙️ 管理後台</a>
+                <button id="manage-alts-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🎭 分身設定</button>
             </div>
             <hr class="border-gray-600 my-2">
             <div class="space-y-1">
-                <button id="manage-alts-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🎭 分身設定</button>
                 <button id="change-nickname-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏷️ 改暱稱</button>
                 <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">㊙️ 改密碼</button>
                 <button id="logout-button-mobile" class="w-full text-left text-red-400 hover:bg-gray-700 p-2 rounded-md">🏃‍♂️ 登出</button>
@@ -2601,7 +2596,7 @@
     // Mobile Menu
     hamburgerButton.addEventListener('click', (e) => { e.stopPropagation(); mobileMenu.classList.toggle('hidden'); });
     window.addEventListener('click', (e) => { if(!mobileMenu.classList.contains('hidden') && !mobileMenu.contains(e.target)) mobileMenu.classList.add('hidden'); });
-    mobileMenu.querySelector('#leaderboard-button-mobile').onclick = () => leaderboardButton.click();
+
     mobileMenu.querySelector('#change-password-button-mobile').onclick = () => changePasswordButton.click();
     mobileMenu.querySelector('#logout-button-mobile').onclick = () => logoutButton.click();
 
