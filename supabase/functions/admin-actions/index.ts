@@ -140,7 +140,7 @@ serve(async (req) => {
         });
     }
 
-// 2. 排程發信通知 (額滿通知 - 含用餐時段過濾 + 重複辨識)
+    // 2. 排程發信通知 (額滿通知 - 含用餐時段過濾 + 重複辨識)
     if (action === 'scheduled-full-notify') {
         if (!RESEND_API_KEY) throw new Error('缺少 RESEND_API_KEY');
 
@@ -287,22 +287,45 @@ serve(async (req) => {
         });
     }
 
-    // 3. 排程清理逾時挑戰
+    // 3. 排程清理逾時挑戰 (整合版：內部菇10hr + 訪客菇6hr + 圖片清理)
     if (action === 'cleanup-expired') {
-        const HOURS_LIMIT = 12; 
-        const cutoffTime = new Date(Date.now() - HOURS_LIMIT * 60 * 60 * 1000).toISOString();
-
-        const { data: expiredChallenges, error: findErr } = await adminSupabaseClient
-            .from('challenges')
-            .select('id, image_url, mushroom_type, dispatched_at')
-            .eq('dispatch_status', '已發')
-            .lt('dispatched_at', cutoffTime);
-
-        if (findErr) throw findErr;
-
+        const now = Date.now();
         const deletedLog = [];
-        if (expiredChallenges && expiredChallenges.length > 0) {
-            for (const challenge of expiredChallenges) {
+
+        // A. 定義時間門檻
+        // 內部菇：已發車超過 10 小時 (使用者自訂)
+        const internalCutoff = new Date(now - 10 * 60 * 60 * 1000).toISOString();
+        // 訪客菇：開放時間超過 6 小時 (預告單保護機制)
+        const guestCutoff = new Date(now - 6 * 60 * 60 * 1000).toISOString();
+
+        // B1. 查詢逾時內部菇 (已發車 且 早於 10小時前)
+        const { data: internalList, error: err1 } = await adminSupabaseClient
+            .from('challenges')
+            .select('id, image_url, mushroom_type, is_guest')
+            .eq('dispatch_status', '已發')
+            .lt('dispatched_at', internalCutoff);
+        
+        if (err1) throw err1;
+
+        // B2. 查詢逾時訪客菇 (是訪客菇 且 開放時間早於 6小時前)
+        const { data: guestList, error: err2 } = await adminSupabaseClient
+            .from('challenges')
+            .select('id, image_url, mushroom_type, is_guest')
+            .eq('is_guest', true)
+            .lt('start_time', guestCutoff);
+
+        if (err2) throw err2;
+
+        // C. 合併清單
+        const allToDelete = [
+            ...(internalList || []),
+            ...(guestList || [])
+        ];
+
+        // D. 執行刪除與圖片清理
+        if (allToDelete.length > 0) {
+            for (const challenge of allToDelete) {
+                // 1. 刪除圖片
                 if (challenge.image_url) {
                     try {
                         const fileName = challenge.image_url.split('/').pop();
@@ -310,28 +333,123 @@ serve(async (req) => {
                             await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
                         }
                     } catch (e) {
-                        console.error(`照片路徑解析失敗 (ID: ${challenge.id}):`, e);
+                        console.error(`圖片清理失敗 (ID: ${challenge.id}):`, e);
                     }
                 }
+
+                // 2. 刪除紀錄
                 const { error: delErr } = await adminSupabaseClient
                     .from('challenges')
                     .delete()
                     .eq('id', challenge.id);
                 
+                // 3. 紀錄 Log
                 if (!delErr) {
-                    deletedLog.push(`[已刪除] ${challenge.mushroom_type} (ID: ${challenge.id})`);
+                    const typeLabel = challenge.is_guest ? '[訪客菇]' : '[內部菇]';
+                    deletedLog.push(`${typeLabel} 已刪除: ${challenge.mushroom_type} (ID: ${challenge.id})`);
                 }
             }
         }
 
         return new Response(JSON.stringify({ 
             success: true, 
-            data: { message: `清理作業完成`, deleted_count: deletedLog.length, details: deletedLog } 
+            data: { 
+                message: `清理作業完成`, 
+                deleted_count: deletedLog.length, 
+                details: deletedLog 
+            } 
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         });
     }
+
+    // === 訪客專用功能 (無需 Auth) ===
+    // 安全性核心：所有 Update/Delete 操作都必須強制加上 .eq('is_guest', true)
+    
+    // 訪客發菇 (Create)
+    if (action === 'guest-create-challenge') {
+        const { nickname, friendCode, mushroomType, slots, startTime, details, cookingStyle, notes } = payload;
+        
+        // 基本防呆：檢查必填
+        if (!nickname || !friendCode || !mushroomType || !startTime) {
+             throw new Error('欄位不完整');
+        }
+
+        const displayHostName = `${nickname}✈️${friendCode}`;
+        
+        // 寫入資料庫
+        const { data, error } = await adminSupabaseClient.from('challenges').insert({
+            host_id: null, 
+            display_host_name: displayHostName,
+            mushroom_type: mushroomType,
+            slots: parseInt(slots),
+            start_time: startTime,
+            details: details,
+            cooking_style: cookingStyle,
+            notes: notes,
+            status: new Date(startTime) > new Date() ? '預計開放' : '開放報名中',
+            is_guest: true // ★ 標記為訪客菇
+        }).select().single();
+
+        if (error) throw new Error(`訪客發布失敗: ${error.message}`);
+        
+        return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 訪客編輯 (Update) - 加強安全性
+    if (action === 'guest-edit-challenge') {
+        const { challengeId, nickname, friendCode, mushroomType, slots, startTime, details, cookingStyle, notes } = payload;
+        
+        const displayHostName = `${nickname}✈️${friendCode}`;
+        const status = new Date(startTime) > new Date() ? '預計開放' : '開放報名中';
+
+        // ★★★ 關鍵安全鎖：同時比對 ID 與 is_guest=true ★★★
+        // 這樣就算駭客傳入正式使用者的 ID，也會因為 is_guest 不符而更新失敗 (count 為 0)
+        const { error, count } = await adminSupabaseClient
+            .from('challenges')
+            .update({
+                display_host_name: displayHostName,
+                mushroom_type: mushroomType,
+                slots: parseInt(slots),
+                start_time: startTime,
+                details: details,
+                cooking_style: cookingStyle,
+                notes: notes,
+                status: status 
+            }, { count: 'exact' }) // 要求回傳影響行數
+            .eq('id', challengeId)
+            .eq('is_guest', true); // ★ 強制鎖定：只能改訪客菇
+
+        if (error) throw new Error(`編輯失敗: ${error.message}`);
+        
+        // 如果影響行數為 0，代表 ID 不存在，或是該 ID 不是訪客菇 (被保護)
+        if (count === 0) throw new Error('操作無效：找不到該訪客貼文，或無權限修改此項目。');
+        
+        return new Response(JSON.stringify({ success: true, data: { message: '更新成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 訪客刪除 (Delete) - 加強安全性
+    if (action === 'guest-delete-challenge') {
+        const { challengeId } = payload;
+        
+        // ★★★ 關鍵安全鎖：同時比對 ID 與 is_guest=true ★★★
+        const { error, count } = await adminSupabaseClient
+            .from('challenges')
+            .delete({ count: 'exact' }) // 要求回傳影響行數
+            .eq('id', challengeId)
+            .eq('is_guest', true); // ★ 強制鎖定：只能刪訪客菇
+
+        if (error) throw new Error(`刪除失敗: ${error.message}`);
+        
+        // 如果影響行數為 0，代表有人試圖刪除正式使用者的資料，已被擋下
+        if (count === 0) throw new Error('操作無效：找不到該訪客貼文，或無權限刪除此項目。');
+        
+        return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+
+
 
     // ============================================================
     // 區塊 B：使用者驗證 (需要 Authorization Header)
