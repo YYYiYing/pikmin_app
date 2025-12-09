@@ -1303,10 +1303,28 @@
 
     function displayUserInfo() {
         if (!currentUserProfile) return;
-            const displayName = (currentUserProfile.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s!?.~_+\-]/)[0];
-            userInfoEl.textContent = `你好，${displayName}！`;
-            updateQuotaDisplay();
+        
+        // 1. 處理顯示名稱 (保留既有名稱清洗邏輯)
+        const displayName = (currentUserProfile.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s!?.~_+\-]/)[0];
+        
+        // =========================================================
+        // ★★★ 新增：顯示個人缺席愛睏值 ★★★
+        // =========================================================
+        const absScore = currentUserProfile.absent_score || 0;
+        let absDisplay = '';
+        
+        if (absScore > 0) {
+            // 如果有分數，顯示紅色警示字樣，並加上左邊距
+            absDisplay = `<span class="text-red-400 font-bold ml-2" title="目前累積的缺席指數">💤+${absScore}</span>`;
+        }
+        // =========================================================
 
+        // 2. 更新畫面 (改用 innerHTML 以支援 span 顏色標籤)
+        userInfoEl.innerHTML = `你好，${displayName}！${absDisplay}`;
+        
+        updateQuotaDisplay();
+
+        // 3. 權限顯示判斷 (保留原本邏輯)
         if (['管理者', '發菇者', '發菇及報名者'].includes(currentUserProfile.role)) {
             postChallengeButton.classList.remove('hidden');
             hostedTab.classList.remove('hidden');
