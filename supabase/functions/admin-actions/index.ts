@@ -367,18 +367,58 @@ serve(async (req) => {
     // === 訪客專用功能 (無需 Auth) ===
     // 安全性核心：所有 Update/Delete 操作都必須強制加上 .eq('is_guest', true)
     
+    // 查詢訪客今日已發布數量 (用於前端顯示額度)
+    if (action === 'get-guest-daily-count') {
+        // 1. 獲取訪客 IP
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        
+        // 2. 設定時間範圍 (過去 24 小時)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+        // 3. 查詢數量
+        const { count, error } = await adminSupabaseClient
+            .from('challenges')
+            .select('*', { count: 'exact', head: true })
+            .eq('is_guest', true)
+            .eq('guest_ip', clientIp)
+            .gte('created_at', oneDayAgo);
+
+        if (error) throw new Error(error.message);
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: { count: count || 0, limit: 6 } 
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
     // 訪客發菇 (Create)
     if (action === 'guest-create-challenge') {
         const { nickname, friendCode, mushroomType, slots, startTime, details, cookingStyle, notes } = payload;
         
-        // 基本防呆：檢查必填
-        if (!nickname || !friendCode || !mushroomType || !startTime) {
-             throw new Error('欄位不完整');
+        if (!nickname || !friendCode || !mushroomType || !startTime) throw new Error('欄位不完整');
+
+        // ★ 1. 獲取訪客 IP (從 Header 讀取)
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+
+        // ★ 2. 防護機制：檢查該 IP 今日發布數量 (過去 24 小時)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        
+        const { count: dailyCount, error: countErr } = await adminSupabaseClient
+            .from('challenges')
+            .select('*', { count: 'exact', head: true }) // 只算數量，不讀資料
+            .eq('is_guest', true)
+            .eq('guest_ip', clientIp)
+            .gte('created_at', oneDayAgo);
+
+        if (countErr) throw new Error('系統忙碌中，請稍後再試');
+
+        // ★ 修改：上限改為 6，並更新錯誤訊息文字
+        if ((dailyCount || 0) >= 6) {
+            throw new Error('您已達同時發佈上限額度，請先刪除舊卡片或等待系統逾期後自動刪除！');
         }
 
         const displayHostName = `${nickname}✈️${friendCode}`;
         
-        // 寫入資料庫
         const { data, error } = await adminSupabaseClient.from('challenges').insert({
             host_id: null, 
             display_host_name: displayHostName,
@@ -389,11 +429,11 @@ serve(async (req) => {
             cooking_style: cookingStyle,
             notes: notes,
             status: new Date(startTime) > new Date() ? '預計開放' : '開放報名中',
-            is_guest: true // ★ 標記為訪客菇
+            is_guest: true,
+            guest_ip: clientIp // ★ 4. 記錄 IP
         }).select().single();
 
         if (error) throw new Error(`訪客發布失敗: ${error.message}`);
-        
         return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 

@@ -365,9 +365,10 @@
                 
             <div id="filter-tabs" class="flex space-x-2 overflow-x-auto no-scrollbar">
                 <button data-filter="all" class="filter-tab active text-xs md:text-base whitespace-nowrap px-3 md:px-4">全部挑戰</button>
+                <button data-filter="imported" class="filter-tab text-xs md:text-base whitespace-nowrap px-3 md:px-4 text-pink-400 border-pink-500/30">進口菇</button>
                 <button data-filter="full" class="filter-tab text-xs md:text-base whitespace-nowrap px-3 md:px-4">已額滿</button>
-                <button data-filter="signed-up" class="filter-tab text-xs md:text-base whitespace-nowrap px-3 md:px-4">我的報名</button>
-                <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden text-xs md:text-base whitespace-nowrap px-3 md:px-4">我的發布</button>
+                <button data-filter="signed-up" class="filter-tab text-xs md:text-base whitespace-nowrap px-3 md:px-4">已報名</button>
+                <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden text-xs md:text-base whitespace-nowrap px-3 md:px-4">已發布</button>
             </div>
                 
                 <div class="flex items-center space-x-2 ml-2">
@@ -493,12 +494,12 @@
                     <div>
                         <label for="details" class="block text-sm font-medium text-gray-400">用餐時段</label>
                         <select id="details" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="宵夜" selected>宵夜 (21:00~04:00)</option>
-                            <option value="早餐">早餐 (04:00~10:59)</option>
-                            <option value="午餐">午餐 (11:00~13:59)</option>
-                            <option value="下午茶">下午茶 (14:00~16:59)</option>
-                            <option value="晚餐">晚餐 (17:00~20:59)</option>
-                            <option value="滿人開">滿人開 (人滿即發)</option>
+                            <option value="宵夜" selected>宵夜 (21:00~01:00)</option>
+                            <option value="早餐">早餐 (06:00~11:00)</option>
+                            <option value="午餐">午餐 (11:00~15:00)</option>
+                            <option value="下午茶">下午茶 (15:00~17:00)</option>
+                            <option value="晚餐">晚餐 (17:00~21:00)</option>
+                            <option value="滿人開">滿人開 (人滿後發)</option>
                         </select>
                     </div>
                     <div>
@@ -588,12 +589,12 @@
                     <div>
                         <label for="edit-details" class="block text-sm font-medium text-gray-400">用餐時段</label>
                         <select id="edit-details" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="宵夜" selected>宵夜 (21:00~04:00)</option>
-                            <option value="早餐">早餐 (04:00~10:59)</option>
-                            <option value="午餐">午餐 (11:00~13:59)</option>
-                            <option value="下午茶">下午茶 (14:00~16:59)</option>
-                            <option value="晚餐">晚餐 (17:00~20:59)</option>
-                            <option value="滿人開">滿人開 (人滿即發)</option>                
+                            <option value="宵夜">宵夜 (21:00~01:00)</option>
+                            <option value="早餐">早餐 (06:00~11:00)</option>
+                            <option value="午餐">午餐 (11:00~15:00)</option>
+                            <option value="下午茶">下午茶 (15:00~17:00)</option>
+                            <option value="晚餐">晚餐 (17:00~21:00)</option>
+                            <option value="滿人開">滿人開 (人滿後發)</option>               
                         </select>
                     </div>
                     
@@ -1419,11 +1420,23 @@
     }
 
     // ★ 核心渲染邏輯 (含分身顯示功能優化版)
-/** [核心] 渲染單張挑戰卡片 (完整版：含分身、備註、缺席管理、複製好友碼、訪客標記) */
+    /** [核心] 渲染單張挑戰卡片 (修復版：統一變數名稱 + 時段轉換) */
     function renderChallenge(challenge) {
-        if (!challenge) return; // 移除 challenge.host 檢查，因為訪客菇沒有 host
+        if (!challenge) return;
         challengesData[challenge.id] = challenge; // 更新快取
 
+        // --- 1. 時段顯示轉換 ---
+        const detailsMap = {
+            '宵夜': '宵夜 (21:00~01:00)',
+            '早餐': '早餐 (06:00~11:00)',
+            '午餐': '午餐 (11:00~15:00)',
+            '下午茶': '下午茶 (15:00~17:00)',
+            '晚餐': '晚餐 (17:00~21:00)',
+            '滿人開': '滿人開 (人滿後發)'
+        };
+        const displayDetails = detailsMap[challenge.details] || challenge.details || '未指定';
+
+        // --- 2. 基本變數設定 ---
         const dailyLimitReached = currentUserProfile && currentUserProfile.daily_signup_count >= window.dailySignupLimit;
         const card = document.createElement('div');
         card.className = 'challenge-card bg-gray-800 rounded-xl shadow-md overflow-hidden p-6 flex flex-col justify-between';
@@ -1436,27 +1449,26 @@
         const style = mushroomStyles[type] || { bg: 'bg-transparent', text: 'text-gray-100' };
         const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap`;
 
-        // 判斷 Host 邏輯 (訪客菇沒有 host 物件)
         const isHost = challenge.host && challenge.host.id === currentUserProfile.id;
         const isSignedUp = userSignedUpChallengeIds.has(challenge.id);
         const signupCount = challenge.signups ? challenge.signups.length : 0;
         const dispatchStatus = challenge.dispatch_status || '待發';
 
+        // 設定 Dataset (供過濾器使用)
         if (isHost) card.dataset.isHosted = 'true';
         if (isSignedUp) card.dataset.isSignedUp = 'true';
+        if (challenge.is_guest) card.dataset.isGuest = 'true';
 
-        // --- 1. 處理顯示名稱與訪客標籤 ---
+        // --- 3. 發菇者顯示邏輯 ---
         let guestTagHtml = '';
         if (challenge.is_guest) {
             guestTagHtml = `<span class="bg-pink-800 text-white text-[10px] px-2 py-0.5 rounded mr-2 border border-pink-500">訪客</span>`;
         }
 
-        // 處理顯示名稱 (如果是訪客，host 物件為 null，需 fallback)
         const realHostNickname = challenge.host ? challenge.host.nickname : (challenge.display_host_name || '未知訪客');
-        // 如果是訪客菇，強迫使用 display_host_name，否則優先使用 display_host_name (分身)，最後才用 realHostNickname
         const displayString = challenge.is_guest ? challenge.display_host_name : (challenge.display_host_name || realHostNickname);
 
-        // --- 2. 好友碼複製邏輯 (發菇者) ---
+        // 發菇者好友碼複製
         const hasCode = /\d{12}/.test(displayString);
         const hostNameClass = hasCode 
             ? "text-indigo-300 font-bold cursor-pointer hover:text-white hover:underline transition select-none" 
@@ -1465,7 +1477,7 @@
             ? `onclick="copyHostFriendCode('${displayString}')" title="點擊複製好友碼"` 
             : "";
 
-        // --- 3. 處理備註顯示 ---
+        // --- 4. 備註顯示 ---
         let notesHtml = '';
         if (challenge.notes && challenge.notes.trim() !== '') {
             notesHtml = `
@@ -1475,7 +1487,7 @@
             `;
         }
 
-        // --- 操作按鈕邏輯 ---
+        // --- 5. 操作按鈕邏輯 ---
         let actionButtonHtml;
         if (isHost) {
             if (signupCount > 0) {
@@ -1491,7 +1503,6 @@
         } else if (challenge.status === '已額滿') {
             actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>已額滿</button>`;
         } else if (dailyLimitReached && !challenge.is_guest) { 
-            // 注意：訪客菇不計額度，所以如果不計額度，就不該顯示「額度已滿」
             actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>報名額度已滿</button>`;
         } else {
             if (currentUserProfile.role === '發菇者') {
@@ -1506,131 +1517,86 @@
             }
         }
 
-        // Host 編輯刪除鈕 (只有真正的 Host 且非訪客菇才顯示這些按鈕，訪客菇在 Dashboard 無法被普通人編輯)
         const hostControlsHtml = isHost ? `
             <button data-id="${challenge.id}" class="edit-challenge-button text-gray-500 hover:text-yellow-400 transition" title="編輯">✏️</button>
             <button data-id="${challenge.id}" class="delete-challenge-button text-gray-500 hover:text-red-500 transition" title="刪除">🗑️</button>
         ` : '';
 
-        // --- 參加者名單 ---
+        // --- 6. 參加者名單 (統一使用 rawNickname) ---
         let participantsHtml = '';
         if (signupCount > 0) {
             const sortedSignups = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
-            
-            // 建立索引
-            sortedSignups.forEach(s => {
-                signupIdToChallengeMap[s.id] = challenge.id;
-            });
-
-            // 判斷當前使用者是否為發菇者 (用於回報權限)
+            sortedSignups.forEach(s => { signupIdToChallengeMap[s.id] = challenge.id; });
             const isCurrentUserHost = (challenge.host && challenge.host.id === currentUserProfile.id);
 
             const list = sortedSignups.map((signup, index) => {
                 const rankText = `${index + 1}${getRankSuffix(index + 1)}`;
                 
-                // 處理顯示名稱 (含好友碼複製)
+                // ★ 修正點：統一變數名稱為 rawNickname
                 let rawNickname = signup.profile ? signup.profile.nickname : '未知';
-                // 清洗出純暱稱 (用於按鈕參數)
                 const cleanName = rawNickname.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
-
-                // 檢查是否有 12 位數字好友碼
                 const codeMatch = rawNickname.match(/(\d{12})/);
-                let displayNameDisplay = ''; // 這是顯示在畫面上的 HTML
                 
+                let displayNameDisplay = ''; 
                 if (codeMatch) {
                     const code = codeMatch[1];
-                    // 加入 onclick 複製功能
+                    // ★ 修正點：這裡正確引用 rawNickname
                     displayNameDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition select-none" onclick="copyHostFriendCode('${rawNickname}')" title="點擊複製好友碼: ${code}">${cleanName}</span>`;
                 } else {
                     displayNameDisplay = rawNickname;
                 }
                 
-                // 缺席分數
                 const absScore = signup.profile?.absent_score || 0;
-                let statusIcon = '';
-                if (absScore > 0) {
-                    statusIcon = `<span class="text-xs text-red-400 border border-red-500/50 rounded px-1 ml-1 cursor-help" title="累積缺席點數">💤+${absScore}</span>`;
-                }
+                let statusIcon = absScore > 0 ? `<span class="text-xs text-red-400 border border-red-500/50 rounded px-1 ml-1 cursor-help" title="累積缺席點數">💤+${absScore}</span>` : '';
 
-                // 缺席/撤銷 按鈕 (使用 cleanName 作為參數)
                 let actionBtn = '';
                 if (isCurrentUserHost) {
-                    const hasReported = challenge.absent_records && challenge.absent_records.some(
-                        r => r.reporter_id === currentUserProfile.id && r.absentee_id === signup.user_id
-                    );
-
+                    const hasReported = challenge.absent_records && challenge.absent_records.some(r => r.reporter_id === currentUserProfile.id && r.absentee_id === signup.user_id);
                     if (hasReported) {
-                        actionBtn = `
-                            <button onclick="revokeAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
-                                class="ml-2 text-[10px] bg-gray-600 text-gray-300 px-2 py-0.5 rounded hover:bg-gray-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity" 
-                                title="點擊撤銷 (-2)">撤銷</button>`;
+                        actionBtn = `<button onclick="revokeAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" class="ml-2 text-[10px] bg-gray-600 text-gray-300 px-2 py-0.5 rounded hover:bg-gray-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">撤銷</button>`;
                     } else {
-                        actionBtn = `
-                            <button onclick="reportAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
-                                class="ml-2 text-[10px] bg-red-900/80 text-red-200 px-2 py-0.5 rounded hover:bg-red-800 font-bold opacity-0 group-hover:opacity-100 transition-opacity" 
-                                title="回報缺席 (+2)">缺席</button>`;
+                        actionBtn = `<button onclick="reportAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" class="ml-2 text-[10px] bg-red-900/80 text-red-200 px-2 py-0.5 rounded hover:bg-red-800 font-bold opacity-0 group-hover:opacity-100 transition-opacity">缺席</button>`;
                     }
                 }
-
                 const time = formatSignupTime(signup.signed_up_at);
-                
-                return `
-                    <div class="participant-item group">
-                        <div class="flex items-center overflow-hidden">
-                            <span class="participant-rank mr-2 flex-shrink-0">${rankText}</span> 
-                            <span class="text-gray-200 truncate">${displayNameDisplay}</span>
-                            ${statusIcon}
-                            ${actionBtn}
-                        </div>
-                        <span class="text-xs text-gray-500 font-mono flex-shrink-0 ml-2">${time}</span>
-                    </div>
-                `;
+                return `<div class="participant-item group"><div class="flex items-center overflow-hidden"><span class="participant-rank mr-2 flex-shrink-0">${rankText}</span><span class="text-gray-200 truncate">${displayNameDisplay}</span>${statusIcon}${actionBtn}</div><span class="text-xs text-gray-500 font-mono flex-shrink-0 ml-2">${time}</span></div>`;
             }).join('');
             participantsHtml = `<div class="participant-list">${list}</div>`;
         }
 
-        // 時間顯示
+        // --- 7. 時間、圖片、倒數計時 ---
         let startTimeHtml;
         if (challenge.status === '預計開放' && new Date(challenge.start_time) > new Date()) { 
             startTimeHtml = `<p><strong>等待時間:</strong> <span class="countdown-timer" data-starttime="${challenge.start_time}">計算中...</span></p>`;
         } else {
             startTimeHtml = `<p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false })}</p>`;
         }
-
-        // 圖片按鈕
         let imageBtnHtml = (challenge.image_url && challenge.image_url.startsWith('http')) 
             ? `<div class="mt-2"><button onclick="openImageViewer('${challenge.image_url}')" class="text-xs bg-gray-700 text-indigo-300 px-3 py-1.5 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-2 transition">📷 查看明信片</button></div>` : '';
 
         // 發送標籤
         let dispatchTagHtml = '';
-
-        // 只有「有人報名」且「is_guest 不為 true」時，才顯示發送按鈕
-        // 這樣就算 is_guest 是 null 或 undefined，也不會誤顯示
         if (signupCount > 0 && challenge.is_guest !== true) {
             const dispatchClass = dispatchStatus === '已發' ? 'dispatch-sent' : 'dispatch-pending';
             const isClickable = isHost ? 'cursor-pointer' : '';
             dispatchTagHtml = `<span class="status-badge ${dispatchClass} ${isClickable} dispatch-status-tag" data-id="${challenge.id}" data-current-status="${dispatchStatus}">${dispatchStatus}</span>`;
         }
 
-        // 火侯樣式
+        // 火侯
         let cookingStyleClass = 'text-gray-400 border-gray-500/30';
         const cStyle = challenge.cooking_style || '';
         if (cStyle.includes('大火快炒')) cookingStyleClass = 'text-red-500 border-red-500/30';
         else if (cStyle.includes('細火慢燉')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
         else if (cStyle.includes('隨便亂炒')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
 
-        // 倒數與收成時間
+        // 倒數計時
         let countdownDisplayHtml = '<span class="text-gray-500">倒數:--</span>';
         let dataEndTime = challenge.countdown_end_time || '';
         let harvestHtmlBlock = `<div class="harvest-timer text-white font-bold mt-1" data-endtime="${dataEndTime}"></div>`;
         if (dataEndTime) countdownDisplayHtml = '計算中...';
+        const battleTimerHtml = `<span class="battle-timer text-white font-bold" data-endtime="${dataEndTime}">${countdownDisplayHtml}</span><button class="open-sync-modal-button text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded ml-2 hover:bg-gray-600 border border-gray-600 transition" data-id="${challenge.id}" title="校正時間">校時</button>`;
 
-        const battleTimerHtml = `
-            <span class="battle-timer text-white font-bold" data-endtime="${dataEndTime}">${countdownDisplayHtml}</span>
-            <button class="open-sync-modal-button text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded ml-2 hover:bg-gray-600 border border-gray-600 transition" data-id="${challenge.id}" title="校正時間">校時</button>
-        `;
-
-        // 組合 HTML
+        // --- 8. 組裝 HTML ---
         card.innerHTML = `
             <div>
                 <div class="flex justify-between items-start mb-2">
@@ -1652,11 +1618,11 @@
                 <div class="text-gray-400 space-y-2 mb-4">
                     <p><strong>發菇者:</strong> <span class="${hostNameClass}" ${hostClickEvent}>${displayString}</span></p>
                     
-                    <p><strong>用餐時段:</strong> ${challenge.details || '未指定'}</p>
+                    <p><strong>呼叫時段: 📣</strong> ${displayDetails}</p>
+                    
                     <p><strong>名額:</strong> <span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}</p>
                     ${startTimeHtml}
                     <div class="flex items-center mt-1"><strong class="mr-2">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>
-                    
                     ${notesHtml}
                     ${imageBtnHtml}
                 </div>
@@ -2696,20 +2662,54 @@
         document.querySelectorAll('.filter-tab').forEach(el=>el.classList.remove('active'));
         t.classList.add('active'); activeFilter = t.dataset.filter; applyFilter();
     });
+    
     function applyFilter() {
-        let count=0;
+        let count = 0;
         const cards = document.querySelectorAll('.challenge-card');
+        
         cards.forEach(c => {
-            let show=false;
-            if(activeFilter==='all' && c.dataset.status!=='已額滿') show=true;
-            else if(activeFilter==='full' && c.dataset.status==='已額滿') show=true;
-            else if(activeFilter==='signed-up' && c.dataset.isSignedUp==='true') show=true;
-            else if(activeFilter==='hosted' && c.dataset.isHosted==='true') show=true;
+            let show = false;
+            const status = c.dataset.status;
+            const isSignedUp = c.dataset.isSignedUp === 'true';
+            const isHosted = c.dataset.isHosted === 'true';
+            // 讀取我們剛剛新增的標記
+            const isGuest = c.dataset.isGuest === 'true';
+
+            // 1. 全部挑戰：顯示「未額滿」且「不是訪客」的內部菇
+            if (activeFilter === 'all') {
+                if (status !== '已額滿' && !isGuest) show = true;
+            }
+            // 2. ★ 新增：進口菇：顯示「未額滿」且「是訪客」的菇
+            else if (activeFilter === 'imported') {
+                if (status !== '已額滿' && isGuest) show = true;
+            }
+            // 3. 已額滿：顯示所有已額滿 (包含內部與訪客，方便查歷史)
+            else if (activeFilter === 'full') {
+                if (status === '已額滿') show = true;
+            }
+            // 4. 我的報名
+            else if (activeFilter === 'signed-up') {
+                if (isSignedUp) show = true;
+            }
+            // 5. 我的發布
+            else if (activeFilter === 'hosted') {
+                if (isHosted) show = true;
+            }
+
             c.style.display = show ? 'flex' : 'none';
-            if(show) count++;
+            if (show) count++;
         });
-        const msg = document.getElementById('no-items-message'); if(msg) msg.remove();
-        if(count===0 && cards.length>0) challengesListEl.insertAdjacentHTML('beforeend', '<p id="no-items-message" class="text-center col-span-full text-gray-400">這個分類下沒有挑戰喔！</p>');
+
+        // 處理「查無資料」的提示訊息
+        const msg = document.getElementById('no-items-message');
+        if (msg) msg.remove();
+        
+        if (count === 0 && cards.length > 0) {
+            let emptyText = '這個分類下沒有挑戰喔！';
+            if (activeFilter === 'imported') emptyText = '目前沒有進口菇訊號 🛸';
+            
+            challengesListEl.insertAdjacentHTML('beforeend', `<p id="no-items-message" class="text-center col-span-full text-gray-400 py-8">${emptyText}</p>`);
+        }
     }
 
     // Mobile Menu

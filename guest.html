@@ -32,15 +32,11 @@
             </div>
         </header>
 
-        <div class="md:hidden text-center mb-4">
-            <a href="./dashboard.html" class="text-indigo-400 hover:text-indigo-300 text-sm font-bold">↩️ 返回主頁</a>
-        </div>
-
         <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8 shadow-lg">
-            <h2 class="text-lg font-bold text-white mb-4">👽 設定您的訪客身分</h2>
+            <h2 class="text-lg font-bold text-white mb-4">👽 設定您的暱稱</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                    <label class="block text-sm text-gray-400 mb-1">暫時暱稱</label>
+                    <label class="block text-sm text-gray-400 mb-1">遊戲暱稱</label>
                     <input type="text" id="guest-nickname" class="dark-input w-full rounded-md px-3 py-2" placeholder="如何稱呼您?">
                 </div>
                 <div>
@@ -49,7 +45,7 @@
                 </div>
             </div>
             <button id="save-guest-info" class="bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-6 rounded-lg transition w-full md:w-auto shadow-md">
-                💾 儲存並啟用發菇功能
+                💾 儲存後發菇
             </button>
         </div>
 
@@ -57,11 +53,14 @@
             <button id="open-post-modal" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-xl shadow-lg transition transform hover:scale-105 flex justify-center items-center gap-2">
                 <span>🍄</span> 發布蘑菇挑戰
             </button>
+            <p class="text-center text-xl text-gray-500 mt-2 font-mono">
+                同時發布上限: <span id="quota-display" class="text-pink-400 font-bold">--</span> / 6
+            </p>
         </div>
 
-        <h3 class="text-xl font-bold text-white mb-4 text-center">📡 來自世界各地新鮮直送的野菇🍄</h3>
+        <h3 class="text-xl font-bold text-white mb-4 text-center">📣 可用大聲公呼叫的菇菇們 🍄</h3>
         <div id="guest-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <p class="text-gray-500 col-span-full text-center py-8">搜尋訊號中...</p>
+            <p class="text-gray-500 col-span-full text-center py-8">搜尋菇菇中...</p>
         </div>
     </div>
 
@@ -96,7 +95,7 @@
                         <option value="火">火</option>
                         <option value="電">電</option>
                         <option value="毒">毒</option>
-                        <option value="特殊">特殊</option>
+                        <option value="測試">測試</option>
                     </select>
                 </div>
 
@@ -119,14 +118,14 @@
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">大聲公預計呼叫時段</label>
+                    <label class="text-sm text-gray-400 font-bold">大聲公呼叫時段</label>
                     <select id="m-details" class="dark-input w-full rounded-md mt-1 px-3 py-2">
-                        <option value="宵夜">宵夜 (21:00~04:00)</option>
-                        <option value="早餐">早餐 (04:00~10:59)</option>
-                        <option value="午餐">午餐 (11:00~13:59)</option>
-                        <option value="下午茶">下午茶 (14:00~16:59)</option>
-                        <option value="晚餐">晚餐 (17:00~20:59)</option>
-                        <option value="滿人開">滿人開 (人滿即發)</option>
+                        <option value="宵夜">宵夜 (21:00~01:00)</option>
+                        <option value="早餐">早餐 (06:00~11:00)</option>
+                        <option value="午餐">午餐 (11:00~15:00)</option>
+                        <option value="下午茶">下午茶 (15:00~17:00)</option>
+                        <option value="晚餐">晚餐 (17:00~21:00)</option>
+                        <option value="滿人開">滿人開 (人滿後發)</option>
                     </select>
                 </div>
 
@@ -140,8 +139,8 @@
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">備註</label>
-                    <input type="text" id="m-notes" class="dark-input w-full rounded-md mt-1 px-3 py-2" placeholder="自由輸入...">
+                    <label class="text-sm text-gray-400 font-bold">備註（選填）</label>
+                    <input type="text" id="m-notes" class="dark-input w-full rounded-md mt-1 px-3 py-2" placeholder="發菇者留言...">
                 </div>
 
                 <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
@@ -201,14 +200,27 @@
         });
 
         function checkInfoComplete() {
-            if(nickInput.value && codeInput.value) actionArea.classList.remove('hidden');
+            if(nickInput.value && codeInput.value) {
+                actionArea.classList.remove('hidden');
+                updateGuestQuota(); // ★ 加入這行：顯示按鈕時順便查額度
+            }
         }
 
         // 載入挑戰
         async function loadChallenges() {
             const list = document.getElementById('guest-list');
+
+            // 時段顯示對照表
+            const detailsMap = {
+                '宵夜': '宵夜 (21:00~01:00)',
+                '早餐': '早餐 (06:00~11:00)',
+                '午餐': '午餐 (11:00~15:00)',
+                '下午茶': '下午茶 (15:00~17:00)',
+                '晚餐': '晚餐 (17:00~21:00)',
+                '滿人開': '滿人開 (人滿後發)'
+            };
+
             try {
-                // ★ 修改查詢：抓取完整 signups 資料與 profile (暱稱)，不只抓 count
                 const { data, error } = await supabaseClient
                     .from('challenges')
                     .select('*, signups(*, profile:profiles(nickname))') 
@@ -216,31 +228,29 @@
                     .order('created_at', { ascending: false });
 
                 if(error) throw error;
-                if(data.length === 0) { list.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">目前沒有訪客菇</p>'; return; }
+                if(data.length === 0) { list.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">目前沒有菇菇</p>'; return; }
 
                 list.innerHTML = data.map(c => {
                     const isMine = myGuestPostIds.includes(c.id);
                     const signupCount = c.signups ? c.signups.length : 0;
                     
-                    // --- 產生參加者名單 HTML (仿 Dashboard，但不隱藏好友碼) ---
+                    // ★ 修改 1：將轉換邏輯移到這裡 (卡片資料準備區)
+                    // 這樣無論有無參加者，都會執行轉換，且下方 HTML 可以讀取到
+                    const displayDetails = detailsMap[c.details] || c.details;
+
+                    // 參加者名單 HTML
                     let participantsHtml = '';
                     if (signupCount > 0) {
-                        // 排序：報名時間早的在前
                         const sortedSignups = c.signups.sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
-                        
                         const rows = sortedSignups.map((s, idx) => {
                             const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
-                            // 完整暱稱 (不裁切好友碼)
                             const rawName = s.profile ? s.profile.nickname : '未知';
-                            // 提取好友碼用於複製 (如果有)
                             const codeMatch = rawName.match(/(\d{12})/);
                             const friendCode = codeMatch ? codeMatch[1] : '';
                             const time = formatSignupTime(s.signed_up_at);
-
-                            // 點擊事件：如果好友碼存在，點擊整串文字進行複製
                             const clickAttr = friendCode ? `onclick="copyText('${friendCode}')" title="點擊複製: ${friendCode}"` : '';
                             const nameClass = friendCode ? 'text-gray-300 font-mono copy-cursor truncate' : 'text-gray-300 truncate';
-
+                            
                             return `
                                 <div class="participant-item">
                                     <div class="flex items-center w-full overflow-hidden">
@@ -253,16 +263,14 @@
                         }).join('');
                         participantsHtml = `<div class="participant-list">${rows}</div>`;
                     }
-                    // ----------------------------------------------------
 
                     const controls = isMine ? `
                         <div class="mt-4 flex gap-2">
                             <button onclick="editGuestPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">編輯</button>
                             <button onclick="deleteGuestPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">刪除</button>
                         </div>
-                    ` : `<div class="mt-4 text-xs text-center text-gray-600 border-t border-gray-700 pt-2">訪客只能管理自己的貼文</div>`;
+                    ` : `<div class="mt-4 text-xs text-center text-gray-600 border-t border-gray-700 pt-2">訪客只能管理自己的蘑菇</div>`;
 
-                    // 備註樣式
                     let notesHtml = '<p class="text-gray-500 italic">備註: 無</p>';
                     if (c.notes && c.notes.trim() !== '') {
                         notesHtml = `
@@ -277,11 +285,18 @@
                             <div class="absolute top-2 right-2">
                                 <span class="guest-badge">GUEST</span>
                             </div>
-                            <h3 class="text-xl font-bold text-white mb-1">${c.mushroom_type}</h3>
-                            <p class="text-sm text-pink-400 font-bold mb-2">發起: ${c.display_host_name}</p>
+                            
+                            <div class="flex items-end gap-2 mb-2">
+                                <h3 class="text-xl font-bold text-white leading-none">${c.mushroom_type}</h3>
+                                <span class="text-sm font-bold text-gray-500 leading-none">#${c.id}</span>
+                            </div>
+
+                            <p class="text-sm text-pink-400 font-bold mb-2">發菇者: ${c.display_host_name}</p>
                             <div class="text-sm text-gray-400 space-y-1">
-                                <p>時間: ${new Date(c.start_time).toLocaleString('zh-TW', {hour12:false})}</p>
-                                <p>時段: ${c.details}</p>
+                                <p>開放報名時間: ${new Date(c.start_time).toLocaleString('zh-TW', {hour12:false})}</p>
+                                
+                                <p>呼叫時段: 📣 ${displayDetails}</p>
+                                
                                 <p>火侯: ${c.cooking_style}</p>
                                 <p>名額: ${signupCount} / ${c.slots}</p>
                                 ${notesHtml}
@@ -387,6 +402,7 @@
                 showToast(action === 'guest-create-challenge' ? '發布成功！' : '更新成功！', false);
                 modal.classList.add('hidden');
                 loadChallenges();
+                updateGuestQuota(); // ★ 加入這行：發布成功後更新額度顯示
 
             } catch (err) {
                 console.error(err);
@@ -473,6 +489,46 @@
                     el.classList.remove('translate-y-[-20px]', 'opacity-0');
                 }, 300);
             }, 3000);
+        }
+
+        // ★ 新增：更新訪客額度顯示
+        async function updateGuestQuota() {
+            const quotaEl = document.getElementById('quota-display');
+            if(!quotaEl) return;
+            
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'get-guest-daily-count' })
+                });
+
+                if (error || (data && data.error)) throw new Error('無法取得額度');
+                
+                const count = data.data.count;
+                const limit = data.data.limit;
+                
+                quotaEl.textContent = count;
+                
+                // 額外優化：如果滿了，變紅色並鎖住按鈕
+                const btn = document.getElementById('open-post-modal');
+                if (count >= limit) {
+                    quotaEl.classList.add('text-red-500');
+                    if(btn) {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-50', 'cursor-not-allowed');
+                        btn.innerHTML = '🚫 今日額度已滿';
+                    }
+                } else {
+                    quotaEl.classList.remove('text-red-500');
+                    if(btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        btn.innerHTML = '<span>🍄</span> 發布蘑菇挑戰';
+                    }
+                }
+            } catch (e) {
+                console.error('額度更新失敗', e);
+                quotaEl.textContent = '-';
+            }
         }
     </script>
 </body>
