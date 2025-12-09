@@ -191,7 +191,31 @@
                 </div>
             </div>
         </div>
-
+        <div class="admin-container rounded-2xl p-6 mb-8">
+            <h2 class="text-xl font-bold mb-4">新增使用者</h2>
+            <form id="add-user-form" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label for="new-nickname" class="text-sm font-medium">暱稱</label>
+                    <input type="text" id="new-nickname" required class="dark-input mt-1 w-full rounded-md" placeholder="輸入暱稱">
+                </div>
+                <div>
+                    <label for="new-password" class="text-sm font-medium">預設密碼</label>
+                    <input type="text" id="new-password" required class="dark-input mt-1 w-full rounded-md" value="000000">
+                </div>
+                <div>
+                    <label for="new-role" class="text-sm font-medium">角色</label>
+                    <select id="new-role" required class="dark-input mt-1 w-full rounded-md">
+                        <option value="報名者">報名者</option>
+                        <option value="發菇者">發菇者 (僅發)</option>
+                        <option value="發菇及報名者">發菇及報名者</option>
+                        <option value="管理者">管理者</option>
+                    </select>
+                </div>
+                <div>
+                    <button type="submit" id="add-user-button" class="admin-button w-full py-2 rounded-lg font-bold disabled:opacity-50 h-[42px]">確認新增</button>
+                </div>
+            </form>
+        </div>
         <div class="mb-8 admin-container rounded-2xl p-6">
             <div class="flex items-center space-x-2 mb-4">
                 <h2 class="text-xl font-bold">蘑菇挑戰管理</h2>
@@ -202,8 +226,9 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 admin-container rounded-2xl p-6">
+        <div class="flex flex-col gap-8">
+            
+            <div class="admin-container rounded-2xl p-6">
                 <h2 class="text-xl font-bold mb-4">現有使用者列表</h2>
                 <div class="overflow-x-auto max-h-[60vh]">
                     <table class="w-full text-left">
@@ -212,23 +237,13 @@
                                 <th class="p-3 sortable-header" data-sort-key="nickname">暱稱<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header" data-sort-key="role">角色<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header text-center" data-sort-key="monthly_signup_count">參與度<span class="sort-indicator"></span></th>
+                                <th class="p-3 sortable-header text-center" data-sort-key="absent_score">💤<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header" data-sort-key="last_active_at">最後活躍<span class="sort-indicator"></span></th>
                                 <th class="p-3 text-center">操作</th>
                             </tr>
                         </thead>
                         <tbody id="user-list-body"></tbody>
                     </table>
-                </div>
-            </div>
-            <div class="space-y-8">
-                <div class="admin-container rounded-2xl p-6">
-                    <h2 class="text-xl font-bold mb-4">新增使用者</h2>
-                    <form id="add-user-form" class="space-y-4">
-                        <div><label for="new-nickname" class="text-sm font-medium">暱稱</label><input type="text" id="new-nickname" required class="dark-input mt-1 w-full rounded-md"></div>
-                        <div><label for="new-password" class="text-sm font-medium">預設密碼</label><input type="text" id="new-password" required class="dark-input mt-1 w-full rounded-md" value="000000"></div>
-                        <div><label for="new-role" class="text-sm font-medium">角色</label><select id="new-role" required class="dark-input mt-1 w-full rounded-md"><option value="報名者">報名者</option><option value="發菇者">發菇者 (僅發)</option><option value="發菇及報名者">發菇及報名者</option><option value="管理者">管理者</option></select></div>
-                        <button type="submit" id="add-user-button" class="admin-button w-full py-2 rounded-lg font-bold disabled:opacity-50">確認新增</button>
-                    </form>
                 </div>
             </div>
         </div>
@@ -445,7 +460,8 @@
             updateSortIndicators();
 
             if (!allUsersData || allUsersData.length === 0) {
-                userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4">目前沒有任何使用者。</td></tr>`;
+                // ★ 修改：因為多了一欄，colspan 改為 6
+                userListBody.innerHTML = `<tr><td colspan="6" class="text-center p-4">目前沒有任何使用者。</td></tr>`;
                 return;
             }
 
@@ -456,14 +472,12 @@
                 let comparison = 0;
                 
                 if (currentSortColumn === 'nickname') {
+                    // --- 保留：暱稱排序邏輯 ---
                     const getStringType = (str) => {
                         if (!str) return 2;
-                        if (/^[a-zA-Z]/.test(str)) {
-                            return 1;
-                        }
+                        if (/^[a-zA-Z]/.test(str)) return 1;
                         return 2;
                     };
-
                     const typeA = getStringType(valA);
                     const typeB = getStringType(valB);
 
@@ -473,15 +487,22 @@
                         comparison = String(valA || '').localeCompare(String(valB || ''));
                     }
                 } else {
+                    // 數值與其他排序
                     if (valA == null) return 1;
                     if (valB == null) return -1;
                     
                     if (currentSortColumn === 'monthly_signup_count') {
-                        // --- 修改：排序改為依據「總參與度」 (報名+發菇) ---
+                        // --- 保留：參與度排序 (總和) ---
                         const totalA = (valA ?? 0) + (a.monthly_host_count ?? 0);
                         const totalB = (valB ?? 0) + (b.monthly_host_count ?? 0);
                         comparison = totalA - totalB;
+                    
+                    } else if (currentSortColumn === 'absent_score') {
+                        // ★ 新增：缺席分數排序 (數值比較)
+                        comparison = (valA ?? 0) - (valB ?? 0);
+
                     } else if (currentSortColumn === 'last_active_at') {
+                        // --- 保留：時間排序 ---
                         comparison = new Date(valA).getTime() - new Date(valB).getTime();
                     } else {
                         comparison = String(valA).localeCompare(String(valB));
@@ -496,21 +517,19 @@
                     ? new Date(user.last_active_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
                     : '從未';
                 
-                // --- 修改開始：計算綜合參與度 (報名 + 發菇) ---
-                // 1. 讀取數值，若為 null 則視為 0
+                // --- 保留：計算綜合參與度 ---
                 const signupCount = user.monthly_signup_count || 0;
                 const hostCount = user.monthly_host_count || 0;
-                
-                // 2. 計算總分
                 const totalParticipation = signupCount + hostCount;
-                
-                // 3. 設定顯示樣式 (區分顏色方便閱讀)
                 const signupClass = signupCount > 0 ? 'text-blue-400' : 'text-gray-500';
                 const hostClass = hostCount > 0 ? 'text-green-400' : 'text-gray-500';
-                
-                // 4. 組合顯示字串： "總分 (報X/發Y)"
                 const participationDisplay = `<span class="font-bold text-white">${totalParticipation}</span> <span class="text-xs text-gray-400">(<span class="${signupClass}">報${signupCount}</span>/<span class="${hostClass}">發${hostCount}</span>)</span>`;
-                // --- 修改結束 ---
+
+                // ★ 新增：缺席分數顯示邏輯 (大於0顯示紅字，等於0顯示灰色)
+                const absScore = user.absent_score || 0;
+                const absDisplay = absScore > 0 
+                    ? `<span class="text-red-400 font-bold">💤+${absScore}</span>` 
+                    : `<span class="text-gray-600">0</span>`;
 
                 return `
                     <tr class="border-b border-gray-700 hover:bg-gray-800/50">
@@ -518,6 +537,8 @@
                         <td class="p-3">${user.role || '未知'}</td>
                         
                         <td class="p-3 text-center">${participationDisplay}</td>
+                        
+                        <td class="p-3 text-center">${absDisplay}</td>
                         
                         <td class="p-3 text-sm text-gray-400">${lastSignIn}</td>
                         <td class="p-3 text-center space-x-2">
@@ -528,8 +549,8 @@
                         </td>
                     </tr>
                 `;
-                }).join('');
-            }
+            }).join('');
+        }
         
         function updateSortIndicators() {
             document.querySelectorAll('.sortable-header').forEach(header => {
@@ -985,6 +1006,7 @@
             populateNicknames();
             checkInitialSession();
         });
+        
     </script>
 </body>
 </html>

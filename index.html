@@ -1,101 +1,30 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Pikmin Bloom 蘑菇宅配網 - 登入</title> <link rel="icon" href="./mashroom_s.png" type="image/png"> <link rel="apple-touch-icon" href="./mashroom_s.png"> <script src="https://cdn.tailwindcss.com"></script> <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> <style>
-        /* 這是 CSS 註解。下面的樣式定義了網頁的整體外觀。 */
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pikmin Bloom 蘑菇宅配網 - 登入</title>
+    <link rel="icon" href="./mashroom_s.png" type="image/png">
+    <link rel="apple-touch-icon" href="./mashroom_s.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* 樣式保持不變 */
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
+        .login-container { background-color: #1f2937; border: 1px solid #374151; }
+        .dark-input { background-color: #374151; border-color: #4b5563; color: #d1d5db; }
+        .dark-input:focus { --tw-ring-color: #4f46e5; border-color: #4f46e5; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        .dark-button { background-color: #4f46e5; transition: all 0.2s ease-in-out; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .dark-button:hover { background-color: #4338ca; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
         
-        /* 功能更新：與遊戲內「挑戰大廳」風格同步的暗色系主題。 */
-        body {
-            /* 'font-family' 設定字體。優先使用 'Inter'，若無則用 'Noto Sans TC' (思源黑體)，最後是通用無襯線字體。這確保了中英文顯示效果都很好。 */
-            font-family: 'Inter', 'Noto Sans TC', sans-serif; 
-            background-color: #111827; /* 將頁面背景設定為深灰色 (#111827)，建立暗色模式的基礎。 */
-            color: #d1d5db; /* 設定頁面預設文字顏色為淺灰色 (#d1d5db)，在深色背景上提供良好對比度。 */
-        }
-        /* '.login-container' 是一個自訂的 class 名稱，用來設定登入區塊的樣式。 */
-        .login-container {
-            background-color: #1f2937; /* 登入卡片的背景色，比 body 背景稍亮。 */
-            border: 1px solid #374151; /* 為卡片加上一個細細的邊框，增加立體感。 */
-        }
-        /* '.dark-input' class 用於設定輸入框（如密碼框）的樣式。 */
-        .dark-input {
-            background-color: #374151; /* 輸入框的背景色。 */
-            border-color: #4b5563;     /* 輸入框的邊框顏色。 */
-            color: #d1d5db;            /* 輸入框內文字的顏色。 */
-        }
-        /* ':focus' 是一個「偽類」，表示當使用者點擊或用鍵盤選中這個輸入框時，要套用的樣式。*/
-        .dark-input:focus {
-            --tw-ring-color: #4f46e5; /* 設定外發光效果的顏色，這裡是靛藍色。 */
-            border-color: #4f46e5;    /* 同時將邊框顏色也變為靛藍色，給予使用者明確的視覺回饋。 */
-            transform: translateY(-2px); /* 讓輸入框向上微移 2 像素，產生輕微的浮動效果。 */
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15); /* 加上更明顯的陰影，增強立體感。 */
-        }
-        /* '.dark-button' class 用於設定按鈕的樣式。 */
-        .dark-button {
-            background-color: #4f46e5;  /* 按鈕的背景色設定為靛藍色。 */
-            transition: all 0.2s ease-in-out; /* 'transition' 讓所有樣式變化在 0.2 秒內平滑地完成，而不是瞬間改變，提升使用者體驗。 */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* 為按鈕加上預設陰影。 */
-        }
-        /* ':hover' 也是一個「偽類」，表示當滑鼠指標移動到按鈕上時，要套用的樣式。 */
-        .dark-button:hover {
-            background-color: #4338ca; /* 滑鼠懸浮時，加深按鈕顏色。 */
-            transform: translateY(-2px); /* 向上微移，產生被按下的感覺。 */
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15); /* 陰影變得更深，增強互動感。 */
-        }
-        /* === 自訂下拉選單樣式 (仿原生 Select 但支援搜尋) === */
-        .custom-dropdown-container {
-            position: relative;
-            width: 100%;
-        }
-        
-        /* 下拉選單本體 */
-        .dropdown-options {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            margin-top: 4px;
-            background-color: #374151; /* 深灰背景 */
-            border: 1px solid #4b5563;
-            border-radius: 0.75rem; /* rounded-xl */
-            max-height: 280px;      /* 限制高度 */
-            overflow-y: auto;       /* 超出捲動 */
-            z-index: 50;
-            display: none;          /* 預設隱藏 */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-        }
-
-        /* 顯示狀態 */
-        .dropdown-options.show {
-            display: block;
-        }
-
-        /* 選項樣式 */
-        .dropdown-option {
-            padding: 12px 16px;
-            color: #d1d5db;
-            cursor: pointer;
-            transition: background-color 0.1s;
-            font-size: 0.95rem;
-            border-bottom: 1px solid #4b5563;
-        }
-        .dropdown-option:last-child {
-            border-bottom: none;
-        }
-        .dropdown-option:hover {
-            background-color: #4f46e5; /* 懸浮變靛藍色 */
-            color: white;
-        }
-
-        /* 右側箭頭裝飾 */
-        .input-arrow {
-            position: absolute;
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            pointer-events: none; /* 讓點擊穿透到 input */
-            color: #9ca3af;
-            font-size: 0.8rem;
-        }
+        /* 下拉選單樣式 */
+        .custom-dropdown-container { position: relative; width: 100%; }
+        .dropdown-options { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background-color: #374151; border: 1px solid #4b5563; border-radius: 0.75rem; max-height: 280px; overflow-y: auto; z-index: 50; display: none; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); }
+        .dropdown-options.show { display: block; }
+        .dropdown-item { padding: 12px 16px; color: #d1d5db; cursor: pointer; transition: background-color 0.1s; font-size: 0.95rem; border-bottom: 1px solid #4b5563; }
+        .dropdown-item:last-child { border-bottom: none; }
+        .dropdown-item:hover { background-color: #4f46e5; color: white; }
+        .input-arrow { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #9ca3af; font-size: 0.8rem; }
     </style>
 </head>
 
@@ -103,7 +32,8 @@
 
     <div class="login-container w-full max-w-md p-8 space-y-8 rounded-2xl shadow-2xl">
         <div class="text-center">
-            <img src="./mashroom.png" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full flex-shrink-0 object-contain bg-gray-800">
+            <img src="./mashroom.png" alt="Pikmin Logo" class="w-10 h-10 mr-2 rounded-full flex-shrink-0 object-contain bg-gray-800 inline-block">
+        </div>
         <form id="login-form" class="space-y-6">
             <div>
                 <label class="text-sm font-bold text-gray-400">遊戲暱稱</label>
@@ -140,187 +70,40 @@
     </div>
 
     <script>
-        // --- 設定您的 Supabase 專案金鑰 ---
-        // 這兩行是連接到 Supabase 後端服務的憑證。
-        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co'; // 這是你的 Supabase 專案的專屬網址。
-        const SUPABASE_ANON_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ'; // 這是專案的公開金鑰(anon key)，是安全的，可以用於前端程式碼中。
+        // --- 設定 Supabase ---
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ'; // 請確認 key 是否正確
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- 初始化 Supabase Client ---
-        // 使用剛才的 URL 和金鑰，建立一個與 Supabase 溝通的客戶端(Client)物件。
-        const { createClient } = supabase; // 從引入的 supabase-js 函式庫中取得 createClient 這個功能。
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // 'supabaseClient' 這個物件就是我們未來用來操作資料庫和使用者認證的工具。
+        // --- DOM 元素 ---
+        const loginForm = document.getElementById('login-form');
+        const loginButton = document.getElementById('login-button');
+        const messageBox = document.getElementById('message-box');
+        const rememberMeCheckbox = document.getElementById('remember-me');
+        const nicknameInput = document.getElementById('nickname-input');
+        const nicknameDropdown = document.getElementById('nickname-dropdown');
+        
+        let allNicknames = []; // 儲存完整名單
 
-        // --- 獲取頁面上的 HTML 元素，存成變數方便後續使用 ---
-        // 'document.getElementById()' 是 JavaScript 尋找網頁上特定 ID 元素的方法。
-        const loginForm = document.getElementById('login-form'); // 登入表單
-        const loginButton = document.getElementById('login-button'); // 登入按鈕
-        const messageBox = document.getElementById('message-box'); // 訊息提示框
-        const rememberMeCheckbox = document.getElementById('remember-me'); // 「記住我」核取方塊
+        // --- 輔助函式: 顯示訊息 ---
+        function showMessage(text, bgColor, textColor) {
+            messageBox.textContent = text;
+            messageBox.className = `p-4 text-center text-sm rounded-xl ${bgColor} ${textColor}`;
+            messageBox.classList.remove('hidden');
+        }
 
-        // --- 功能更新：頁面載入時檢查是否已登入，是的話直接跳轉 ---
-        // 'async' 表示這是一個非同步函式，它可以在等待網路回應時不卡住整個網頁。
+        // --- 1. 檢查初始登入狀態 ---
         async function checkInitialSession() {
-            // 'await' 會暫停函式執行，直到 supabaseClient.auth.getSession() 完成。這個動作是向 Supabase 詢問「目前這個使用者是否已經登入過？」
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session) { // 如果 'session' 物件存在，表示使用者已經是登入狀態。
-                // 直接將頁面導向到主控台(dashboard)，省去使用者再次輸入帳密的麻煩。
+            if (session) {
                 window.location.href = './dashboard.html';
             }
         }
 
-        // --- 為登入表單的「提交(submit)」事件加上監聽器 ---
-        loginForm.addEventListener('submit', async (event) => {
-            event.preventDefault(); 
-            
-            loginButton.disabled = true;
-            loginButton.textContent = '登入中...';
-
-            const nickname = loginForm.nickname.value;
-            const password = loginForm.password.value;
-            
-            if (!nickname) {
-                showMessage('請先選擇一個暱稱！', 'bg-yellow-500', 'text-white');
-                loginButton.disabled = false;
-                loginButton.textContent = '登入';
-                return;
-            }
-            
-            // --- ★ 核心修改：雙重登入機制 (新舊相容) ---
-            
-            // 1. 準備兩種信箱格式
-            
-            // 格式 A (新制)：Hex 編碼 (支援特殊符號，無碰撞)
-            // 將字串轉為 UTF-8 Bytes 再轉 Hex
-            const hexNickname = Array.from(new TextEncoder().encode(nickname))
-                .map(b => b.toString(16).padStart(2, '0')).join('');
-            const emailNew = `${hexNickname}@pikmin.sys`;
-
-            // 格式 B (舊制)：清洗符號 (相容現有 60 位使用者)
-            const cleanNickname = (nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
-            const emailOld = `${encodeURIComponent(cleanNickname)}@pikmin.sys`;
-
-            try {
-                // 步驟 1：先嘗試用 [新制] 登入
-                let { data, error } = await supabaseClient.auth.signInWithPassword({
-                    email: emailNew,
-                    password: password,
-                });
-
-                // 步驟 2：如果新制失敗，且錯誤訊息是「登入無效」(代表帳號不存在或密碼錯)，則嘗試 [舊制]
-                if (error && (error.message.includes('Invalid login') || error.message.includes('Email not confirmed'))) {
-                    // console.log('新制登入失敗，嘗試舊制相容模式...');
-                    const retry = await supabaseClient.auth.signInWithPassword({
-                        email: emailOld,
-                        password: password,
-                    });
-                    
-                    // 如果舊制成功，就覆蓋結果；如果也失敗，就維持原本的錯誤
-                    if (!retry.error) {
-                        data = retry.data;
-                        error = null;
-                    }
-                }
-
-                if (error) throw error;
-                
-                // --- 登入成功後的處理 (保持不變) ---
-                if (rememberMeCheckbox.checked) {
-                    localStorage.setItem('rememberedNickname', nickname);
-                } else {
-                    localStorage.removeItem('rememberedNickname');
-                }
-
-                showMessage('登入成功！即將跳轉...', 'bg-green-500', 'text-white');
-                setTimeout(() => {
-                    window.location.href = './dashboard.html';
-                }, 250);
-
-            } catch (error) {
-                // 錯誤處理
-                if (error.message.includes('Invalid login credentials')) {
-                    showMessage('登入失敗：暱稱或密碼錯誤。', 'bg-red-500', 'text-white');
-                } else {
-                    showMessage(`登入失敗: ${error.message}`, 'bg-red-500', 'text-white');
-                }
-                loginButton.disabled = false;
-                loginButton.textContent = '登入';
-            }
-        });
-        
-        // --- 頁面載入時，從資料庫獲取並填充暱稱列表 (搜尋版) ---
-        async function populateNicknames() {
-            // ★ 修改：抓取 datalist 元素，而不是 select
-            const datalist = document.getElementById('nicknames-list'); 
-            const input = document.getElementById('nickname-input');
-
-            try {
-                const { data: profiles, error } = await supabaseClient
-                    .from('profiles')
-                    .select('nickname');
-
-                if (error) throw error;
-                
-                if (!profiles || profiles.length === 0) {
-                    showMessage('系統中找不到任何暱稱。', 'bg-yellow-500', 'text-white');
-                    return;
-                }
-
-                // 排序邏輯 (保持不變)
-                profiles.sort((a, b) => {
-                    const aIsEnglish = /^[a-zA-Z0-9]/.test(a.nickname);
-                    const bIsEnglish = /^[a-zA-Z0-9]/.test(b.nickname);
-                    if (aIsEnglish && !bIsEnglish) return -1;
-                    if (!aIsEnglish && bIsEnglish) return 1;
-                    return a.nickname.localeCompare(b.nickname, 'zh-Hant');
-                });
-
-                // ★ 修改：清空 datalist 並填充 option
-                datalist.innerHTML = '';
-                profiles.forEach(profile => {
-                    const option = document.createElement('option');
-                    option.value = profile.nickname; // datalist 的 option 不需要 textContent，value 即可
-                    datalist.appendChild(option);
-                });
-
-                // 檢查記憶登入
-                const rememberedNickname = localStorage.getItem('rememberedNickname');
-                if (rememberedNickname) {
-                    input.value = rememberedNickname; // ★ 修改：設定 input 的值
-                    rememberMeCheckbox.checked = true;
-                    document.getElementById('password').focus();
-                }
-
-            } catch (error) {
-                console.error(error);
-                showMessage('無法載入暱稱列表。', 'bg-red-500', 'text-white');
-            }
-        }
-
-        // --- 輔助函式: 一個專門用來顯示提示訊息的小工具 ---
-        function showMessage(text, bgColor, textColor) {
-            messageBox.textContent = text; // 設定訊息框要顯示的文字。
-            // 組合 class 名稱來改變訊息框的顏色。例如 'bg-red-500 text-white' 就會產生紅底白字的效果。
-            messageBox.className = `p-4 text-center text-sm rounded-xl ${bgColor} ${textColor}`;
-            messageBox.classList.remove('hidden'); // 移除 'hidden' class，讓訊息框顯示出來。
-        }
-        
-        // --- 頁面載入時執行的主要入口 ---
-        // 監聽 'DOMContentLoaded' 事件，這個事件在整個 HTML 文件被完全載入和解析完成後觸發，確保我們的 JavaScript 程式碼執行時所有的 HTML 元素都已經準備好了。
-        document.addEventListener('DOMContentLoaded', () => {
-            // 執行兩個主要的初始化函式
-            checkInitialSession(); // 檢查使用者是否已經登入。
-            populateNicknames();   // 從資料庫抓取暱稱並填入下拉選單。
-        });
-
-        // --- 變數宣告 ---
-        const nicknameInput = document.getElementById('nickname-input');
-        const nicknameDropdown = document.getElementById('nickname-dropdown');
-        let allNicknames = []; // 儲存完整名單
-
-        // --- 1. 載入並填充選單 ---
+        // --- 2. 載入並填充選單 ---
         async function populateNicknames() {
             try {
-                // 使用您剛剛修復權限後的 profiles 表
                 const { data: profiles, error } = await supabaseClient
                     .from('profiles')
                     .select('nickname');
@@ -342,14 +125,14 @@
                 });
 
                 allNicknames = profiles.map(p => p.nickname);
-                renderDropdown(allNicknames); // 初始渲染所有選項
+                renderDropdown(allNicknames);
 
                 // 記憶登入
                 const remembered = localStorage.getItem('rememberedNickname');
                 if (remembered) {
                     nicknameInput.value = remembered;
                     rememberMeCheckbox.checked = true;
-                    document.getElementById('password').focus();
+                    // document.getElementById('password').focus(); // 可選：自動聚焦密碼框
                 }
 
             } catch (error) {
@@ -358,7 +141,7 @@
             }
         }
 
-        // --- 2. 渲染下拉選單 ---
+        // --- 3. 渲染下拉選單 ---
         function renderDropdown(items) {
             nicknameDropdown.innerHTML = '';
             if (items.length === 0) {
@@ -368,33 +151,33 @@
             
             items.forEach(name => {
                 const div = document.createElement('div');
-                div.className = 'dropdown-item';
+                div.className = 'dropdown-item'; // 使用 CSS 定義的樣式
                 
-                // ★ 修正：先 trim() 去除前後隱藏空白，再執行正則切除
-                // 邏輯：
-                // 1. name.trim(): 移除字串前後的空白、換行
-                // 2. replace(...): 移除尾端的 12 位數字 (包含數字跟暱稱中間的空白)
+                // 去除尾端 ID 顯示
                 const displayName = name.trim().replace(/[\s\uFEFF\xA0]*\d{12}$/, '');
                 
                 div.textContent = displayName;
                 
                 div.addEventListener('click', () => {
-                    nicknameInput.value = name; // 點擊時填入完整值
+                    nicknameInput.value = name; // 填入完整值
                     nicknameDropdown.classList.remove('show');
                 });
                 nicknameDropdown.appendChild(div);
             });
         }
 
-        // --- 3. 輸入框互動邏輯 (關鍵！) ---
-        
-        // 點擊或獲得焦點時：顯示完整名單
+        // --- 4. 輸入框互動邏輯 ---
+        // 點擊或聚焦時顯示
         nicknameInput.addEventListener('click', () => {
-            renderDropdown(allNicknames); 
+            // 如果輸入框是空的，顯示所有；如果有字，顯示過濾結果
+            const term = nicknameInput.value.toLowerCase();
+            const listToShow = term ? allNicknames.filter(n => n.toLowerCase().includes(term)) : allNicknames;
+            
+            renderDropdown(listToShow);
             nicknameDropdown.classList.add('show');
         });
 
-        // 輸入文字時：即時過濾
+        // 輸入文字時過濾
         nicknameInput.addEventListener('input', (e) => {
             const term = e.target.value.toLowerCase();
             const filtered = allNicknames.filter(n => n.toLowerCase().includes(term));
@@ -402,58 +185,92 @@
             nicknameDropdown.classList.add('show');
         });
 
-        // 點擊網頁其他地方：關閉選單
+        // 點擊外部關閉選單
         document.addEventListener('click', (e) => {
             if (!nicknameInput.contains(e.target) && !nicknameDropdown.contains(e.target)) {
                 nicknameDropdown.classList.remove('show');
             }
         });
 
-        // --- 4. 登入表單提交 (雙軌登入邏輯) ---
+        // --- 5. 登入表單提交 (單一監聽器) ---
         loginForm.addEventListener('submit', async (event) => {
-            event.preventDefault(); 
-            loginButton.disabled = true; loginButton.textContent = '登入中...';
+            event.preventDefault(); // 阻止表單預設提交
+            
+            // 防止重複點擊
+            if (loginButton.disabled) return;
+
+            loginButton.disabled = true;
+            loginButton.textContent = '登入中...';
+            showMessage('', 'hidden', ''); // 清除舊訊息
 
             const nickname = nicknameInput.value.trim();
             const password = loginForm.password.value;
             
             if (!nickname) {
                 showMessage('請輸入或選擇暱稱！', 'bg-yellow-500', 'text-white');
-                loginButton.disabled = false; loginButton.textContent = '登入';
+                loginButton.disabled = false;
+                loginButton.textContent = '登入';
                 return;
             }
             
-            // 雙軌制：Hex 編碼 (新) vs 清洗 (舊)
-            const hexNickname = Array.from(new TextEncoder().encode(nickname)).map(b => b.toString(16).padStart(2, '0')).join('');
+            // --- 雙軌登入邏輯 ---
+            // 格式 A (新制)：Hex 編碼
+            const hexNickname = Array.from(new TextEncoder().encode(nickname))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
             const emailNew = `${hexNickname}@pikmin.sys`;
+
+            // 格式 B (舊制)：清洗符號
             const cleanNickname = (nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/)[0];
             const emailOld = `${encodeURIComponent(cleanNickname)}@pikmin.sys`;
 
             try {
-                // 嘗試新制
-                let { data, error } = await supabaseClient.auth.signInWithPassword({ email: emailNew, password: password });
+                // 1. 嘗試新制
+                let { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: emailNew,
+                    password: password,
+                });
 
-                // 失敗則嘗試舊制
-                if (error && (error.message.includes('Invalid') || error.message.includes('not confirmed'))) {
-                    const retry = await supabaseClient.auth.signInWithPassword({ email: emailOld, password: password });
-                    if (!retry.error) { data = retry.data; error = null; }
+                // 2. 如果失敗 (無效登入)，嘗試舊制
+                if (error && (error.message.includes('Invalid login') || error.message.includes('Email not confirmed'))) {
+                    // console.log('新制失敗，嘗試舊制...');
+                    const retry = await supabaseClient.auth.signInWithPassword({
+                        email: emailOld,
+                        password: password,
+                    });
+                    
+                    if (!retry.error) {
+                        data = retry.data;
+                        error = null;
+                    }
                 }
 
                 if (error) throw error;
                 
-                if (rememberMeCheckbox.checked) localStorage.setItem('rememberedNickname', nickname);
-                else localStorage.removeItem('rememberedNickname');
+                // 登入成功
+                if (rememberMeCheckbox.checked) {
+                    localStorage.setItem('rememberedNickname', nickname);
+                } else {
+                    localStorage.removeItem('rememberedNickname');
+                }
 
-                showMessage('登入成功！', 'bg-green-500', 'text-white');
-                setTimeout(() => { window.location.href = './dashboard.html'; }, 250);
+                showMessage('登入成功！即將跳轉...', 'bg-green-500', 'text-white');
+                setTimeout(() => {
+                    window.location.href = './dashboard.html';
+                }, 500); // 稍微延遲讓使用者看到成功訊息
 
             } catch (error) {
-                showMessage(error.message.includes('Invalid') ? '暱稱或密碼錯誤' : `錯誤: ${error.message}`, 'bg-red-500', 'text-white');
-                loginButton.disabled = false; loginButton.textContent = '登入';
+                console.error(error); // 方便除錯
+                if (error.message.includes('Invalid login credentials')) {
+                    showMessage('登入失敗：暱稱或密碼錯誤。', 'bg-red-500', 'text-white');
+                } else {
+                    showMessage(`登入失敗: ${error.message}`, 'bg-red-500', 'text-white');
+                }
+                loginButton.disabled = false;
+                loginButton.textContent = '登入';
             }
         });
         
-        // 啟動
+        // --- 程式入口 ---
         document.addEventListener('DOMContentLoaded', () => {
             checkInitialSession();
             populateNicknames();

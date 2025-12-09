@@ -1378,7 +1378,8 @@
     async function fetchChallenges() {
         const { data: challenges, error } = await supabaseClient
             .from('challenges')
-            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname))`)
+            // ★ 修改這行：加入 absent_score
+            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname, absent_score))`)
             .order('start_time', { ascending: false });
 
         if (error) { challengesListEl.innerHTML = '<p class="text-center col-span-full text-red-400">無法載入挑戰。</p>'; return; }
@@ -1398,6 +1399,7 @@
     }
 
     // ★ 核心渲染邏輯 (含分身顯示功能優化版)
+    /** [核心] 渲染單張挑戰卡片 (完整版：含分身、備註、缺席管理、複製好友碼) */
     function renderChallenge(challenge) {
         if (!challenge || !challenge.host) return;
         challengesData[challenge.id] = challenge; // 更新快取
@@ -1422,14 +1424,30 @@
         if (isHost) card.dataset.isHosted = 'true';
         if (isSignedUp) card.dataset.isSignedUp = 'true';
 
-        // ★★★ 關鍵修改：優先顯示自訂的發布者名稱 (分身) ★★★
-        // =========================================================
+        // 1. 處理顯示名稱 (分身邏輯)
         const realHostNickname = challenge.host ? challenge.host.nickname : '未知';
-        // 如果 display_host_name 有值就用它，否則回退顯示主帳號
         const displayString = challenge.display_host_name || realHostNickname;
-        // =========================================================
 
-        // 操作按鈕邏輯 (包含冷卻與權限)
+        // 2. 好友碼複製邏輯
+        const hasCode = /\d{12}/.test(displayString);
+        const hostNameClass = hasCode 
+            ? "text-indigo-300 font-bold cursor-pointer hover:text-white hover:underline transition select-none" 
+            : "text-indigo-300 font-bold";
+        const hostClickEvent = hasCode 
+            ? `onclick="copyHostFriendCode('${displayString}')" title="點擊複製好友碼"` 
+            : "";
+
+        // 3. 處理備註顯示
+        let notesHtml = '';
+        if (challenge.notes && challenge.notes.trim() !== '') {
+            notesHtml = `
+                <div class="mt-2 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">
+                    📝 ${challenge.notes}
+                </div>
+            `;
+        }
+
+        // 操作按鈕邏輯
         let actionButtonHtml;
         if (isHost) {
             if (signupCount > 0) {
@@ -1470,16 +1488,61 @@
         if (signupCount > 0) {
             const sortedSignups = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
             
-            // ★★★ 建立 ID 對照索引 ★★★
+            // 建立索引
             sortedSignups.forEach(s => {
                 signupIdToChallengeMap[s.id] = challenge.id;
             });
 
+            // 判斷當前使用者是否為發菇者 (用於回報權限)
+            const isCurrentUserHost = (challenge.host && challenge.host.id === currentUserProfile.id);
+
             const list = sortedSignups.map((signup, index) => {
                 const rankText = `${index + 1}${getRankSuffix(index + 1)}`;
-                const nickname = signup.profile ? signup.profile.nickname : '未知';
+                
+                let displayName = signup.profile ? signup.profile.nickname : '未知';
+                // 暱稱修正 (移除尾端好友碼與空白)
+                displayName = displayName.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
+
+                // 缺席分數
+                const absScore = signup.profile?.absent_score || 0;
+                let statusIcon = '';
+                if (absScore > 0) {
+                    statusIcon = `<span class="text-xs text-red-400 border border-red-500/50 rounded px-1 ml-1 cursor-help" title="累積缺席點數">💤+${absScore}</span>`;
+                }
+
+                // 缺席/撤銷 按鈕
+                let actionBtn = '';
+                if (isCurrentUserHost) {
+                    const hasReported = challenge.absent_records && challenge.absent_records.some(
+                        r => r.reporter_id === currentUserProfile.id && r.absentee_id === signup.user_id
+                    );
+
+                    if (hasReported) {
+                        actionBtn = `
+                            <button onclick="revokeAbsent(${challenge.id}, '${signup.user_id}', '${displayName}')" 
+                                class="ml-2 text-[10px] bg-gray-600 text-gray-300 px-2 py-0.5 rounded hover:bg-gray-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity" 
+                                title="點擊撤銷 (-2)">撤銷</button>`;
+                    } else {
+                        actionBtn = `
+                            <button onclick="reportAbsent(${challenge.id}, '${signup.user_id}', '${displayName}')" 
+                                class="ml-2 text-[10px] bg-red-900/80 text-red-200 px-2 py-0.5 rounded hover:bg-red-800 font-bold opacity-0 group-hover:opacity-100 transition-opacity" 
+                                title="回報缺席 (+2)">缺席</button>`;
+                    }
+                }
+
                 const time = formatSignupTime(signup.signed_up_at);
-                return `<div class="participant-item"><span><span class="participant-rank">${rankText}</span> ${nickname}</span><span>${time}</span></div>`;
+                
+                return `
+                    <div class="participant-item group">
+                        <div class="flex items-center overflow-hidden">
+                            <span class="participant-rank mr-2 flex-shrink-0">${rankText}</span> 
+                            <span class="text-gray-200 truncate">${displayName}</span>
+                            ${statusIcon}
+                            ${actionBtn}
+                        </div>
+                        <span class="text-xs text-gray-500 font-mono flex-shrink-0 ml-2">${time}</span>
+                    </div>
+                `;
             }).join('');
             participantsHtml = `<div class="participant-list">${list}</div>`;
         }
@@ -1511,18 +1574,6 @@
         else if (cStyle.includes('細火慢燉')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
         else if (cStyle.includes('隨便亂炒')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
 
-        // ★★★ 新增：備註顯示邏輯 ★★★
-        // =========================================================
-        let notesHtml = '';
-        if (challenge.notes && challenge.notes.trim() !== '') {
-            // 使用明顯的顏色 (例如黃色) 並加上引言圖示，增加區隔感
-            notesHtml = `
-                <div class="mt-2 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">
-                    📝 ${challenge.notes}
-                </div>
-            `;
-        }
-
         // 倒數與收成時間
         let countdownDisplayHtml = '<span class="text-gray-500">倒數:--</span>';
         let dataEndTime = challenge.countdown_end_time || '';
@@ -1535,7 +1586,6 @@
         `;
 
         // 組合 HTML
-        // ★ 修正：將 "發菇者" 的顯示內容改為 displayString，並加上顯眼的樣式
         card.innerHTML = `
             <div>
                 <div class="flex justify-between items-start mb-2">
@@ -1554,11 +1604,13 @@
                     ${harvestHtmlBlock}
                 </div>
                 <div class="text-gray-400 space-y-2 mb-4">
-                    <p><strong>發菇者:</strong> <span class="text-indigo-300 font-bold">${displayString}</span></p>
+                    <p><strong>發菇者:</strong> <span class="${hostNameClass}" ${hostClickEvent}>${displayString}</span></p>
+                    
                     <p><strong>用餐時段:</strong> ${challenge.details || '未指定'}</p>
                     <p><strong>名額:</strong> <span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}</p>
                     ${startTimeHtml}
                     <div class="flex items-center mt-1"><strong class="mr-2">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>
+                    
                     ${notesHtml}
                     ${imageBtnHtml}
                 </div>
@@ -1574,7 +1626,8 @@
 
     async function reloadChallengeCard(challengeId) {
         const { data: challenge, error } = await supabaseClient.from('challenges')
-            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname))`)
+            // ★★★ 重點：一定要有 absent_records(reporter_id, absentee_id) ★★★
+            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname, absent_score)), absent_records(reporter_id, absentee_id)`)
             .eq('id', challengeId).single();
         
         if (error) {
@@ -1587,7 +1640,6 @@
         renderChallenge(challenge);
         applyFilter();
     }
-
 
     // =========================================================================
     // 7. 互動操作 (Interactions: Post, Edit, Delete, Signup)
@@ -1926,6 +1978,7 @@
         } catch (err) { showToast(`刪除失敗: ${err.message}`, true); }
         finally { hideDeleteConfirmModal(); }
     }
+
     function hideDeleteConfirmModal() {
         challengeToDeleteId = null;
         deleteConfirmModal.classList.add('hidden');
@@ -2558,14 +2611,33 @@
           .finally(() => { screenshotButton.disabled=false; screenshotButton.innerHTML='📸 截圖'; });
     });
 
-    /** [工具] 通用 */
+    /** [工具] 通用提示框 (修正版：加入 z-index 確保顯示在最上層) */
     function showToast(msg, isErr) {
+        const toastMessage = document.getElementById('toast-message');
+        if (!toastMessage) return;
+
+        // 設定內容
         toastMessage.textContent = msg;
-        toastMessage.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg ${isErr?'bg-red-600':'bg-green-600'}`;
+        
+        // 設定樣式：
+        // 1. z-[100]: 確保蓋過 Header 和 Modal
+        // 2. shadow-2xl, rounded-xl: 讓樣式更立體好看
+        // 3. transition: 加入滑順的動畫效果
+        toastMessage.className = `fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-[100] font-bold flex items-center gap-2 transform transition-all duration-300 ${isErr ? 'bg-red-600/95' : 'bg-green-600/95'}`;
+        
+        // 顯示
         toastMessage.classList.remove('hidden');
-        setTimeout(() => toastMessage.classList.add('hidden'), 3000);
+        
+        // 3秒後自動消失
+        setTimeout(() => {
+            toastMessage.classList.add('hidden');
+        }, 3000);
     }
+
+    // 排名後綴 (保留原版)
     function getRankSuffix(n) { if(n%100>=11&&n%100<=13)return'th'; switch(n%10){case 1:return'st';case 2:return'nd';case 3:return'rd';default:return'th';} }
+    
+    // 時間格式化 (保留原版)
     function formatSignupTime(iso) { 
         if(!iso)return''; const d=new Date(iso); 
         return `${d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}.${d.getMilliseconds().toString().padStart(3,'0')}`;
@@ -2837,7 +2909,134 @@
         }
     };
 
+    // ★ 工具函式：更新畫面上所有卡片中，特定使用者的缺席分數與按鈕狀態
+    async function syncUserStatusOnAllCards(targetUserId) {
+        // 1. 先去資料庫抓這個人「最新」的分數 (確保數據絕對正確)
+        const { data: userData, error } = await supabaseClient
+            .from('profiles')
+            .select('absent_score')
+            .eq('id', targetUserId)
+            .single();
 
+        if (error || !userData) return;
+        const newScore = userData.absent_score;
+
+        // 2. 遍歷所有已載入的卡片資料 (challengesData)
+        // 我們不重新 fetch 所有挑戰 (太慢)，而是直接修改本地快取
+        Object.values(challengesData).forEach(challenge => {
+            if (!challenge.signups) return;
+
+            // 檢查這張卡片有沒有這個人
+            const participant = challenge.signups.find(s => s.user_id === targetUserId);
+            
+            if (participant) {
+                // A. 更新分數
+                if (participant.profile) {
+                    participant.profile.absent_score = newScore;
+                }
+
+                // B. 重新渲染這張卡片 (這樣分數和按鈕狀態才會更新)
+                renderChallenge(challenge);
+            }
+        });
+    }
+
+    // 回報缺席 (修正版：全域同步 + 手動更新按鈕狀態)
+    async function reportAbsent(challengeId, userId, userName) {
+        if (!confirm(`確認回報「${userName}」本次缺席嗎？\n\n• 對方缺席指數將 +2\n• 此操作稍後可撤銷`)) return;
+        
+        try {
+            const { error } = await supabaseClient.rpc('report_absentee', { 
+                p_challenge_id: challengeId, 
+                p_absentee_id: userId 
+            });
+            
+            if (error) {
+                if (error.message.includes('unique constraint') || error.message.includes('duplicate')) {
+                    showToast('已經回報過了', true);
+                    // 發生衝突時，強制重整該卡片以修正按鈕狀態
+                    reloadChallengeCard(challengeId);
+                } else {
+                    showToast(`回報失敗: ${error.message}`, true);
+                }
+            } else {
+                showToast(`已標記 ${userName} 缺席`, false);
+
+                // ★ 關鍵 1：手動更新本地快取，讓按鈕立刻變色 (解決 409 問題)
+                const c = challengesData[challengeId];
+                if (c) {
+                    if (!c.absent_records) c.absent_records = [];
+                    // 塞入一筆假紀錄，讓 renderChallenge 知道「我檢舉過他了」
+                    c.absent_records.push({ 
+                        reporter_id: currentUserProfile.id, 
+                        absentee_id: userId 
+                    });
+                }
+
+                // ★ 關鍵 2：觸發全域同步，更新所有卡片上的分數
+                await syncUserStatusOnAllCards(userId);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast('系統錯誤', true);
+        }
+    }
+
+    // 撤銷檢舉 (修正版：全域同步 + 手動更新按鈕狀態)
+    async function revokeAbsent(challengeId, userId, userName) {
+        if (!confirm(`確定要撤銷對「${userName}」的缺席回報嗎？\n\n• 對方將扣除 2 點缺席指數`)) return;
+        
+        try {
+            const { error } = await supabaseClient.rpc('revoke_absentee', { 
+                p_challenge_id: challengeId, 
+                p_absentee_id: userId 
+            });
+            
+            if (error) throw error;
+            
+            showToast(`已撤銷檢舉`, false);
+
+            // ★ 關鍵 1：手動移除本地快取中的檢舉紀錄
+            const c = challengesData[challengeId];
+            if (c && c.absent_records) {
+                c.absent_records = c.absent_records.filter(
+                    r => !(r.reporter_id === currentUserProfile.id && r.absentee_id === userId)
+                );
+            }
+
+            // ★ 關鍵 2：觸發全域同步，更新所有卡片上的分數
+            await syncUserStatusOnAllCards(userId);
+
+        } catch (e) {
+            showToast(`撤銷失敗: ${e.message}`, true);
+        }
+    }
+
+    // ★ 新增：複製發菇者好友碼的專用函式
+    function copyHostFriendCode(fullString) {
+        // 1. 嘗試提取 12 位數字
+        const match = fullString.match(/(\d{12})/);
+        
+        if (match) {
+            const code = match[1];
+            // 2. 提取暱稱 (移除好友碼與分隔符號，用於提示訊息)
+            // 使用與您之前一致的正則表達式，移除尾端的 12 位數
+            let nickname = fullString.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
+            // 如果有飛機符號，也稍微修飾一下 (可選)
+            nickname = nickname.replace(/✈️$/, '').trim();
+
+            navigator.clipboard.writeText(code).then(() => {
+                // 3. 顯示成功提示
+                showToast(`已複製 [${nickname}] 好友碼`, false);
+            }).catch(err => {
+                console.error('複製失敗:', err);
+                showToast('複製失敗，請手動複製', true);
+            });
+        } else {
+            // 防呆：如果字串裡沒有好友碼 (例如舊資料只有暱稱)
+            showToast('此發菇者未設定好友碼', true);
+        }
+    }
 </script>
 </body>
 </html>

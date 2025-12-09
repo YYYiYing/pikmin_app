@@ -789,6 +789,23 @@ serve(async (req) => {
             ({ data } = await adminSupabaseClient.from('daily_settings').update({ setting_value: payload.value, updated_at: new Date().toISOString() }).eq('setting_name', 'daily_signup_limit').select().single()); 
             break;
             
+        case 'daily-reset-absent':
+            // 執行 SQL：將所有人的缺席分數 -1，但最低為 0
+            const { error: resetErr } = await adminSupabaseClient
+                .from('profiles')
+                .update({ 
+                    // 注意：Supabase JS 直接 update 無法做 "col = col - 1" 這種運算
+                    // 我們必須改用 RPC 呼叫，或者用純 SQL
+                });
+                
+            // 因為 Supabase JS 的 update 限制，建議直接呼叫一個簡單的 RPC
+            const { error: rpcErr } = await adminSupabaseClient.rpc('daily_reduce_absent_score');
+            
+            if (rpcErr) throw rpcErr;
+            
+            data = { message: '每日缺席分數已執行 -1' };
+            break;
+
         case 'ping': 
             break;
             
