@@ -125,10 +125,12 @@
         .filter-tab:not(.active):hover {
             background-color: #4b5563;
         }
-        .filter-tab:not(.active):hover {
-            background-color: #4b5563;
+
+        /* ★ 新增：隱藏捲動條但保留捲動功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
         }
-        
+
         /* 修改：跑馬燈動畫 (改為由 JS 控制重播) */
         @keyframes marquee {
             0% { transform: translateX(100%); }
@@ -363,12 +365,31 @@
         <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-4 flex-wrap justify-center">
                 
-            <div id="filter-tabs" class="flex space-x-2 overflow-x-auto no-scrollbar">
-                <button data-filter="all" class="filter-tab active text-xs md:text-base whitespace-nowrap px-3 md:px-4">全部挑戰</button>
-                <button data-filter="imported" class="filter-tab text-xs md:text-base whitespace-nowrap px-3 md:px-4 text-pink-400 border-pink-500/30">進口菇</button>
-                <button data-filter="full" class="filter-tab text-xs md:text-base whitespace-nowrap px-3 md:px-4">已額滿</button>
-                <button data-filter="signed-up" class="filter-tab text-xs md:text-base whitespace-nowrap px-3 md:px-4">已報名</button>
-                <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden text-xs md:text-base whitespace-nowrap px-3 md:px-4">已發布</button>
+            <div id="filter-tabs" class="flex space-x-2 overflow-x-auto no-scrollbar p-2">
+                <button data-filter="all" class="filter-tab active relative text-xs md:text-base whitespace-nowrap px-3 md:px-4">
+                    全部挑戰
+                    <span id="badge-all" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+                </button>
+                
+                <button data-filter="imported" class="filter-tab relative text-xs md:text-base whitespace-nowrap px-3 md:px-4 text-pink-400 border-pink-500/30">
+                    進口菇
+                    <span id="badge-imported" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+                </button>
+
+                <button data-filter="full" class="filter-tab relative text-xs md:text-base whitespace-nowrap px-3 md:px-4">
+                    已額滿
+                    <span id="badge-full" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+                </button>
+
+                <button data-filter="signed-up" class="filter-tab relative text-xs md:text-base whitespace-nowrap px-3 md:px-4">
+                    已報名
+                    <span id="badge-signed" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+                </button>
+
+                <button id="hosted-tab" data-filter="hosted" class="filter-tab hidden relative text-xs md:text-base whitespace-nowrap px-3 md:px-4">
+                    已發布
+                    <span id="badge-hosted" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+                </button>
             </div>
                 
                 <div class="flex items-center space-x-2 ml-2">
@@ -1417,6 +1438,8 @@
         challengesListEl.innerHTML = '';
         Object.values(challengesData).forEach(challenge => renderChallenge(challenge));
         applyFilter();
+        // ★ 新增：更新紅點
+        updateFilterBadges();
     }
 
     // ★ 核心渲染邏輯 (含分身顯示功能優化版)
@@ -1651,6 +1674,8 @@
         }
         renderChallenge(challenge);
         applyFilter();
+        // ★ 新增：更新紅點 (因為狀態可能變了，例如從開放變成已額滿)
+        updateFilterBadges();
     }
 
     // =========================================================================
@@ -2589,6 +2614,11 @@
                 if (payload.eventType === 'DELETE') {
                     const el = document.getElementById(`challenge-${payload.old.id}`);
                     if (el) el.remove();
+                    // ★ 新增：同步刪除本地快取資料，並更新紅點
+                    if (challengesData[payload.old.id]) {
+                        delete challengesData[payload.old.id];
+                        updateFilterBadges();
+                    }
                 } else {
                     reloadChallengeCard(payload.new.id);
                 }
@@ -3099,6 +3129,64 @@
             // 防呆：如果字串裡沒有好友碼 (例如舊資料只有暱稱)
             showToast('此發菇者未設定好友碼', true);
         }
+    }
+
+    // ★ 全能版：更新所有分類的通知紅點
+    function updateFilterBadges() {
+        // 定義計數器
+        let counts = {
+            all: 0,      // 內部菇 & 未額滿
+            imported: 0, // 訪客菇 & 未額滿
+            full: 0,     // 任何菇 & 已額滿
+            signed: 0,   // 我報名的
+            hosted: 0    // 我發布的
+        };
+
+        // 遍歷所有資料進行統計
+        Object.values(challengesData).forEach(c => {
+            const isFull = c.status === '已額滿';
+            const isGuest = c.is_guest === true;
+            const isSigned = userSignedUpChallengeIds.has(c.id);
+            const isHosted = c.host && currentUserProfile && c.host.id === currentUserProfile.id;
+
+            // 1. 全部挑戰 (邏輯：非訪客菇 且 未額滿)
+            if (!isGuest && !isFull) counts.all++;
+
+            // 2. 進口菇 (邏輯：訪客菇 且 未額滿)
+            if (isGuest && !isFull) counts.imported++;
+
+            // 3. 已額滿 (邏輯：狀態為已額滿)
+            if (isFull) counts.full++;
+
+            // 4. 已報名
+            if (isSigned) counts.signed++;
+
+            // 5. 已發布
+            if (isHosted) counts.hosted++;
+        });
+
+        // 更新 UI 顯示 (封裝成小函式方便呼叫)
+        const setBadge = (id, count) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (count > 0) {
+                el.textContent = count > 99 ? '99+' : count;
+                el.classList.remove('hidden');
+                // 只有數字變動時才跳動 (這裡簡化為每次更新都跳一下，或可不做判斷)
+                el.classList.remove('animate-bounce');
+                void el.offsetWidth; // 觸發 reflow
+                el.classList.add('animate-bounce');
+                setTimeout(() => el.classList.remove('animate-bounce'), 1000);
+            } else {
+                el.classList.add('hidden');
+            }
+        };
+
+        setBadge('badge-all', counts.all);
+        setBadge('badge-imported', counts.imported);
+        setBadge('badge-full', counts.full);
+        setBadge('badge-signed', counts.signed);
+        setBadge('badge-hosted', counts.hosted);
     }
 </script>
 </body>

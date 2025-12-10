@@ -90,9 +90,20 @@
         </div>
         <h3 class="text-xl font-bold text-white mb-4 text-center">📢 可用『大聲公』呼叫的蘑菇們 🍄</h3>
         <div class="flex justify-center gap-2 mb-6" id="filter-tabs">
-            <button class="filter-tab active" data-filter="all">全部挑戰</button>
-            <button class="filter-tab" data-filter="full">已額滿</button>
-            <button class="filter-tab" data-filter="mine">我的發布</button>
+            <button class="filter-tab active relative" data-filter="all">
+                全部挑戰
+                <span id="g-badge-all" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+            </button>
+            
+            <button class="filter-tab relative" data-filter="full">
+                已額滿
+                <span id="g-badge-full" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+            </button>
+            
+            <button class="filter-tab relative" data-filter="mine">
+                我的發布
+                <span id="g-badge-mine" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+            </button>
         </div>
         <div id="guest-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <p class="text-gray-500 col-span-full text-center py-8">搜尋菇菇中...</p>
@@ -300,6 +311,42 @@
                 const data = responseData.data || [];
 
                 if(data.length === 0) { list.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">目前沒有任何人發布蘑菇</p>'; return; }
+
+                // ★★★ 新增：計算並更新紅點 ★★★
+                let countAll = 0;
+                let countFull = 0;
+                let countMine = 0;
+
+                data.forEach(c => {
+                    const isFull = c.status === '已額滿';
+                    const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
+
+                    // 1. 全部挑戰 (邏輯：未額滿)
+                    if (!isFull) countAll++;
+                    
+                    // 2. 已額滿
+                    if (isFull) countFull++;
+                    
+                    // 3. 我的發布 (邏輯：只要是我的都算，或依需求只算進行中？這裡通常算全部)
+                    if (isMine) countMine++;
+                });
+
+                const updateGuestBadge = (id, count) => {
+                    const el = document.getElementById(id);
+                    if(el) {
+                        if(count > 0) {
+                            el.textContent = count > 99 ? '99+' : count;
+                            el.classList.remove('hidden');
+                        } else {
+                            el.classList.add('hidden');
+                        }
+                    }
+                };
+
+                updateGuestBadge('g-badge-all', countAll);
+                updateGuestBadge('g-badge-full', countFull);
+                updateGuestBadge('g-badge-mine', countMine);
+                // ★★★ 結束計數 ★★★
 
                 list.innerHTML = data.map(c => {
                     const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
