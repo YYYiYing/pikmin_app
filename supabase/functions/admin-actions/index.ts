@@ -391,6 +391,33 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // ★★★ 新增這段：讀取訪客蘑菇列表 (讓未登入者也能讀取) ★★★
+    if (action === 'list-guest-challenges') {
+        const { data, error } = await adminSupabaseClient
+            .from('challenges')
+            .select('*, signups(*, profile:profiles(nickname))') 
+            .eq('is_guest', true)
+            .order('created_at', { ascending: false });
+
+        if (error) throw new Error(error.message);
+
+        return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 讀取單筆訪客菇 (用於編輯回填，繞過 RLS) 
+    if (action === 'get-guest-challenge') {
+        const { challengeId } = payload;
+        const { data, error } = await adminSupabaseClient
+            .from('challenges')
+            .select('*')
+            .eq('id', challengeId)
+            .single();
+
+        if (error) throw new Error('無法讀取資料'); // 簡化錯誤訊息避免洩漏細節
+
+        return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
     // 訪客發菇 (Create)
     if (action === 'guest-create-challenge') {
         const { nickname, friendCode, mushroomType, slots, startTime, details, cookingStyle, notes } = payload;
@@ -400,15 +427,13 @@ serve(async (req) => {
         // ★ 1. 獲取訪客 IP (從 Header 讀取)
         const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
 
-        // ★ 2. 防護機制：檢查該 IP 今日發布數量 (過去 24 小時)
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         
+
         const { count: dailyCount, error: countErr } = await adminSupabaseClient
             .from('challenges')
             .select('*', { count: 'exact', head: true }) // 只算數量，不讀資料
             .eq('is_guest', true)
             .eq('guest_ip', clientIp)
-            .gte('created_at', oneDayAgo);
 
         if (countErr) throw new Error('系統忙碌中，請稍後再試');
 
@@ -442,28 +467,46 @@ serve(async (req) => {
         const { challengeId, nickname, friendCode, mushroomType, slots, startTime, details, cookingStyle, notes } = payload;
         
         const displayHostName = `${nickname}✈️${friendCode}`;
-        const status = new Date(startTime) > new Date() ? '預計開放' : '開放報名中';
+        
+        // ★★★ 修改開始：先查詢目前報名人數，以決定正確狀態 ★★★
+        const { count: currentSignups, error: countErr } = await adminSupabaseClient
+            .from('signups')
+            .select('*', { count: 'exact', head: true })
+            .eq('challenge_id', challengeId);
+            
+        if (countErr) throw new Error('無法確認報名狀態');
+
+        const now = new Date();
+        const start = new Date(startTime);
+        const slotNum = parseInt(slots);
+        const signupNum = currentSignups || 0;
+
+        let status = '開放報名中';
+        if (start > now) {
+            status = '預計開放';
+        } else if (signupNum >= slotNum) {
+            status = '已額滿';
+        }
+        // ★★★ 修改結束 ★★★
 
         // ★★★ 關鍵安全鎖：同時比對 ID 與 is_guest=true ★★★
-        // 這樣就算駭客傳入正式使用者的 ID，也會因為 is_guest 不符而更新失敗 (count 為 0)
         const { error, count } = await adminSupabaseClient
             .from('challenges')
             .update({
                 display_host_name: displayHostName,
                 mushroom_type: mushroomType,
-                slots: parseInt(slots),
+                slots: slotNum,
                 start_time: startTime,
                 details: details,
                 cooking_style: cookingStyle,
                 notes: notes,
-                status: status 
-            }, { count: 'exact' }) // 要求回傳影響行數
+                status: status // 使用新計算的狀態
+            }, { count: 'exact' }) 
             .eq('id', challengeId)
-            .eq('is_guest', true); // ★ 強制鎖定：只能改訪客菇
+            .eq('is_guest', true); 
 
         if (error) throw new Error(`編輯失敗: ${error.message}`);
         
-        // 如果影響行數為 0，代表 ID 不存在，或是該 ID 不是訪客菇 (被保護)
         if (count === 0) throw new Error('操作無效：找不到該訪客貼文，或無權限修改此項目。');
         
         return new Response(JSON.stringify({ success: true, data: { message: '更新成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });

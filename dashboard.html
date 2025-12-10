@@ -1668,6 +1668,9 @@
         const remTime = localStorage.getItem('rememberedChallengeTime');
         const remDetails = localStorage.getItem('rememberedChallengeDetails');
         const remStyle = localStorage.getItem('rememberedCookingStyle');
+        const remIdentity = localStorage.getItem('rememberedIdentity');
+        const remNotes = localStorage.getItem('rememberedNotes');
+
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         const datePart = now.toISOString().split('T')[0];
@@ -1676,14 +1679,14 @@
             challengeForm['start-time'].value = `${datePart}T${remTime}`;
             if(remDetails) challengeForm['details'].value = remDetails;
             if(remStyle) document.getElementById('cooking-style').value = remStyle;
+            if(remNotes) document.getElementById('challenge-notes').value = remNotes;
             document.getElementById('remember-time-checkbox').checked = true;
         } else {
             challengeForm['start-time'].value = now.toISOString().slice(0, 16);
             document.getElementById('remember-time-checkbox').checked = false;
+            document.getElementById('challenge-notes').value = '';
         }
         document.getElementById('challenge-image').value = '';
-        // ★ 新增：清空備註欄位
-        document.getElementById('challenge-notes').value = ''; 
 
         // ★ 新增功能：載入身分選單邏輯
         const identitySelect = document.getElementById('post-identity');
@@ -1714,6 +1717,12 @@
             });
         }
         
+        if (remTime && remIdentity) {
+            // 檢查該身分是否還在清單內 (避免分身被刪除後報錯)
+            const optionExists = Array.from(identitySelect.options).some(opt => opt.value === remIdentity);
+            if(optionExists) identitySelect.value = remIdentity;
+        }
+
         // 3. 顯示 Modal
         challengeModal.classList.remove('hidden');
     });
@@ -1753,10 +1762,18 @@
             localStorage.setItem('rememberedChallengeTime', timeVal.split('T')[1]);
             localStorage.setItem('rememberedChallengeDetails', form['details'].value);
             localStorage.setItem('rememberedCookingStyle', styleVal);
+            
+            // ★ 新增：記憶身分與備註
+            localStorage.setItem('rememberedIdentity', form['post-identity'].value);
+            localStorage.setItem('rememberedNotes', document.getElementById('challenge-notes').value);
         } else {
             localStorage.removeItem('rememberedChallengeTime');
             localStorage.removeItem('rememberedChallengeDetails');
             localStorage.removeItem('rememberedCookingStyle');
+            
+            // ★ 新增：移除身分與備註記憶
+            localStorage.removeItem('rememberedIdentity');
+            localStorage.removeItem('rememberedNotes');
         }
 
         const selectedIdentity = document.getElementById('post-identity').value;
