@@ -531,8 +531,119 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // ★★★ 修正版：訪客報名 (Join) - 補上狀態更新邏輯 ★★★
+    if (action === 'guest-join-challenge') {
+        const { challengeId, nickname, friendCode } = payload;
+        const guestName = `${nickname}💪${friendCode}`;
 
+        // 1. 檢查挑戰是否存在 & 是否額滿 (使用原子查詢)
+        const { data: challenge, error: findErr } = await adminSupabaseClient
+            .from('challenges')
+            .select('slots, status, signups(count)')
+            .eq('id', challengeId)
+            .single();
 
+        if (findErr || !challenge) throw new Error('找不到該挑戰');
+        
+        // 安全取得目前人數
+        // 注意：Supabase count 有時回傳 [{count:n}] 有時回傳 [] (若無關聯)
+        const currentCount = challenge.signups?.[0]?.count ?? 0;
+        
+        if (currentCount >= challenge.slots) {
+            // 如果已經滿了，順手修復狀態 (防呆)
+            if (challenge.status !== '已額滿') {
+                await adminSupabaseClient.from('challenges').update({ status: '已額滿' }).eq('id', challengeId);
+            }
+            throw new Error('報名失敗：該挑戰已額滿');
+        }
+
+        // 2. 檢查是否重複報名
+        const { data: exist } = await adminSupabaseClient
+            .from('signups')
+            .select('id')
+            .eq('challenge_id', challengeId)
+            .eq('guest_name', guestName)
+            .maybeSingle();
+
+        if (exist) throw new Error('您已經報名過這場挑戰了');
+
+        // 3. 寫入報名表
+        const { data: newSignup, error: insertErr } = await adminSupabaseClient
+            .from('signups')
+            .insert({
+                challenge_id: challengeId,
+                guest_name: guestName,
+                user_id: null
+            })
+            .select()
+            .single();
+
+        if (insertErr) throw new Error(`報名失敗: ${insertErr.message}`);
+
+        // ★★★ 關鍵修正：報名成功後，檢查是否滿了，並更新狀態 ★★★
+        const newTotal = currentCount + 1;
+        if (newTotal >= challenge.slots) {
+            await adminSupabaseClient
+                .from('challenges')
+                .update({ status: '已額滿' })
+                .eq('id', challengeId);
+        }
+
+        return new Response(JSON.stringify({ success: true, data: newSignup }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // ★★★ 修正版：訪客取消報名 (Cancel) - 強化人數計算安全性 ★★★
+    if (action === 'guest-cancel-signup') {
+        const { challengeId, nickname, friendCode } = payload;
+        const guestName = `${nickname}💪${friendCode}`;
+
+        // 1. 執行刪除
+        const { error, count } = await adminSupabaseClient
+            .from('signups')
+            .delete({ count: 'exact' })
+            .eq('challenge_id', challengeId)
+            .eq('guest_name', guestName);
+
+        if (error) throw new Error(`取消失敗: ${error.message}`);
+        if (count === 0) throw new Error('取消失敗：找不到您的報名紀錄 (請確認暱稱與好友碼是否與報名時一致)');
+
+        // 2. 重新計算狀態 (解決取消後狀態沒變回來的問題)
+        const { data: challenge, error: getErr } = await adminSupabaseClient
+            .from('challenges')
+            .select('slots, start_time, status, signups(count)')
+            .eq('id', challengeId)
+            .single();
+
+        if (!getErr && challenge) {
+            // ★ 安全性修正：使用 Optional Chaining (?.) 避免當 count 為 0 時報錯
+            const currentCount = challenge.signups?.[0]?.count ?? 0;
+            
+            const slots = challenge.slots;
+            const now = new Date();
+            const startTime = new Date(challenge.start_time);
+
+            let newStatus = challenge.status;
+
+            // 狀態判斷邏輯
+            if (startTime > now) {
+                newStatus = '預計開放';
+            } else if (currentCount >= slots) {
+                newStatus = '已額滿';
+            } else {
+                newStatus = '開放報名中';
+            }
+
+            // 若狀態有變，執行更新
+            if (newStatus !== challenge.status) {
+                await adminSupabaseClient
+                    .from('challenges')
+                    .update({ status: newStatus })
+                    .eq('id', challengeId);
+            }
+        }
+
+        return new Response(JSON.stringify({ success: true, data: { message: '已取消報名' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
 
     // ============================================================
     // 區塊 B：使用者驗證 (需要 Authorization Header)

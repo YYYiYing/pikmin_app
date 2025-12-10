@@ -300,6 +300,10 @@
                 '滿人開': '滿人開 (人滿後發)'
             };
 
+            // ★ 新增：讀取本地「我的報名紀錄」 (格式: Array of { challengeId, guestName })
+            // 這裡我們簡單存 ID 即可，或者存個 Map
+            let myGuestSignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
+
             try {
                 const { data: responseData, error } = await supabaseClient.functions.invoke('admin-actions', {
                     body: JSON.stringify({ action: 'list-guest-challenges' })
@@ -350,6 +354,11 @@
 
                 list.innerHTML = data.map(c => {
                     const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
+                    // ★ 新增：判斷我是否已報名這場
+                    // 我們比對 localStorage 裡的紀錄
+                    const mySignupRecord = myGuestSignups.find(s => String(s.challengeId) === String(c.id));
+                    const isSignedUp = !!mySignupRecord;
+
                     const signupCount = c.signups ? c.signups.length : 0;
                     const displayDetails = detailsMap[c.details] || c.details;
                     
@@ -394,13 +403,29 @@
                         const sortedSignups = c.signups.sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
                         const rows = sortedSignups.map((s, idx) => {
                             const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
-                            const rawName = s.profile ? s.profile.nickname : '未知';
+
+                            // ★ 關鍵：判斷是正式會員還是訪客
+                            let rawName = '未知';
+                            if (s.profile && s.profile.nickname) {
+                                rawName = s.profile.nickname; // 正式會員
+                            } else if (s.guest_name) {
+                                rawName = s.guest_name; // 訪客 (格式: 暱稱💪好友碼)
+                            }
+                            // 處理好友碼擷取 (支援 💪 或 ✈️ 或 純數字)
                             const codeMatch = rawName.match(/(\d{12})/);
                             const friendCode = codeMatch ? codeMatch[1] : '';
+
+                            // 顯示名稱處理 (移除好友碼部分，讓版面乾淨)
+                            // 這裡我們用正則表達式把後面的符號+數字切掉，只留暱稱
+                            let displayName = rawName.replace(/[✈️💪]?[\s\uFEFF\xA0]*\d{12}$/, '').trim();
+
                             const time = formatSignupTime(s.signed_up_at);
                             const clickAttr = friendCode ? `onclick="copyText('${friendCode}')" title="點擊複製: ${friendCode}"` : '';
                             const nameClass = friendCode ? 'text-gray-300 font-mono copy-cursor truncate' : 'text-gray-300 truncate';
                             
+                            // 訪客圖示 (可選)
+                            const icon = s.guest_name ? '🛸' : '';
+
                             return `
                                 <div class="participant-item">
                                     <div class="flex items-center w-full overflow-hidden">
@@ -421,16 +446,47 @@
                             </div>`;
                     }
 
-                    const controlsHtml = isMine ? `
-                        <div class="mt-4 flex gap-2">
-                            <button onclick="editGuestPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">編輯</button>
-                            <button onclick="deleteGuestPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">刪除</button>
-                        </div>
-                    ` : `<div class="mt-4 text-xs text-center text-gray-600 border-t border-gray-700 pt-2">訪客只能管理自己的蘑菇</div>`;
+                    let actionButtonHtml = '';
 
+                    // 1. 如果我是發菇者 -> 顯示編輯/刪除 (優先權最高)
+                    if (isMine) {
+                        actionButtonHtml = `
+                            <div class="mt-4 flex gap-2">
+                                <button onclick="editGuestPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">編輯</button>
+                                <button onclick="deleteGuestPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">刪除</button>
+                            </div>`;
+                    } 
+                    // 2. 如果我已報名 -> 顯示取消
+                    else if (isSignedUp) {
+                        actionButtonHtml = `<button onclick="handleGuestCancel(${c.id})" class="mt-4 w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">取消報名</button>`;
+                    }
+                    // 3. 如果已額滿 -> 顯示額滿 (Disabled)
+                    else if (c.status === '已額滿') {
+                        actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>已額滿</button>`;
+                    }
+                    // 4. 預計開放 -> 顯示未開放 (Disabled)
+                    else if (c.status === '預計開放') {
+                        actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>尚未開放</button>`;
+                    }
+                    // 5. 正常狀態 -> 顯示報名按鈕
+                    else {
+                        actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 立即報名</button>`;
+                    }
+                    
                     let notesHtml = '';
                     if (c.notes && c.notes.trim() !== '') {
                          notesHtml = `<div class="mt-1 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
+                    }
+
+                    // ▼▼▼▼▼▼▼▼▼▼ 修改開始：發菇者顯示邏輯 ▼▼▼▼▼▼▼▼▼▼
+                    const hostNameRaw = c.display_host_name || '未知';
+                    const hostCodeMatch = hostNameRaw.match(/(\d{12})/); // 抓取 12 位數字
+                    let hostDisplayHtml = hostNameRaw;
+
+                    if (hostCodeMatch) {
+                        const code = hostCodeMatch[1];
+                        // 加入點擊複製功能 (呼叫既有的 copyText 函式)
+                        hostDisplayHtml = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${code}')" title="點擊複製好友碼: ${code}">${hostNameRaw}</span>`;
                     }
 
                     return `
@@ -448,23 +504,20 @@
                                 <span class="text-sm font-bold text-gray-500 leading-none">#${c.id}</span>
                             </div>
 
-                            <p class="text-sm text-pink-400 font-bold mb-2">發菇者: ${c.display_host_name}</p>
+                            <p class="text-sm text-pink-400 font-bold mb-2">發菇者: ${hostDisplayHtml}</p>
                             <div class="text-sm text-gray-400 space-y-1">
                                 ${timeDisplayHtml}
-                                
                                 <p>呼叫時段: 📣 ${displayDetails}</p>
-                                
                                 ${fireHtml}
-
                                 <p>名額: ${signupCount} / ${c.slots}</p>
                                 ${notesHtml}
                             </div>
                             ${participantsHtml}
-                            ${controlsHtml}
+                            
+                            ${actionButtonHtml}
                         </div>
                     `;
                 }).join('');
-                
 
                 // ★ 新增：渲染完畢後套用篩選與倒數更新
                 applyFilter();
@@ -795,6 +848,88 @@
                 }
             });
         }
+
+        // 處理訪客報名
+        window.handleGuestSignup = async (challengeId) => {
+            // 1. 檢查是否已設定身分
+            const nick = localStorage.getItem('guest_nick');
+            const code = localStorage.getItem('guest_code');
+            if (!nick || !code) {
+                showToast('請先在上方設定您的暱稱與好友碼！', true);
+                // 捲動到設定區
+                document.querySelector('.bg-gray-800').scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
+
+            // 2. 執行報名
+            const btn = event.target; // 取得按鈕以停用
+            btn.disabled = true; btn.textContent = '報名中...';
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ 
+                        action: 'guest-join-challenge', 
+                        payload: { challengeId, nickname: nick, friendCode: code } 
+                    })
+                });
+
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                showToast('報名成功！', false);
+
+                // 3. 更新本地紀錄
+                let mySignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
+                mySignups.push({ challengeId: challengeId, timestamp: Date.now() });
+                localStorage.setItem('my_guest_signups', JSON.stringify(mySignups));
+
+                // 4. 重新載入列表
+                loadChallenges();
+
+            } catch (e) {
+                console.error(e);
+                showToast(`報名失敗: ${e.message}`, true);
+                btn.disabled = false; btn.textContent = '👉 立即報名';
+            }
+        };
+
+        // 處理訪客取消
+        window.handleGuestCancel = async (challengeId) => {
+            if(!confirm('確定要取消報名嗎？')) return;
+
+            const nick = localStorage.getItem('guest_nick');
+            const code = localStorage.getItem('guest_code');
+            
+            const btn = event.target;
+            btn.disabled = true; btn.textContent = '處理中...';
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ 
+                        action: 'guest-cancel-signup', 
+                        payload: { challengeId, nickname: nick, friendCode: code } 
+                    })
+                });
+
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                showToast('已取消報名', false);
+
+                // 更新本地紀錄 (移除該 ID)
+                let mySignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
+                mySignups = mySignups.filter(s => String(s.challengeId) !== String(challengeId));
+                localStorage.setItem('my_guest_signups', JSON.stringify(mySignups));
+
+                loadChallenges();
+
+            } catch (e) {
+                console.error(e);
+                showToast(`取消失敗: ${e.message}`, true);
+                btn.disabled = false; btn.textContent = '取消報名';
+            }
+        };
+
     </script>
 </body>
 </html>
