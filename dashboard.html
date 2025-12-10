@@ -259,10 +259,10 @@
                 <a href="./partner.html" class="block text-cyan-400 hover:bg-gray-700 p-2 rounded-md font-bold">🤝 村民好友碼</a>
                 <a href="https://joystick-gpx-convert.netlify.app/" target="_blank" class="block text-green-400 hover:bg-gray-700 p-2 rounded-md font-bold">🔃 路徑轉檔</a>
                 <a id="gpx-generator-link-mobile" href="./gpx_generator.html" class="block text-green-400 hover:bg-gray-700 p-2 rounded-md font-bold">🗺️ 路徑生成</a>
+                <a href="./guest.html" class="block text-fuchsia-400 hover:bg-gray-700 p-2 rounded-md font-bold">🛸 天外奇菇</a>
             </div>
             <hr class="border-gray-600 my-2">
             <div class="space-y-1">
-                <a href="./guest.html" class="block text-fuchsia-400 hover:bg-gray-700 p-2 rounded-md font-bold">🛸 天外奇菇</a>
                 
                 <a id="admin-link-mobile" href="./admin.html" class="hidden block text-orange-400 hover:bg-gray-700 p-2 rounded-md font-bold">⚙️ 管理後台</a>
             </div>
@@ -1325,38 +1325,43 @@
     // =========================================================================
 
     function displayUserInfo() {
-        if (!currentUserProfile) return;
-        
-        // 1. 處理顯示名稱 (保留既有名稱清洗邏輯)
-        const displayName = (currentUserProfile.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s!?.~_+\-]/)[0];
-        
-        // =========================================================
-        // ★★★ 新增：顯示個人缺席愛睏值 ★★★
-        // =========================================================
-        const absScore = currentUserProfile.absent_score || 0;
-        let absDisplay = '';
-        
-        if (absScore > 0) {
-            // 如果有分數，顯示紅色警示字樣，並加上左邊距
-            absDisplay = `<span class="text-red-400 font-bold ml-2" title="目前累積的缺席指數">💤+${absScore}</span>`;
-        }
-        // =========================================================
+    if (!currentUserProfile) return;
 
-        // 2. 更新畫面 (改用 innerHTML 以支援 span 顏色標籤)
-        userInfoEl.innerHTML = `你好，${displayName}！${absDisplay}`;
-        
-        updateQuotaDisplay();
+    // 1. 處理顯示名稱 (保留既有名稱清洗邏輯)
+    const displayName = (currentUserProfile.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s!?.~_+\-]/)[0];
 
-        // 3. 權限顯示判斷 (保留原本邏輯)
-        if (['管理者', '發菇者', '發菇及報名者'].includes(currentUserProfile.role)) {
-            postChallengeButton.classList.remove('hidden');
-            hostedTab.classList.remove('hidden');
-        }
-        if (currentUserProfile.role === '管理者') {
-            adminLink.classList.remove('hidden');
-            const mobAdmin = document.getElementById('admin-link-mobile');
-            if(mobAdmin) mobAdmin.classList.remove('hidden');
-        }
+    // =========================================================
+    // ★★★ 新增：顯示個人缺席愛睏值 (保留這段新功能) ★★★
+    // =========================================================
+    const absScore = currentUserProfile.absent_score || 0;
+    let absDisplay = '';
+
+    if (absScore > 0) {
+        // 如果有分數，顯示紅色警示字樣，並加上左邊距
+        absDisplay = `<span class="text-red-400 font-bold ml-2" title="目前累積的缺席指數">💤+${absScore}</span>`;
+    }
+    // =========================================================
+
+    // 2. 更新畫面 (改用 innerHTML 以支援 span 顏色標籤)
+    userInfoEl.innerHTML = `你好，${displayName}！${absDisplay}`;
+
+    updateQuotaDisplay();
+
+    // 3. 權限顯示判斷 (使用你提供的正常運作版本)
+    // 判斷發菇按鈕與分頁
+    if (['管理者', '發菇者', '發菇及報名者'].includes(currentUserProfile.role)) {
+        if (postChallengeButton) postChallengeButton.classList.remove('hidden');
+        if (hostedTab) hostedTab.classList.remove('hidden');
+    }
+
+    // 判斷管理後台連結 (移除白名單檢查，改回單純檢查角色)
+    if (currentUserProfile.role === '管理者') {
+        const adminLink = document.getElementById('admin-link');
+        if (adminLink) adminLink.classList.remove('hidden');
+        
+        const mobAdmin = document.getElementById('admin-link-mobile');
+        if (mobAdmin) mobAdmin.classList.remove('hidden');
+    }
         checkSubscriptionStatus();
     }
 
