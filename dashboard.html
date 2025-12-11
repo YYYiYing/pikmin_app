@@ -3263,15 +3263,16 @@
             width: '200',
             playerVars: {
                 'listType': 'playlist',
-                'list': 'PLnvczP3jeVcKbv9p3sHtYmIEPZpuBlOAi', // 官方播放清單
+                'list': 'PLnvczP3jeVcKbv9p3sHtYmIEPZpuBlOAi',
                 'playsinline': 1,
-                'controls': 0,     
-                'disablekb': 1,    
-                'fs': 0,           
-                'rel': 0,          
-                'loop': 1,         // 循環播放
-                'autoplay': 1,     // ★ 新增：嘗試宣告自動播放
-                'shuffle': 1       // ★ 新增：預設開啟隨機
+                'controls': 0,
+                'disablekb': 1,
+                'fs': 0,
+                'rel': 0,
+                'loop': 1,
+                'autoplay': 1,
+                'shuffle': 1,
+                'mute': 1  // 繞過瀏覽器限制
             },
             events: {
                 'onReady': onPlayerReady,
@@ -3282,27 +3283,47 @@
 
     // 3. 播放器準備就緒
     function onPlayerReady(event) {
-        // ★ 強制設定隨機播放模式 (確保清單順序被打亂)
+        // 強制設定隨機
         event.target.setShuffle(true);
         
-        // 抓取總長度 (稍微延遲以確保資料載入)
+        // 抓取總長度
         setTimeout(() => {
+            if (!musicPlayer || !musicPlayer.getDuration) return;
             const total = musicPlayer.getDuration();
             if (total) document.getElementById('music-progress').max = Math.floor(total);
         }, 1000);
 
-        // ★ 嘗試自動播放邏輯
-        try {
-            // 先設定音量
-            musicPlayer.setVolume(50); 
+        // ★ 修改：強壯的自動播放邏輯 (有聲失敗 -> 轉靜音)
+        const attemptPlay = () => {
+            // 1. 設定音量
+            musicPlayer.setVolume(50);
+            musicPlayer.unMute(); // 嘗試解開靜音
             
-            // 隨機播放技巧：先設 shuffle，然後播放第 0 首，通常 API 會自動抓取洗牌後的第一首
-            // 或是使用 nextVideo() 來跳轉
-            musicPlayer.playVideoAt(0); 
-            
-        } catch(e) {
-            console.log("自動播放被阻擋，等待使用者互動");
-        }
+            // 2. 嘗試播放 (使用 Promise 或直接呼叫)
+            // 由於 YouTube API 的 playVideoAt 沒有回傳 Promise，我們只能盡量呼叫
+            musicPlayer.playVideoAt(0);
+
+            // 3. 檢查狀態：如果 1秒後 還沒開始放 (狀態不是 BUFFERING 或 PLAYING)，就轉靜音重試
+            setTimeout(() => {
+                const state = musicPlayer.getPlayerState();
+                // -1: 未開始, 0: 結束, 2: 暫停, 5: 插入影片
+                // 如果還停在 -1 或 2，代表被阻擋了
+                if (state === -1 || state === 2) {
+                    console.log("有聲播放被阻擋，切換為靜音自動播放");
+                    musicPlayer.mute(); // ★ 關鍵：靜音
+                    musicPlayer.playVideoAt(0); // 再試一次
+                    
+                    // 讓音量按鈕亮紅燈，提示使用者目前是靜音
+                    const volBtn = document.getElementById('music-volume-btn');
+                    if(volBtn) {
+                        volBtn.classList.remove('text-gray-300');
+                        volBtn.classList.add('text-red-500');
+                    }
+                }
+            }, 1000);
+        };
+
+        attemptPlay();
     }
 
     // 4. 監聽狀態
