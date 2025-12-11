@@ -213,34 +213,52 @@
             </button>
         </div>
 
-        <div id="action-area" class="hidden mb-8" >
-            <button id="open-post-modal" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-xl shadow-lg transition transform hover:scale-105 flex justify-center items-center gap-2">
-                <span style="font-size: 25px;">🍄</span> 發布蘑菇挑戰 <span style="font-size: 25px;">🍄</span>
-            </button>
-            <p class="text-center text-xl text-gray-500 mt-2 font-mono">
+        <div id="action-area" class="hidden mb-8">
+            <div class="flex flex-col md:flex-row gap-4">
+                <button id="open-fly-modal" class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 rounded-xl shadow-lg transition transform hover:scale-105 flex justify-center items-center gap-2">
+                    <span style="font-size: 25px;">✈️</span> 座標自飛蘑菇<span style="font-size: 25px;">🍄</span>
+                </button>
+                <button id="open-post-modal" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-xl shadow-lg transition transform hover:scale-105 flex justify-center items-center gap-2">
+                    <span style="font-size: 25px;">📢</span> 大聲公呼叫蘑菇<span style="font-size: 25px;">🍄</span>
+                </button>
+            </div>
+            
+            <p class="text-center text-xl text-white text-gray-500 mt-2 font-mono">
                 同時發布上限: <span id="quota-display" class="text-pink-400 font-bold">--</span> / 6
             </p>
-            <p class="text-center text-xl text-gray-500 mt-2 font-mono">
-                💣 蘑菇卡片於「開放報名時間」逾6小時後將自動銷毀💥也可在大聲公呼叫完畢後手動刪除 ♻️
+            
+            <p class="text-center text-xl text-white text-gray-500 mt-2 font-mono">
+                有多餘大聲公未使用嗎？歡迎幫助一菇難求的皮友！<br>有荒郊野外的蘑菇座標嗎？也歡迎分享給大家！
             </p>
         </div>
-        <h3 class="text-xl font-bold text-white mb-4 text-center">📢 可用『大聲公』呼叫的蘑菇們 🍄</h3>
-        <div class="flex justify-center gap-2 mb-6" id="filter-tabs">
+            
+        <h1 class="text-2xl font-bold text-white mb-4 text-center">🍄 互助蘑菇列表 🍄</h1>
+            
+        <div class="flex justify-center gap-2 mb-2" id="filter-tabs">
             <button class="filter-tab active relative" data-filter="all">
                 全部挑戰
                 <span id="g-badge-all" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
             </button>
-            
+            <button class="filter-tab relative" data-filter="fly">
+                ✈️ 自飛
+                <span id="g-badge-fly" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+            </button>
+            <button class="filter-tab relative" data-filter="normal">
+                📢大聲公
+                <span id="g-badge-normal" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
+            </button>    
             <button class="filter-tab relative" data-filter="full">
                 已額滿
                 <span id="g-badge-full" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
             </button>
-            
             <button class="filter-tab relative" data-filter="mine">
                 我的發布
                 <span id="g-badge-mine" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
             </button>
         </div>
+            <p class="text-center text-sm text-gray-500 mt-2 mb-4 font-mono">
+                💣 蘑菇卡片逾時自動銷毀 (大聲公: 6小時 / 自飛: 1小時) ♻️
+            </p>
         <div id="guest-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <p class="text-gray-500 col-span-full text-center py-8">搜尋菇菇中...</p>
         </div>
@@ -333,6 +351,51 @@
         </div>
     </div>
 
+    <div id="fly-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+        <div class="bg-gray-800 w-full max-w-lg rounded-2xl shadow-xl p-6 border border-gray-600 max-h-[90vh] overflow-y-auto">
+            <h2 id="fly-modal-title" class="text-xl font-bold text-white mb-4">✈️ 發布自飛座標</h2>
+
+            <form id="fly-form" class="space-y-4">
+                <input type="hidden" id="fly-edit-id">
+                
+                <div>
+                    <label class="text-sm text-gray-400 font-bold">名額</label>
+                    <input type="number" id="f-slots" value="5" min="1" max="5" class="dark-input w-full rounded-md mt-1 px-3 py-2">
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-400 font-bold">座標</label>
+                    <div class="relative mt-1">
+                        <input type="text" id="f-coords" required placeholder="例如: 22.123, 120.456" class="dark-input w-full rounded-md px-3 py-2 pr-20">
+                        <button type="button" id="paste-coords-btn" class="absolute right-1 top-1 bottom-1 bg-gray-700 hover:bg-gray-600 text-green-400 px-3 rounded transition text-xs font-bold">
+                            📋 貼上
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">支援美片圖書館座標格式化</p>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-400 font-bold">火侯</label>
+                    <select id="f-style" class="dark-input w-full rounded-md mt-1 px-3 py-2">
+                        <option value="隨便亂炒（不限戰力）">隨便亂炒（不限戰力）</option>
+                        <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
+                        <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-400 font-bold">備註（選填）</label>
+                    <input type="text" id="f-notes" class="dark-input w-full rounded-md mt-1 px-3 py-2" placeholder="補充說明...">
+                </div>
+
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+                    <button type="button" id="close-fly-modal" class="bg-gray-600 hover:bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold transition">取消</button>
+                    <button type="submit" id="fly-submit-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-2.5 rounded-lg font-bold transition shadow-lg">確認送出</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="toast-message" class="hidden fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-[100] font-bold flex items-center gap-2 transform transition-all duration-300"></div>
 
     <script>
@@ -343,8 +406,10 @@
 
         // 本地狀態
         let myGuestPostIds = JSON.parse(localStorage.getItem('my_guest_post_ids') || '[]');
-        
-        // ★ 新增：全域冷卻變數 (4秒)
+        // 自飛的本地 ID 紀錄
+        let myFlyPostIds = JSON.parse(localStorage.getItem('my_fly_post_ids') || '[]');
+
+        // 全域冷卻變數 (4秒)
         let globalCooldownUntil = 0;    
         let globalCooldownTimer = null; 
 
@@ -355,10 +420,11 @@
             startGlobalCountdown(); // 啟動倒數計時
             setupOnlinePresence(); // 設定在線人數
             
-            // 訂閱更新
+            // 訂閱更新 (新增 guest_fly_posts 監聽)
             supabaseClient.channel('guest-view')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, loadChallenges)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, loadChallenges) // 監聽報名變化
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, loadChallenges)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_fly_posts' }, loadChallenges) // 新增這行
                 .subscribe();
         });
 
@@ -445,227 +511,81 @@
             let myGuestSignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
 
             try {
-                const { data: responseData, error } = await supabaseClient.functions.invoke('admin-actions', {
-                    body: JSON.stringify({ action: 'list-guest-challenges' })
+                // 修改：同時呼叫兩支 API
+                const [challengesRes, flyRes] = await Promise.all([
+                    supabaseClient.functions.invoke('admin-actions', { body: JSON.stringify({ action: 'list-guest-challenges' }) }),
+                    supabaseClient.functions.invoke('admin-actions', { body: JSON.stringify({ action: 'list-guest-fly' }) })
+                ]);
+
+                if(challengesRes.error) throw challengesRes.error;
+                if(flyRes.error) throw flyRes.error;
+                
+                // 一般挑戰資料 (標記 type = 'normal')
+                const normalData = (challengesRes.data.data || []).map(c => ({ ...c, dataType: 'normal' }));
+                // 自飛資料 (標記 type = 'fly')
+                const flyData = (flyRes.data.data || []).map(f => ({ ...f, dataType: 'fly' }));
+
+                // 合併資料 (依據 created_at 或 start_time 排序，這裡簡單用建立時間倒序)
+                // 注意：challenges 表沒有 created_at 回傳(依您的表結構)，可以用 id 或 start_time
+                const allData = [...normalData, ...flyData].sort((a, b) => {
+                   const timeA = a.created_at || a.start_time; // 自飛用 created_at, 一般用 start_time 近似
+                   const timeB = b.created_at || b.start_time;
+                   return new Date(timeB) - new Date(timeA);
                 });
 
-                if(error) throw error;
-                if(responseData && responseData.error) throw new Error(responseData.error);
-                
-                const data = responseData.data || [];
+                window.currentAllData = allData;
 
-                if(data.length === 0) { list.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">目前沒有任何人發布蘑菇</p>'; return; }
+                if(allData.length === 0) { list.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">目前沒有任何挑戰</p>'; return; }
 
-                // 計算並更新紅點
-                let countAll = 0;
+                // 計算紅點
+                let countAll = 0; // 含自飛
+                let countFly = 0; // 純自飛
                 let countFull = 0;
                 let countMine = 0;
 
-                data.forEach(c => {
-                    const isFull = c.status === '已額滿';
-                    const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
+                allData.forEach(c => {
+                    const isFly = c.dataType === 'fly';
+                    const isFull = !isFly && c.status === '已額滿'; // 自飛通常沒有額滿狀態，除非滿 slots (這裡先簡單判斷)
+                    
+                    let isMine = false;
+                    if(isFly) isMine = myFlyPostIds.includes(c.id);
+                    else isMine = myGuestPostIds.some(id => String(id) === String(c.id));
 
-                    // 1. 全部挑戰 (邏輯：未額滿)
-                    if (!isFull) countAll++;
-                    
-                    // 2. 已額滿
-                    if (isFull) countFull++;
-                    
-                    // 3. 我的發布 (邏輯：只要是我的都算，或依需求只算進行中？這裡通常算全部)
+                    // 1. 全部 (未額滿的大聲公 + 所有自飛)
+                    if (isFly || !isFull) countAll++;
+
+                    // 2. 自飛
+                    if (isFly) countFly++;
+
+                    // 3. 已額滿 (只算大聲公)
+                    if (!isFly && isFull) countFull++;
+
+                    // 4. 我的
                     if (isMine) countMine++;
                 });
 
-                const updateGuestBadge = (id, count) => {
+
+
+                // 更新 Badge
+                const updateBadge = (id, count) => {
                     const el = document.getElementById(id);
                     if(el) {
-                        if(count > 0) {
-                            el.textContent = count > 99 ? '99+' : count;
-                            el.classList.remove('hidden');
-                        } else {
-                            el.classList.add('hidden');
-                        }
+                        el.textContent = count > 99 ? '99+' : count;
+                        el.classList.toggle('hidden', count === 0);
                     }
                 };
+                updateBadge('g-badge-all', countAll);
+                updateBadge('g-badge-fly', countFly); 
+                updateBadge('g-badge-full', countFull);
+                updateBadge('g-badge-mine', countMine);
 
-                updateGuestBadge('g-badge-all', countAll);
-                updateGuestBadge('g-badge-full', countFull);
-                updateGuestBadge('g-badge-mine', countMine);
-                // 結束計數
-
-                list.innerHTML = data.map(c => {
-                    const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
-                    // 判斷我是否已報名這場
-                    // 我們比對 localStorage 裡的紀錄
-                    const mySignupRecord = myGuestSignups.find(s => String(s.challengeId) === String(c.id));
-                    const isSignedUp = !!mySignupRecord;
-
-                    const signupCount = c.signups ? c.signups.length : 0;
-                    const displayDetails = detailsMap[c.details] || c.details;
-                    
-                    // 樣式計算
-                    const style = mushroomStyles[c.mushroom_type] || { bg: 'bg-gray-700', text: 'text-white' };
-                    const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap leading-none`;
-
-                    // 狀態標籤邏輯
-                    let statusBadgeHtml = '';
-                    let statusClass = 'status-open';
-                    let statusText = '報名中';
-
-                    if (c.status === '已額滿') {
-                        statusClass = 'status-full';
-                        statusText = '已額滿';
-                    } else if (c.status === '預計開放') {
-                        statusClass = 'status-pending';
-                        statusText = '預計開放';
-                    }
-                    statusBadgeHtml = `<span class="${statusClass} status-badge">${statusText}</span>`;
-
-                    // 倒數計時與時間顯示邏輯
-                    let timeDisplayHtml = '';
-                    if (c.status === '預計開放' && new Date(c.start_time) > new Date()) {
-                        timeDisplayHtml = `<p class="text-yellow-400 font-bold">等待時間: <span class="countdown-timer" data-starttime="${c.start_time}">計算中...</span></p>`;
+                // 渲染列表
+                list.innerHTML = allData.map(c => {
+                    if (c.dataType === 'fly') {
+                        return renderFlyCard(c); // 抽離自飛卡片渲染邏輯
                     } else {
-                        timeDisplayHtml = `<p>開放報名時間: ${new Date(c.start_time).toLocaleString('zh-TW', {hour12:false})}</p>`;
+                        return renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups); // 既有的渲染邏輯
                     }
-
-                    // 火侯樣式邏輯 (移植自前台)
-                    let cookingStyleClass = 'text-gray-400 border-gray-500/30';
-                    const cStyle = c.cooking_style || '';
-                    if (cStyle.includes('大火快炒')) cookingStyleClass = 'text-red-500 border-red-500/30';
-                    else if (cStyle.includes('細火慢燉')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
-                    else if (cStyle.includes('隨便亂炒')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
-                    
-                    const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>`;
-
-                    // 參加者名單 HTML
-                    let participantsHtml = '';
-                    if (signupCount > 0) {
-                        const sortedSignups = c.signups.sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
-                        const rows = sortedSignups.map((s, idx) => {
-                            const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
-
-                            // 判斷是正式會員還是訪客
-                            let rawName = '未知';
-                            if (s.profile && s.profile.nickname) {
-                                rawName = s.profile.nickname; // 正式會員
-                            } else if (s.guest_name) {
-                                rawName = s.guest_name; // 訪客 (格式: 暱稱💪好友碼)
-                            }
-                            // 處理好友碼擷取 (支援 💪 或 ✈️ 或 純數字)
-                            const codeMatch = rawName.match(/(\d{12})/);
-                            const friendCode = codeMatch ? codeMatch[1] : '';
-
-                            // 顯示名稱處理 (移除好友碼部分，讓版面乾淨)
-                            // 這裡我們用正則表達式把後面的符號+數字切掉，只留暱稱
-                            let displayName = rawName.replace(/[✈️💪]?[\s\uFEFF\xA0]*\d{12}$/, '').trim();
-
-                            const time = formatSignupTime(s.signed_up_at);
-                            const clickAttr = friendCode ? `onclick="copyText('${friendCode}')" title="點擊複製: ${friendCode}"` : '';
-                            const nameClass = friendCode ? 'text-gray-300 font-mono copy-cursor truncate' : 'text-gray-300 truncate';
-                            
-                            // 訪客圖示 (可選)
-                            const icon = s.guest_name ? '🛸' : '';
-
-                            return `
-                                <div class="participant-item">
-                                    <div class="flex items-center w-full overflow-hidden">
-                                        <span class="participant-rank">${rank}</span>
-                                        <span class="${nameClass} flex-1" ${clickAttr}>${rawName}</span>
-                                    </div>
-                                    <span class="text-gray-500 font-mono text-xs ml-2 whitespace-nowrap">${time}</span>
-                                </div>
-                            `;
-                        }).join('');
-                        // 在名單下方加入白色粗體提示
-                        participantsHtml = `
-                            <div class="participant-list">
-                                ${rows}
-                                <div class="text-center mt-2 border-t border-gray-700/50 pt-1">
-                                    <span class="text-white font-bold text-xs opacity-80">✨ 點擊暱稱複製好友碼 ✨</span>
-                                </div>
-                            </div>`;
-                    }
-
-                    let actionButtonHtml = '';
-
-                    // 1. 如果我是發菇者 -> 顯示編輯/刪除 (優先權最高)
-                    if (isMine) {
-                        actionButtonHtml = `
-                            <div class="mt-4 flex gap-2">
-                                <button onclick="editGuestPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">編輯</button>
-                                <button onclick="deleteGuestPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">刪除</button>
-                            </div>`;
-                    } 
-                    // 2. 如果我已報名 -> 顯示取消
-                    else if (isSignedUp) {
-                        actionButtonHtml = `<button onclick="handleGuestCancel(${c.id})" class="mt-4 w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">取消報名</button>`;
-                    }
-                    // 3. 如果已額滿 -> 顯示額滿 (Disabled)
-                    else if (c.status === '已額滿') {
-                        actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>已額滿</button>`;
-                    }
-                    // 4. 預計開放 -> 顯示未開放 (Disabled)
-                    else if (c.status === '預計開放') {
-                        actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>尚未開放</button>`;
-                    }
-                    // 5. 正常狀態 -> 顯示報名按鈕
-                    else {
-                        // ★ 核心修改：加入冷卻時間判斷
-                        const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
-                        
-                        if (cooldownLeft > 0) {
-                            // 冷卻中狀態
-                            actionButtonHtml = `<button class="guest-signup-btn mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
-                        } else {
-                            // 可報名狀態 (注意：這裡加了 guest-signup-btn class)
-                            actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 立即報名</button>`;
-                        }
-                    }
-                    
-                    let notesHtml = '';
-                    if (c.notes && c.notes.trim() !== '') {
-                         notesHtml = `<div class="mt-1 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
-                    } // ★★★ 補回的結尾括號 ★★★
-
-                    // 發菇者顯示邏輯
-                    const hostNameRaw = c.display_host_name || '未知';
-                    const hostCodeMatch = hostNameRaw.match(/(\d{12})/); // 抓取 12 位數字
-                    let hostDisplayHtml = hostNameRaw;
-
-                    if (hostCodeMatch) {
-                        const code = hostCodeMatch[1];
-                        // 加入點擊複製功能 (呼叫既有的 copyText 函式)
-                        hostDisplayHtml = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${code}')" title="點擊複製好友碼: ${code}">${hostNameRaw}</span>`;
-                    }
-
-                    return `
-                        <div class="challenge-card p-4 rounded-xl relative hover:border-pink-500 transition-colors duration-300" 
-                             data-status="${c.status}" 
-                             data-ismine="${isMine}">
-                            
-                            <div class="absolute top-2 right-2 flex items-center">
-                                ${statusBadgeHtml}
-                                <span class="guest-badge">GUEST</span>
-                            </div>
-                            
-                            <div class="flex items-center gap-2 mb-2">
-                                <h3 class="${titleClasses}">${c.mushroom_type}</h3>
-                                <span class="text-sm font-bold text-gray-500 leading-none">#${c.id}</span>
-                            </div>
-
-                            <p class="text-sm text-pink-400 font-bold mb-2">發菇者: ${hostDisplayHtml}</p>
-                            <div class="text-sm text-gray-400 space-y-1">
-                                ${timeDisplayHtml}
-                                <p>呼叫時段: 📣 ${displayDetails}</p>
-                                ${fireHtml}
-                                <p>名額: ${signupCount} / ${c.slots}</p>
-                                ${notesHtml}
-                            </div>
-                            ${participantsHtml}
-                            
-                            ${actionButtonHtml}
-                        </div>
-                    `;
                 }).join('');
 
                 // 渲染完畢後套用篩選與倒數更新
@@ -676,6 +596,246 @@
                 console.error(err);
                 list.innerHTML = '<p class="col-span-full text-center text-red-400">讀取失敗</p>';
             }
+        }
+
+        function renderFlyCard(c) {
+            const isMine = myFlyPostIds.includes(c.id);
+            
+            // 處理火侯樣式
+            let cookingStyleClass = 'text-gray-400 border-gray-500/30';
+            const cStyle = c.cooking_style || '';
+            if (cStyle.includes('大火')) cookingStyleClass = 'text-red-500 border-red-500/30';
+            else if (cStyle.includes('細火')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
+            else if (cStyle.includes('隨便')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
+            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>`;
+
+            // 處理備註
+            let notesHtml = '';
+            if (c.notes && c.notes.trim()) {
+                 notesHtml = `<div class="mt-1 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
+            }
+
+            // 發菇者 (點擊複製好友碼)
+            const hostDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${c.friend_code}')" title="複製好友碼: ${c.friend_code}">${c.nickname}</span>`;
+
+            // 操作按鈕
+            let actionBtnHtml = '';
+            if (isMine) {
+                actionBtnHtml = `
+                    <div class="mt-4 flex gap-2">
+                        <button onclick="editFlyPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">編輯</button>
+                        <button onclick="deleteFlyPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">刪除</button>
+                    </div>`;
+            } else {
+                actionBtnHtml = `
+                    <button onclick="handleFlyCopy('${c.coordinates}')" class="mt-4 w-full bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition shadow-lg transform active:scale-95 flex justify-center items-center gap-2">
+                        <span>🚀</span> 我要起飛
+                    </button>`;
+            }
+
+            // ★ 修改：時間格式改為 YYYY/MM/DD HH:mm:ss
+            const postTime = new Date(c.created_at).toLocaleString('zh-TW', { hour12: false });
+
+            return `
+                <div class="challenge-card p-4 rounded-xl relative border border-cyan-800 bg-gray-800/80 hover:border-cyan-500 transition-colors duration-300" 
+                     data-datatype="fly" 
+                     data-ismine="${isMine}">
+                    
+                    <div class="absolute top-2 right-2 flex items-center gap-2">
+                        <span class="bg-cyan-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">自飛</span>
+                        <span class="guest-badge">GUEST</span>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-2xl">✈️</span>
+                        <h3 class="text-lg font-bold text-cyan-400">座標自飛</h3>
+                    </div>
+
+                    <p class="text-sm text-gray-300 font-bold mb-2">發菇者: ${hostDisplay}</p>
+                    
+                    <div class="text-sm text-gray-400 space-y-1">
+                        <p>發布時間: ${postTime}</p>
+                        <p>名額: ${c.slots} 人</p>
+                        <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded border border-gray-700">
+                            <span class="font-mono text-xs text-gray-300 truncate select-all">${c.coordinates}</span>
+                        </div>
+                        ${fireHtml}
+                        ${notesHtml}
+                    </div>
+
+                    ${actionBtnHtml}
+                </div>
+            `;
+        }
+
+        function renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups) {
+            // 1. 判斷基本狀態
+            // myGuestPostIds 為全域變數，紀錄我發布過的 ID
+            const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
+            
+            // 判斷我是否已報名 (比對 localStorage 紀錄)
+            const mySignupRecord = myGuestSignups.find(s => String(s.challengeId) === String(c.id));
+            const isSignedUp = !!mySignupRecord;
+
+            const signupCount = c.signups ? c.signups.length : 0;
+            const displayDetails = detailsMap[c.details] || c.details;
+            
+            // 2. 樣式計算 (背景色)
+            const style = mushroomStyles[c.mushroom_type] || { bg: 'bg-gray-700', text: 'text-white' };
+            const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap leading-none`;
+
+            // 3. 狀態標籤邏輯
+            let statusBadgeHtml = '';
+            let statusClass = 'status-open';
+            let statusText = '報名中';
+
+            if (c.status === '已額滿') {
+                statusClass = 'status-full';
+                statusText = '已額滿';
+            } else if (c.status === '預計開放') {
+                statusClass = 'status-pending';
+                statusText = '預計開放';
+            }
+            statusBadgeHtml = `<span class="${statusClass} status-badge">${statusText}</span>`;
+
+            // 4. 時間顯示與倒數計時邏輯
+            let timeDisplayHtml = '';
+            if (c.status === '預計開放' && new Date(c.start_time) > new Date()) {
+                timeDisplayHtml = `<p class="text-yellow-400 font-bold">等待時間: <span class="countdown-timer" data-starttime="${c.start_time}">計算中...</span></p>`;
+            } else {
+                timeDisplayHtml = `<p>開放報名時間: ${new Date(c.start_time).toLocaleString('zh-TW', {hour12:false})}</p>`;
+            }
+
+            // 5. 火侯樣式邏輯
+            let cookingStyleClass = 'text-gray-400 border-gray-500/30';
+            const cStyle = c.cooking_style || '';
+            if (cStyle.includes('大火快炒')) cookingStyleClass = 'text-red-500 border-red-500/30';
+            else if (cStyle.includes('細火慢燉')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
+            else if (cStyle.includes('隨便亂炒')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
+            
+            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>`;
+
+            // 6. 參加者名單 HTML 生成
+            let participantsHtml = '';
+            if (signupCount > 0) {
+                const sortedSignups = c.signups.sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
+                const rows = sortedSignups.map((s, idx) => {
+                    const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
+
+                    // 判斷是正式會員還是訪客
+                    let rawName = '未知';
+                    if (s.profile && s.profile.nickname) {
+                        rawName = s.profile.nickname; // 正式會員
+                    } else if (s.guest_name) {
+                        rawName = s.guest_name; // 訪客 (格式: 暱稱💪好友碼)
+                    }
+                    // 處理好友碼擷取 (支援 💪 或 ✈️ 或 純數字)
+                    const codeMatch = rawName.match(/(\d{12})/);
+                    const friendCode = codeMatch ? codeMatch[1] : '';
+
+                    // 顯示名稱處理 (移除好友碼部分，讓版面乾淨)
+                    let displayName = rawName.replace(/[✈️💪]?[\s\uFEFF\xA0]*\d{12}$/, '').trim();
+
+                    const time = formatSignupTime(s.signed_up_at);
+                    const clickAttr = friendCode ? `onclick="copyText('${friendCode}')" title="點擊複製: ${friendCode}"` : '';
+                    const nameClass = friendCode ? 'text-gray-300 font-mono copy-cursor truncate' : 'text-gray-300 truncate';
+                    
+                    return `
+                        <div class="participant-item">
+                            <div class="flex items-center w-full overflow-hidden">
+                                <span class="participant-rank">${rank}</span>
+                                <span class="${nameClass} flex-1" ${clickAttr}>${rawName}</span>
+                            </div>
+                            <span class="text-gray-500 font-mono text-xs ml-2 whitespace-nowrap">${time}</span>
+                        </div>
+                    `;
+                }).join('');
+                
+                participantsHtml = `
+                    <div class="participant-list">
+                        ${rows}
+                        <div class="text-center mt-2 border-t border-gray-700/50 pt-1">
+                            <span class="text-white font-bold text-xs opacity-80">✨ 點擊暱稱複製好友碼 ✨</span>
+                        </div>
+                    </div>`;
+            }
+
+            // 7. 操作按鈕邏輯
+            let actionButtonHtml = '';
+
+            if (isMine) {
+                // 如果我是發菇者 -> 顯示編輯/刪除
+                actionButtonHtml = `
+                    <div class="mt-4 flex gap-2">
+                        <button onclick="editGuestPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">編輯</button>
+                        <button onclick="deleteGuestPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">刪除</button>
+                    </div>`;
+            } else if (isSignedUp) {
+                // 如果我已報名 -> 顯示取消
+                actionButtonHtml = `<button onclick="handleGuestCancel(${c.id})" class="mt-4 w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">取消報名</button>`;
+            } else if (c.status === '已額滿') {
+                actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>已額滿</button>`;
+            } else if (c.status === '預計開放') {
+                actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>尚未開放</button>`;
+            } else {
+                // 正常報名狀態 (檢查全域冷卻)
+                // globalCooldownUntil 為全域變數
+                const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
+                
+                if (cooldownLeft > 0) {
+                    actionButtonHtml = `<button class="guest-signup-btn mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
+                } else {
+                    actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 立即報名</button>`;
+                }
+            }
+            
+            // 8. 備註顯示
+            let notesHtml = '';
+            if (c.notes && c.notes.trim() !== '') {
+                 notesHtml = `<div class="mt-1 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
+            }
+
+            // 9. 發菇者顯示與複製功能
+            const hostNameRaw = c.display_host_name || '未知';
+            const hostCodeMatch = hostNameRaw.match(/(\d{12})/);
+            let hostDisplayHtml = hostNameRaw;
+
+            if (hostCodeMatch) {
+                const code = hostCodeMatch[1];
+                hostDisplayHtml = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${code}')" title="點擊複製好友碼: ${code}">${hostNameRaw}</span>`;
+            }
+
+            // 10. 回傳完整卡片 HTML
+            // 注意：這裡加入了 data-datatype="normal"
+            return `
+                <div class="challenge-card p-4 rounded-xl relative hover:border-pink-500 transition-colors duration-300" 
+                     data-status="${c.status}" 
+                     data-datatype="normal"
+                     data-ismine="${isMine}">
+                    
+                    <div class="absolute top-2 right-2 flex items-center">
+                        ${statusBadgeHtml}
+                        <span class="guest-badge">GUEST</span>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 mb-2">
+                        <h3 class="${titleClasses}">${c.mushroom_type}</h3>
+                        <span class="text-sm font-bold text-gray-500 leading-none">#${c.id}</span>
+                    </div>
+
+                    <p class="text-sm text-pink-400 font-bold mb-2">發菇者: ${hostDisplayHtml}</p>
+                    <div class="text-sm text-gray-400 space-y-1">
+                        ${timeDisplayHtml}
+                        <p>呼叫時段: 📣 ${displayDetails}</p>
+                        ${fireHtml}
+                        <p>名額: ${signupCount} / ${c.slots}</p>
+                        ${notesHtml}
+                    </div>
+                    ${participantsHtml}
+                    
+                    ${actionButtonHtml}
+                </div>
+            `;
         }
 
         // --- Modal 操作 ---
@@ -914,7 +1074,7 @@
                     if(btn) {
                         btn.disabled = false;
                         btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                        btn.innerHTML = '<span style="font-size: 25px;">🍄</span> 發布蘑菇挑戰 <span style="font-size: 25px;">🍄</span>';
+                        btn.innerHTML = '<span style="font-size: 25px;">📣</span> 發布蘑菇挑戰 <span style="font-size: 25px;">🍄</span>';
                     }
                 }
             } catch (e) {
@@ -939,18 +1099,24 @@
             let count = 0;
             
             cards.forEach(card => {
-                const status = card.dataset.status;
+                const status = card.dataset.status; // normal 卡片才有
+                const dataType = card.dataset.datatype; // 'normal' or 'fly'
                 const isMine = card.dataset.ismine === 'true';
                 let show = false;
 
                 if (activeFilter === 'all') {
-                    // 全部：顯示「非額滿」的 (依據您的需求，全部通常包含所有，但dashboard通常預設隱藏額滿)
-                    // 根據您要求「全部挑戰」、「已額滿」、「我的」，這裡做簡單分類：
-                    // 全部 = 顯示所有 (或僅顯示未額滿，看您 Dashboard 的邏輯，這裡預設顯示所有非額滿以保持版面乾淨，或者全部顯示)
-                    // 修正：Dashboard 的「全部」通常不含「已額滿」。
-                    if (status !== '已額滿') show = true;
+                    // 全部：顯示所有自飛 + 所有非額滿的大聲公
+                    if (dataType === 'fly') show = true;
+                    else if (status !== '已額滿') show = true;
+                    
+                } else if (activeFilter === 'fly') {
+                    // 只顯示自飛
+                    if (dataType === 'fly') show = true;
+
                 } else if (activeFilter === 'full') {
-                    if (status === '已額滿') show = true;
+                    // 只顯示已額滿 (僅大聲公有此狀態)
+                    if (dataType === 'normal' && status === '已額滿') show = true;
+
                 } else if (activeFilter === 'mine') {
                     if (isMine) show = true;
                 }
@@ -1195,27 +1361,47 @@
 
         // 3. 播放器準備就緒
         function onPlayerReady(event) {
-            // ★ 強制設定隨機播放模式 (確保清單順序被打亂)
+            // 強制設定隨機
             event.target.setShuffle(true);
             
-            // 抓取總長度 (稍微延遲以確保資料載入)
+            // 抓取總長度
             setTimeout(() => {
+                if (!musicPlayer || !musicPlayer.getDuration) return;
                 const total = musicPlayer.getDuration();
                 if (total) document.getElementById('music-progress').max = Math.floor(total);
             }, 1000);
 
-            // ★ 嘗試自動播放邏輯
-            try {
-                // 先設定音量
-                musicPlayer.setVolume(50); 
+            // ★ 修改：強壯的自動播放邏輯 (有聲失敗 -> 轉靜音)
+            const attemptPlay = () => {
+                // 1. 設定音量
+                musicPlayer.setVolume(50);
+                musicPlayer.unMute(); // 嘗試解開靜音
                 
-                // 隨機播放技巧：先設 shuffle，然後播放第 0 首，通常 API 會自動抓取洗牌後的第一首
-                // 或是使用 nextVideo() 來跳轉
-                musicPlayer.playVideoAt(0); 
-                
-            } catch(e) {
-                console.log("自動播放被阻擋，等待使用者互動");
-            }
+                // 2. 嘗試播放 (使用 Promise 或直接呼叫)
+                // 由於 YouTube API 的 playVideoAt 沒有回傳 Promise，我們只能盡量呼叫
+                musicPlayer.playVideoAt(0);
+
+                // 3. 檢查狀態：如果 1秒後 還沒開始放 (狀態不是 BUFFERING 或 PLAYING)，就轉靜音重試
+                setTimeout(() => {
+                    const state = musicPlayer.getPlayerState();
+                    // -1: 未開始, 0: 結束, 2: 暫停, 5: 插入影片
+                    // 如果還停在 -1 或 2，代表被阻擋了
+                    if (state === -1 || state === 2) {
+                        console.log("有聲播放被阻擋，切換為靜音自動播放");
+                        musicPlayer.mute(); // ★ 關鍵：靜音
+                        musicPlayer.playVideoAt(0); // 再試一次
+                        
+                        // 讓音量按鈕亮紅燈，提示使用者目前是靜音
+                        const volBtn = document.getElementById('music-volume-btn');
+                        if(volBtn) {
+                            volBtn.classList.remove('text-gray-300');
+                            volBtn.classList.add('text-red-500');
+                        }
+                    }
+                }, 1000);
+            };
+
+            attemptPlay();
         }
 
         // 4. 監聽狀態
@@ -1370,6 +1556,183 @@
                 }
             });
         }
+
+        // 座標格式化工具
+        function formatCoordinateString(input) {
+            if (!input) return "";
+            let str = input.trim().replace(/，/g, ',');
+            // 簡單判斷度分秒
+            const isDMS = str.includes('°') && (str.includes("'") || str.includes('"') || str.includes('’'));
+            let lat = 0, lng = 0, success = false;
+
+            if (isDMS) {
+                const numbers = str.match(/(\d+(\.\d+)?)/g);
+                const directions = str.match(/[NSEW北南東西]/gi) || [];
+                if (numbers && numbers.length >= 6) {
+                    let d1=parseFloat(numbers[0]), m1=parseFloat(numbers[1]), s1=parseFloat(numbers[2]);
+                    let d2=parseFloat(numbers[3]), m2=parseFloat(numbers[4]), s2=parseFloat(numbers[5]);
+                    lat = d1 + (m1/60) + (s1/3600);
+                    lng = d2 + (m2/60) + (s2/3600);
+                    const dirStr = directions.join('');
+                    if (/[S南]/.test(dirStr) && lat > 0) lat = -lat;
+                    if (/[W西]/.test(dirStr) && lng > 0) lng = -lng;
+                    success = true;
+                }
+            } else {
+                const isLatNeg = /[S南]/.test(str);
+                const isLngNeg = /[W西]/.test(str);
+                const numbers = str.match(/(-?\d+(\.\d+)?)/g);
+                if (numbers && numbers.length >= 2) {
+                    lat = parseFloat(numbers[0]);
+                    lng = parseFloat(numbers[1]);
+                    if (isLatNeg && lat > 0) lat = -lat;
+                    if (isLngNeg && lng > 0) lng = -lng;
+                    success = true;
+                }
+            }
+            return success ? `${lat.toFixed(7)}, ${lng.toFixed(7)}` : input;
+        }
+
+        // 貼上座標按鈕邏輯
+        const fCoords = document.getElementById('f-coords');
+        document.getElementById('paste-coords-btn').onclick = async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                if(text) {
+                    const formatted = formatCoordinateString(text);
+                    fCoords.value = formatted;
+                    showToast(formatted !== text ? '已自動轉換座標格式' : '已貼上座標', false);
+                } else showToast('剪貼簿是空的', true);
+            } catch(e) { showToast('無法讀取剪貼簿', true); }
+        };
+        
+        // 離開焦點時自動格式化
+        fCoords.addEventListener('blur', function() {
+            this.value = formatCoordinateString(this.value);
+        });
+        
+        // 開啟自飛 Modal
+        const flyModal = document.getElementById('fly-modal');
+        const flyForm = document.getElementById('fly-form');
+        
+        document.getElementById('open-fly-modal').onclick = () => {
+            flyForm.reset();
+            document.getElementById('fly-edit-id').value = '';
+            document.getElementById('fly-modal-title').textContent = '✈️ 發布自飛座標';
+            flyModal.classList.remove('hidden');
+        };
+        document.getElementById('close-fly-modal').onclick = () => flyModal.classList.add('hidden');
+
+        // 自飛表單送出
+        flyForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const nick = localStorage.getItem('guest_nick');
+            const code = localStorage.getItem('guest_code');
+            if (!nick || !code) { showToast('請先設定訪客身分', true); return; }
+
+            // ▼▼▼ 新增：座標格式檢查與自動修正 ▼▼▼
+            const coordInput = document.getElementById('f-coords');
+            let coordVal = coordInput.value.trim();
+
+            // 1. 嘗試使用工具函式自動格式化 (處理度分秒或中文座標)
+            // (前提是您已在程式碼中加入了 formatCoordinateString 函式)
+            coordVal = formatCoordinateString(coordVal);
+            coordInput.value = coordVal; // 將標準化後的值回填至輸入框
+
+            // 2. 嚴格驗證格式 (必須是 "數字, 數字")
+            // Regex 解釋: 可選負號 + 數字 + 可選小數點 + 逗號 + 可選空白 + 可選負號 + 數字
+            const coordRegex = /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/;
+            
+            if (!coordRegex.test(coordVal)) {
+                showToast('座標格式錯誤！請確認為「緯度, 經度」格式 (例: 22.123, 120.456)', true);
+                // 聚焦錯誤欄位並加入紅框提示
+                coordInput.focus();
+                coordInput.classList.add('ring-2', 'ring-red-500');
+                setTimeout(() => coordInput.classList.remove('ring-2', 'ring-red-500'), 2000);
+                return; // 阻止送出
+            }
+            // ▲▲▲ 新增結束 ▲▲▲
+
+            const btn = document.getElementById('fly-submit-btn');
+            btn.disabled = true; btn.textContent = '處理中...';
+
+            const payload = {
+                nickname: nick,
+                friendCode: code,
+                slots: document.getElementById('f-slots').value,
+                coordinates: coordVal, // 使用驗證過的座標值
+                cookingStyle: document.getElementById('f-style').value,
+                notes: document.getElementById('f-notes').value,
+                id: document.getElementById('fly-edit-id').value // 用於編輯
+            };
+
+            const action = payload.id ? 'guest-edit-fly' : 'guest-create-fly';
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action, payload })
+                });
+
+                if (error || (data && data.error)) throw new Error(data?.error || error.message);
+
+                if (action === 'guest-create-fly' && data.data) {
+                    myFlyPostIds.push(data.data.id);
+                    localStorage.setItem('my_fly_post_ids', JSON.stringify(myFlyPostIds));
+                }
+
+                showToast(action === 'guest-create-fly' ? '自飛發布成功！' : '更新成功！', false);
+                flyModal.classList.add('hidden');
+                loadChallenges(); // 重新整理列表
+
+            } catch (err) {
+                console.error(err);
+                showToast(`操作失敗: ${err.message}`, true);
+            } finally {
+                btn.disabled = false; btn.textContent = '確認送出';
+            }
+        };
+
+        // 編輯自飛
+        window.editFlyPost = (id) => {
+            // 這裡簡單實作：從 DOM 或重新 fetch 拿資料
+            // 為了方便，我們直接從畫面上按鈕的 context 拿不到資料，建議用 id 去 find
+            // (需將 allData 存為全域變數或用 API 撈單筆)
+            // 這裡用簡單的 hack: 重新呼叫 loadChallenges 時把資料暫存下來 (建議您在 loadChallenges 內把 allData 存到 window.currentAllData)
+            // 假設我們有 window.currentAllData
+            const data = window.currentAllData.find(d => d.id === id && d.dataType === 'fly');
+            if(!data) return;
+
+            document.getElementById('fly-edit-id').value = data.id;
+            document.getElementById('f-slots').value = data.slots;
+            document.getElementById('f-coords').value = data.coordinates;
+            document.getElementById('f-style').value = data.cooking_style;
+            document.getElementById('f-notes').value = data.notes || '';
+            
+            document.getElementById('fly-modal-title').textContent = '編輯自飛座標';
+            flyModal.classList.remove('hidden');
+        };
+
+        // 刪除自飛
+        window.deleteFlyPost = async (id) => {
+            if(!confirm('確定刪除這個自飛座標嗎？')) return;
+            try {
+                const { error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'guest-delete-fly', payload: { id } })
+                });
+                if(error) throw error;
+                
+                myFlyPostIds = myFlyPostIds.filter(pid => pid !== id);
+                localStorage.setItem('my_fly_post_ids', JSON.stringify(myFlyPostIds));
+                showToast('已刪除', false);
+                loadChallenges();
+            } catch(e) { showToast(`刪除失敗: ${e.message}`, true); }
+        };
+
+        // 我要起飛 (複製座標)
+        window.handleFlyCopy = (coords) => {
+            copyText(coords);
+            showToast('🚀 座標複製成功！起飛囉～', false);
+        };
     </script>
 </body>
 </html>

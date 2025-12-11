@@ -127,7 +127,7 @@ serve(async (req) => {
 
 
     // ============================================================
-    // 區塊 A：系統自動化 (無需 User Auth)
+    // 區塊 A：系統自動化 與 訪客公開功能 (無需 User Auth)
     // ============================================================
 
     // 1. 排程發信通知 (報名通知)
@@ -364,7 +364,10 @@ serve(async (req) => {
         });
     }
 
+    // ============================================================
     // === 訪客專用功能 (無需 Auth) ===
+    // ============================================================
+
     // 安全性核心：所有 Update/Delete 操作都必須強制加上 .eq('is_guest', true)
     
     // 查詢訪客今日已發布數量 (用於前端顯示額度)
@@ -391,7 +394,7 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // ★★★ 新增這段：讀取訪客蘑菇列表 (讓未登入者也能讀取) ★★★
+    // ★★★ 讀取訪客蘑菇列表 (讓未登入者也能讀取) ★★★
     if (action === 'list-guest-challenges') {
         const { data, error } = await adminSupabaseClient
             .from('challenges')
@@ -427,13 +430,11 @@ serve(async (req) => {
         // ★ 1. 獲取訪客 IP (從 Header 讀取)
         const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
 
-        
-
         const { count: dailyCount, error: countErr } = await adminSupabaseClient
             .from('challenges')
-            .select('*', { count: 'exact', head: true }) // 只算數量，不讀資料
+            .select('*', { count: 'exact', head: true })
             .eq('is_guest', true)
-            .eq('guest_ip', clientIp)
+            .eq('guest_ip', clientIp);
 
         if (countErr) throw new Error('系統忙碌中，請稍後再試');
 
@@ -531,7 +532,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // ★★★ 修正版：訪客報名 (Join) - 補上狀態更新邏輯 ★★★
+    // ★★★ 訪客報名 (Join) - 補上狀態更新邏輯 ★★★
     if (action === 'guest-join-challenge') {
         const { challengeId, nickname, friendCode } = payload;
         const guestName = `${nickname}💪${friendCode}`;
@@ -643,6 +644,78 @@ serve(async (req) => {
         }
 
         return new Response(JSON.stringify({ success: true, data: { message: '已取消報名' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // ==========================================
+    // ▼▼▼ 自飛蘑菇 (Self-Fly) 相關功能 (移至此處) ▼▼▼
+    // ==========================================
+
+    // 讀取自飛列表 (含清理)
+    if (action === 'list-guest-fly') {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      await adminSupabaseClient
+        .from('guest_fly_posts')
+        .delete()
+        .lt('created_at', oneHourAgo);
+
+      const { data, error } = await adminSupabaseClient
+        .from('guest_fly_posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 發布自飛
+    if (action === 'guest-create-fly') {
+      const { nickname, friendCode, slots, coordinates, cookingStyle, notes } = payload;
+      const { data, error } = await adminSupabaseClient
+        .from('guest_fly_posts')
+        .insert({
+          nickname,
+          friend_code: friendCode,
+          slots: parseInt(slots),
+          coordinates,
+          cooking_style: cookingStyle,
+          notes
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 編輯自飛
+    if (action === 'guest-edit-fly') {
+      const { id, slots, coordinates, cookingStyle, notes } = payload;
+      const { data, error } = await adminSupabaseClient
+        .from('guest_fly_posts')
+        .update({
+          slots: parseInt(slots),
+          coordinates,
+          cooking_style: cookingStyle,
+          notes
+        })
+        .eq('id', id)
+        .select()
+        .single();
+        
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 刪除自飛
+    if (action === 'guest-delete-fly') {
+      const { id } = payload;
+      const { error } = await adminSupabaseClient
+        .from('guest_fly_posts')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, message: 'Deleted' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // ============================================================
@@ -932,7 +1005,7 @@ serve(async (req) => {
             } 
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
-    
+
     // ============================================================
     // 區塊 B2：管理員專屬功能 (B2 - Admin Only Actions)
     // 必須檢查 role === '管理者'，否則回傳 403
@@ -1102,15 +1175,7 @@ serve(async (req) => {
             break;
             
         case 'daily-reset-absent':
-            // 執行 SQL：將所有人的缺席分數 -1，但最低為 0
-            const { error: resetErr } = await adminSupabaseClient
-                .from('profiles')
-                .update({ 
-                    // 注意：Supabase JS 直接 update 無法做 "col = col - 1" 這種運算
-                    // 我們必須改用 RPC 呼叫，或者用純 SQL
-                });
-                
-            // 因為 Supabase JS 的 update 限制，建議直接呼叫一個簡單的 RPC
+            // ★ 修改：移除無效的空 update，只保留 RPC 呼叫
             const { error: rpcErr } = await adminSupabaseClient.rpc('daily_reduce_absent_score');
             
             if (rpcErr) throw rpcErr;
