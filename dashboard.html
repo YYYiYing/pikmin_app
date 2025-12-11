@@ -206,6 +206,69 @@
             color: #9ca3af;
             font-size: 0.8rem;
         }
+
+        /* === 音樂播放器氣泡模式 CSS === */
+
+        /* 1. 播放器容器基礎轉場設定 */
+        #bg-music-player {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 90vw; /* 避免手機版太寬 */
+        }
+
+        /* 2. 縮小狀態 (Collapsed) */
+        #bg-music-player.player-collapsed {
+            /* 定位到右下角 */
+            left: auto !important;
+            right: 1.5rem !important; /* right-6 */
+            bottom: 1.5rem !important; /* bottom-6 */
+            transform: translateX(0) !important;
+            
+            /* 變形為圓形氣泡 */
+            width: 3.5rem;
+            height: 3.5rem;
+            padding: 0;
+            border-radius: 9999px;
+            background-color: rgba(17, 24, 39, 0.9); /* bg-gray-900 */
+            border: 2px solid #ec4899; /* pink-500 */
+            cursor: pointer;
+            overflow: hidden;
+            
+            /* 內容置中 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 3. 縮小狀態下：隱藏原本的控制列與連結 */
+        #bg-music-player.player-collapsed .player-controls-wrapper,
+        #bg-music-player.player-collapsed > a {
+            opacity: 0;
+            pointer-events: none;
+            position: absolute; /* 避免佔位 */
+        }
+
+        /* 4. 縮小狀態下：顯示氣泡圖示 */
+        #bg-music-player.player-collapsed .bubble-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* 5. 展開狀態下：隱藏氣泡圖示 */
+        .bubble-icon {
+            position: absolute;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.3s ease;
+            font-size: 1.5rem;
+            pointer-events: none;
+            animation: bounce-slow 2s infinite;
+        }
+
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
     </style>
 </head>
 <body class="bg-gray-900">
@@ -276,7 +339,9 @@
         </div>
     </div>
 
-    <div id="bg-music-player" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col gap-1 items-center group">
+    <div id="bg-music-player" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col gap-1 items-center group transition-all duration-500">
+
+    <div class="bubble-icon">🎵</div>
 
     <a href="https://www.youtube.com/playlist?list=PLnvczP3jeVcKbv9p3sHtYmIEPZpuBlOAi" target="_blank" class="ml-2 text-[10px] text-gray-400 hover:text-pink-400 transition no-underline flex items-center gap-1 shadow-sm bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm border border-gray-700" title="前往官方播放清單">
         <span>🎵</span>
@@ -287,7 +352,7 @@
         </svg>
     </a>
 
-    <div class="bg-gray-900/90 backdrop-blur border border-gray-700 rounded-full px-4 py-2 shadow-2xl flex items-center gap-3 w-auto transition-all duration-300 hover:bg-gray-800 hover:border-gray-600 hover:scale-105">
+    <div class="player-controls-wrapper bg-gray-900/90 backdrop-blur border border-gray-700 rounded-full px-4 py-2 shadow-2xl flex items-center gap-3 w-auto transition-all duration-300 hover:bg-gray-800 hover:border-gray-600 hover:scale-105">
         
         <div id="youtube-player-container" class="absolute opacity-0 pointer-events-none w-[1px] h-[1px] overflow-hidden"></div>
 
@@ -3419,6 +3484,64 @@
             return `${m}:${s}`;
         };
         document.getElementById('music-time').textContent = `${format(current)} / ${format(total)}`;
+    }
+
+    // ==========================================
+    // ▼▼▼ 音樂播放器氣泡縮放邏輯 ▼▼▼
+    // ==========================================
+
+    // 1. 取得元素
+    const playerContainer = document.getElementById('bg-music-player');
+    let collapseTimer = null;
+    const COLLAPSE_DELAY = 3000; // 3秒後縮小
+
+    // 2. 定義縮小函式
+    function collapsePlayer() {
+        if(playerContainer) {
+            playerContainer.classList.add('player-collapsed');
+        }
+    }
+
+    // 3. 定義展開函式
+    function expandPlayer() {
+        if(playerContainer) {
+            playerContainer.classList.remove('player-collapsed');
+            resetCollapseTimer(); // 展開後重新開始倒數
+        }
+    }
+
+    // 4. 重置計時器 (如果滑鼠還在上面，就不縮小；滑鼠離開才縮小)
+    function resetCollapseTimer() {
+        if (collapseTimer) clearTimeout(collapseTimer);
+        collapseTimer = setTimeout(collapsePlayer, COLLAPSE_DELAY);
+    }
+
+    // 5. 初始化與事件綁定
+    if (playerContainer) {
+        // A. 頁面載入後，先啟動一次倒數
+        resetCollapseTimer();
+
+        // B. 滑鼠移入：展開並暫停縮小倒數
+        playerContainer.addEventListener('mouseenter', () => {
+            if(playerContainer.classList.contains('player-collapsed')) {
+                expandPlayer();
+            }
+            if (collapseTimer) clearTimeout(collapseTimer); // 清除倒數，保持展開
+        });
+
+        // C. 滑鼠移出：開始 3 秒倒數準備縮小
+        playerContainer.addEventListener('mouseleave', () => {
+            resetCollapseTimer();
+        });
+
+        // D. 點擊氣泡：展開 (適用於觸控裝置或點擊氣泡時)
+        playerContainer.addEventListener('click', (e) => {
+            // 如果目前是縮小狀態，則展開
+            if (playerContainer.classList.contains('player-collapsed')) {
+                expandPlayer();
+                e.stopPropagation(); // 避免點擊氣泡瞬間就觸發其他事件
+            }
+        });
     }
 </script>
 </body>
