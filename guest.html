@@ -21,13 +21,13 @@
 
         /* ... 既有樣式 ... */
         
-        /* ★ 新增：狀態標籤樣式 */
+        /* 狀態標籤樣式 */
         .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; margin-right: 6px; }
         .status-open { background-color: #10b981; color: white; }
         .status-full { background-color: #ef4444; color: white; }
         .status-pending { background-color: #f59e0b; color: white; }
 
-        /* ★ 新增：篩選按鈕樣式 */
+        /* 篩選按鈕樣式 */
         .filter-tab {
             padding: 6px 16px;
             cursor: pointer;
@@ -45,6 +45,14 @@
         .filter-tab:hover:not(.active) {
             background-color: #4b5563;
             color: white;
+        }
+
+        /* ★ 新增：冷卻中的按鈕樣式 */
+        .btn-cooldown {
+            background-color: #4b5563 !important;
+            cursor: not-allowed !important;
+            filter: grayscale(100%);
+            transform: none !important;
         }
     </style>
 </head>
@@ -226,13 +234,17 @@
 
         // 本地狀態
         let myGuestPostIds = JSON.parse(localStorage.getItem('my_guest_post_ids') || '[]');
+        
+        // ★ 新增：全域冷卻變數 (4秒)
+        let globalCooldownUntil = 0;    
+        let globalCooldownTimer = null; 
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
             loadGuestInfo();    // 載入訪客資訊
             loadChallenges();   // 載入挑戰列表
-            startGlobalCountdown(); // ★ 新增：啟動倒數計時
-            setupOnlinePresence(); // ★ 新增：設定在線人數
+            startGlobalCountdown(); // 啟動倒數計時
+            setupOnlinePresence(); // 設定在線人數
             
             // 訂閱更新
             supabaseClient.channel('guest-view')
@@ -260,7 +272,7 @@
                 return;
             }
             
-            // ★ 修改：加入好友碼格式檢查 (12位純數字)
+            // 加入好友碼格式檢查 (12位純數字)
             if (!/^\d{12}$/.test(code)) {
                 showToast('好友碼格式錯誤：必須為12位純數字', true);
                 return;
@@ -275,11 +287,11 @@
         function checkInfoComplete() {
             if(nickInput.value && codeInput.value) {
                 actionArea.classList.remove('hidden');
-                updateGuestQuota(); // ★ 加入這行：顯示按鈕時順便查額度
+                updateGuestQuota(); // 顯示按鈕時順便查額度
             }
         }
 
-        let activeFilter = 'all'; // ★ 新增：當前篩選狀態
+        let activeFilter = 'all'; // 當前篩選狀態
         // 載入挑戰
         async function loadChallenges() {
             const list = document.getElementById('guest-list');
@@ -320,8 +332,7 @@
                 '滿人開': '滿人開 (人滿後發)'
             };
 
-            // ★ 新增：讀取本地「我的報名紀錄」 (格式: Array of { challengeId, guestName })
-            // 這裡我們簡單存 ID 即可，或者存個 Map
+            // 讀取本地「我的報名紀錄」 (格式: Array of { challengeId, guestName })
             let myGuestSignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
 
             try {
@@ -336,7 +347,7 @@
 
                 if(data.length === 0) { list.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">目前沒有任何人發布蘑菇</p>'; return; }
 
-                // ★★★ 新增：計算並更新紅點 ★★★
+                // 計算並更新紅點
                 let countAll = 0;
                 let countFull = 0;
                 let countMine = 0;
@@ -370,11 +381,11 @@
                 updateGuestBadge('g-badge-all', countAll);
                 updateGuestBadge('g-badge-full', countFull);
                 updateGuestBadge('g-badge-mine', countMine);
-                // ★★★ 結束計數 ★★★
+                // 結束計數
 
                 list.innerHTML = data.map(c => {
                     const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
-                    // ★ 新增：判斷我是否已報名這場
+                    // 判斷我是否已報名這場
                     // 我們比對 localStorage 裡的紀錄
                     const mySignupRecord = myGuestSignups.find(s => String(s.challengeId) === String(c.id));
                     const isSignedUp = !!mySignupRecord;
@@ -386,7 +397,7 @@
                     const style = mushroomStyles[c.mushroom_type] || { bg: 'bg-gray-700', text: 'text-white' };
                     const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap leading-none`;
 
-                    // ★ 新增：狀態標籤邏輯
+                    // 狀態標籤邏輯
                     let statusBadgeHtml = '';
                     let statusClass = 'status-open';
                     let statusText = '報名中';
@@ -400,7 +411,7 @@
                     }
                     statusBadgeHtml = `<span class="${statusClass} status-badge">${statusText}</span>`;
 
-                    // ★ 新增：倒數計時與時間顯示邏輯
+                    // 倒數計時與時間顯示邏輯
                     let timeDisplayHtml = '';
                     if (c.status === '預計開放' && new Date(c.start_time) > new Date()) {
                         timeDisplayHtml = `<p class="text-yellow-400 font-bold">等待時間: <span class="countdown-timer" data-starttime="${c.start_time}">計算中...</span></p>`;
@@ -408,7 +419,7 @@
                         timeDisplayHtml = `<p>開放報名時間: ${new Date(c.start_time).toLocaleString('zh-TW', {hour12:false})}</p>`;
                     }
 
-                    // ★ 新增：火侯樣式邏輯 (移植自前台)
+                    // 火侯樣式邏輯 (移植自前台)
                     let cookingStyleClass = 'text-gray-400 border-gray-500/30';
                     const cStyle = c.cooking_style || '';
                     if (cStyle.includes('大火快炒')) cookingStyleClass = 'text-red-500 border-red-500/30';
@@ -424,7 +435,7 @@
                         const rows = sortedSignups.map((s, idx) => {
                             const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
 
-                            // ★ 關鍵：判斷是正式會員還是訪客
+                            // 判斷是正式會員還是訪客
                             let rawName = '未知';
                             if (s.profile && s.profile.nickname) {
                                 rawName = s.profile.nickname; // 正式會員
@@ -456,7 +467,7 @@
                                 </div>
                             `;
                         }).join('');
-                        // ★ 修改：在名單下方加入白色粗體提示
+                        // 在名單下方加入白色粗體提示
                         participantsHtml = `
                             <div class="participant-list">
                                 ${rows}
@@ -490,15 +501,24 @@
                     }
                     // 5. 正常狀態 -> 顯示報名按鈕
                     else {
-                        actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 立即報名</button>`;
+                        // ★ 核心修改：加入冷卻時間判斷
+                        const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
+                        
+                        if (cooldownLeft > 0) {
+                            // 冷卻中狀態
+                            actionButtonHtml = `<button class="guest-signup-btn mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
+                        } else {
+                            // 可報名狀態 (注意：這裡加了 guest-signup-btn class)
+                            actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 立即報名</button>`;
+                        }
                     }
                     
                     let notesHtml = '';
                     if (c.notes && c.notes.trim() !== '') {
                          notesHtml = `<div class="mt-1 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
-                    }
+                    } // ★★★ 補回的結尾括號 ★★★
 
-                    // ▼▼▼▼▼▼▼▼▼▼ 修改開始：發菇者顯示邏輯 ▼▼▼▼▼▼▼▼▼▼
+                    // 發菇者顯示邏輯
                     const hostNameRaw = c.display_host_name || '未知';
                     const hostCodeMatch = hostNameRaw.match(/(\d{12})/); // 抓取 12 位數字
                     let hostDisplayHtml = hostNameRaw;
@@ -539,7 +559,7 @@
                     `;
                 }).join('');
 
-                // ★ 新增：渲染完畢後套用篩選與倒數更新
+                // 渲染完畢後套用篩選與倒數更新
                 applyFilter();
                 updateAllCountdowns();
 
@@ -644,7 +664,7 @@
                 showToast(action === 'guest-create-challenge' ? '發布成功！' : '更新成功！', false);
                 modal.classList.add('hidden');
                 loadChallenges();
-                updateGuestQuota(); // ★ 加入這行：發布成功後更新額度顯示
+                updateGuestQuota(); // 發布成功後更新額度顯示
 
             } catch (err) {
                 console.error(err);
@@ -706,7 +726,7 @@
                 showToast('已刪除', false);
                 loadChallenges();
                 
-                // ★ 新增這行：刪除成功後，立即更新額度顯示
+                // 刪除成功後，立即更新額度顯示
                 updateGuestQuota(); 
 
             } catch(e) { showToast(`刪除失敗: ${e.message}`, true); }
@@ -754,7 +774,7 @@
             }, 3000);
         }
 
-        // ★ 新增：更新訪客額度顯示
+        // 更新訪客額度顯示
         async function updateGuestQuota() {
             const quotaEl = document.getElementById('quota-display');
             if(!quotaEl) return;
@@ -869,6 +889,36 @@
             });
         }
 
+        // ★ 新增：觸發全域冷卻 (控制秒數)
+        function triggerGlobalCooldown() {
+            // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+            // ★ 設定延遲秒數 (4000 = 4秒)
+            globalCooldownUntil = Date.now() + 4000; 
+            // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+            if (globalCooldownTimer) clearInterval(globalCooldownTimer);
+            
+            // 立即更新一次畫面 (避免等待 setInterval 的 100ms 延遲)
+            loadChallenges(); 
+
+            globalCooldownTimer = setInterval(() => {
+                const timeLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
+                const btns = document.querySelectorAll('.guest-signup-btn'); // 抓取所有報名按鈕
+                
+                if (timeLeft <= 0) {
+                    clearInterval(globalCooldownTimer);
+                    globalCooldownUntil = 0;
+                    loadChallenges(); // 時間到，刷新回正常按鈕
+                } else {
+                    btns.forEach(btn => {
+                        btn.disabled = true;
+                        btn.classList.add('btn-cooldown');
+                        btn.textContent = `冷卻中 ${timeLeft}s`;
+                    });
+                }
+            }, 100);
+        }
+
         // 處理訪客報名
         window.handleGuestSignup = async (challengeId) => {
             // 1. 檢查是否已設定身分
@@ -897,6 +947,9 @@
                 if (data && data.error) throw new Error(data.error);
 
                 showToast('報名成功！', false);
+                
+                // ★ 新增：啟動 4 秒冷卻鎖
+                triggerGlobalCooldown();
 
                 // 3. 更新本地紀錄
                 let mySignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
@@ -950,7 +1003,7 @@
             }
         };
 
-        // ★ 新增：在線人數監聽 (移植自 Dashboard)
+        // 在線人數監聽
         function setupOnlinePresence() {
             // 嘗試取得訪客暱稱，若無則顯示 '訪客'，避免 undefined
             const myNick = localStorage.getItem('guest_nick') || `訪客_${Math.floor(Math.random()*1000)}`;
@@ -978,7 +1031,7 @@
               });
         }
 
-        // ★ 新增：重新整理按鈕功能
+        // 重新整理按鈕功能
         const refreshBtn = document.getElementById('guest-refresh-btn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {

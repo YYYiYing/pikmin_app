@@ -2139,6 +2139,9 @@
 
     /** [取消報名] */
     async function handleCancelSignUp(challengeId, buttonEl) {
+        // 防呆確認，按下「取消」則不執行後續動作
+        if (!confirm('確定要取消報名嗎？')) return;
+
         buttonEl.disabled = true; buttonEl.textContent = '取消中...';
         const nid = parseInt(challengeId);
         const { error } = await supabaseClient.rpc('cancel_signup_and_update_challenge', { challenge_id_to_cancel: nid });
@@ -2154,7 +2157,7 @@
             updateQuotaDisplay();
         }
     }
-
+    
     /** [發車] */
     async function handleToggleDispatchStatus(challengeId, currentStatus) {
         const newStatus = currentStatus === '待發' ? '已發' : '待發';
