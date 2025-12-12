@@ -1496,17 +1496,27 @@
                 const state = ch.presenceState();
                 const rawList = Object.keys(state); 
                 
-                const namedUsers = rawList.filter(n => !n.startsWith('Guest_'));
-                const guestUsers = rawList.filter(n => n.startsWith('Guest_'));
+                // 1. 分組：利用是否包含 '👼' 來判斷是「已命名」還是「純訪客」
+                const namedUsers = rawList.filter(n => n.includes('👼'));
+                const guestUsers = rawList.filter(n => !n.includes('👼'));
                 
-                namedUsers.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+                // 2. 排序「已命名」：依照暱稱 (👼 前面的文字) 進行中文排序
+                namedUsers.sort((a, b) => {
+                    const nameA = a.split('👼')[0] || a;
+                    const nameB = b.split('👼')[0] || b;
+                    return nameA.localeCompare(nameB, 'zh-Hant');
+                });
+
+                // 3. 排序「純訪客」：一般排序
                 guestUsers.sort();
 
+                // 4. 組合名單：已命名在前 (...)，純訪客在後 (...)
                 onlineUserList = [...namedUsers, ...guestUsers];
                 
+                // --- 以下是更新介面文字的程式碼 (保持原樣即可，或直接複製覆蓋) ---
                 const el = document.getElementById('online-count');
-                const prefix = safeT('online_prefix', '目前在線:');
-                const unit = safeT('unit_person', '人');
+                const prefix = window.t ? window.t('online_prefix') : '目前在線:';
+                const unit = window.t ? window.t('unit_person') : '人';
 
                 if(el) {
                     el.textContent = `${prefix} ${onlineUserList.length} ${unit}`;
