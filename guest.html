@@ -19,8 +19,6 @@
         .copy-cursor { cursor: pointer; transition: color 0.2s; }
         .copy-cursor:hover { color: #fff; text-decoration: underline; }
 
-        /* ... 既有樣式 ... */
-        
         /* 狀態標籤樣式 */
         .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; margin-right: 6px; }
         .status-open { background-color: #10b981; color: white; }
@@ -47,7 +45,7 @@
             color: white;
         }
 
-        /* ★ 新增：冷卻中的按鈕樣式 */
+        /* 冷卻中的按鈕樣式 */
         .btn-cooldown {
             background-color: #4b5563 !important;
             cursor: not-allowed !important;
@@ -55,54 +53,39 @@
             transform: none !important;
         }
 
-                /* === 音樂播放器氣泡模式 CSS === */
-
-        /* 1. 播放器容器基礎轉場設定 */
+        /* === 音樂播放器氣泡模式 CSS === */
         #bg-music-player {
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            max-width: 90vw; /* 避免手機版太寬 */
+            max-width: 90vw; 
         }
-
-        /* 2. 縮小狀態 (Collapsed) */
         #bg-music-player.player-collapsed {
-            /* 定位到右下角 */
             left: auto !important;
-            right: 1.5rem !important; /* right-6 */
-            bottom: 1.5rem !important; /* bottom-6 */
+            right: 1.5rem !important; 
+            bottom: 1.5rem !important; 
             transform: translateX(0) !important;
-            
-            /* 變形為圓形氣泡 */
             width: 3.5rem;
             height: 3.5rem;
             padding: 0;
             border-radius: 9999px;
-            background-color: rgba(17, 24, 39, 0.9); /* bg-gray-900 */
-            border: 2px solid #ec4899; /* pink-500 */
+            background-color: rgba(17, 24, 39, 0.9); 
+            border: 2px solid #ec4899; 
             cursor: pointer;
             overflow: hidden;
-            
-            /* 內容置中 */
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
         }
-
-        /* 3. 縮小狀態下：隱藏原本的控制列與連結 */
         #bg-music-player.player-collapsed .player-controls-wrapper,
         #bg-music-player.player-collapsed > a {
             opacity: 0;
             pointer-events: none;
-            position: absolute; /* 避免佔位 */
+            position: absolute; 
         }
-
-        /* 4. 縮小狀態下：顯示氣泡圖示 */
         #bg-music-player.player-collapsed .bubble-icon {
             opacity: 1;
             transform: scale(1);
         }
-
-        /* 5. 展開狀態下：隱藏氣泡圖示 */
         .bubble-icon {
             position: absolute;
             opacity: 0;
@@ -112,7 +95,6 @@
             pointer-events: none;
             animation: bounce-slow 2s infinite;
         }
-
         @keyframes bounce-slow {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-3px); }
@@ -136,7 +118,7 @@
                 </h1>
                 
                 <div class="flex items-center gap-3 mt-1">
-                    <div id="online-count" class="text-white font-bold text-lg drop-shadow-md">
+                    <div id="online-count" class="text-white font-bold text-lg drop-shadow-md cursor-pointer hover:text-cyan-400 transition" title="點擊查看名單">
                         目前在線: ...
                     </div>
                     
@@ -150,50 +132,42 @@
             </div>
 
             <div id="bg-music-player" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col gap-1 items-center group transition-all duration-500">
-
-            <div class="bubble-icon">🎵</div>
-
-            <a href="https://www.youtube.com/playlist?list=PLnvczP3jeVcKbv9p3sHtYmIEPZpuBlOAi" target="_blank" class="ml-2 text-[10px] text-gray-400 hover:text-pink-400 transition no-underline flex items-center gap-1 shadow-sm bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm border border-gray-700" title="前往官方播放清單">
-                <span>🎵</span>
-                <span>Music by Pikmin Bloom Official</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
-                    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
-                </svg>
-            </a>
-
-            <div class="player-controls-wrapper bg-gray-900/90 backdrop-blur border border-gray-700 rounded-full px-4 py-2 shadow-2xl flex items-center gap-3 w-auto transition-all duration-300 hover:bg-gray-800 hover:border-gray-600 hover:scale-105">
-                
-                <div id="youtube-player-container" class="absolute opacity-0 pointer-events-none w-[1px] h-[1px] overflow-hidden"></div>
-
-                <button id="music-toggle-btn" class="text-gray-300 hover:text-pink-500 transition focus:outline-none">
-                    <svg id="icon-play" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-play-fill" viewBox="0 0 16 16">
-                        <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                <div class="bubble-icon">🎵</div>
+                <a href="https://www.youtube.com/playlist?list=PLnvczP3jeVcKbv9p3sHtYmIEPZpuBlOAi" target="_blank" class="ml-2 text-[10px] text-gray-400 hover:text-pink-400 transition no-underline flex items-center gap-1 shadow-sm bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm border border-gray-700" title="前往官方播放清單">
+                    <span>🎵</span>
+                    <span>Music by Pikmin Bloom Official</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                        <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
                     </svg>
-                    <svg id="icon-pause" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-pause-fill hidden" viewBox="0 0 16 16">
-                        <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/>
-                    </svg>
-                </button>
+                </a>
 
-                <button id="music-next-btn" class="text-gray-400 hover:text-pink-500 transition focus:outline-none" title="下一首">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-skip-end-fill" viewBox="0 0 16 16">
-                        <path d="M12.5 4a.5.5 0 0 0-1 0v3.248L5.233 3.612C4.693 3.3 4 3.678 4 4.308v7.384c0 .63.692 1.01 1.233.697L11.5 8.753V12a.5.5 0 0 0 1 0V4z"/>
-                    </svg>
-                </button>
-
-                <span id="music-time" class="text-xs font-mono text-gray-400 select-none w-20 text-center">0:00 / 0:00</span>
-
-                <input type="range" id="music-progress" class="w-20 md:w-32 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-pink-500" value="0" min="0" max="100" step="1">
-
-                <button id="music-volume-btn" class="text-gray-300 hover:text-white transition focus:outline-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-volume-up-fill" viewBox="0 0 16 16">
-                        <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
-                        <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.09l.706.706z"/>
-                        <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 8.99 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
-                    </svg>
-                </button>
+                <div class="player-controls-wrapper bg-gray-900/90 backdrop-blur border border-gray-700 rounded-full px-4 py-2 shadow-2xl flex items-center gap-3 w-auto transition-all duration-300 hover:bg-gray-800 hover:border-gray-600 hover:scale-105">
+                    <div id="youtube-player-container" class="absolute opacity-0 pointer-events-none w-[1px] h-[1px] overflow-hidden"></div>
+                    <button id="music-toggle-btn" class="text-gray-300 hover:text-pink-500 transition focus:outline-none">
+                        <svg id="icon-play" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-play-fill" viewBox="0 0 16 16">
+                            <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                        </svg>
+                        <svg id="icon-pause" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-pause-fill hidden" viewBox="0 0 16 16">
+                            <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/>
+                        </svg>
+                    </button>
+                    <button id="music-next-btn" class="text-gray-400 hover:text-pink-500 transition focus:outline-none" title="下一首">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-skip-end-fill" viewBox="0 0 16 16">
+                            <path d="M12.5 4a.5.5 0 0 0-1 0v3.248L5.233 3.612C4.693 3.3 4 3.678 4 4.308v7.384c0 .63.692 1.01 1.233.697L11.5 8.753V12a.5.5 0 0 0 1 0V4z"/>
+                        </svg>
+                    </button>
+                    <span id="music-time" class="text-xs font-mono text-gray-400 select-none w-20 text-center">0:00 / 0:00</span>
+                    <input type="range" id="music-progress" class="w-20 md:w-32 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-pink-500" value="0" min="0" max="100" step="1">
+                    <button id="music-volume-btn" class="text-gray-300 hover:text-white transition focus:outline-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-volume-up-fill" viewBox="0 0 16 16">
+                            <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
+                            <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.09l.706.706z"/>
+                            <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 8.99 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
-        </div>
         </header>
 
         <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8 shadow-lg">
@@ -246,7 +220,7 @@
             <button class="filter-tab relative" data-filter="normal">
                 大聲公
                 <span id="g-badge-normal" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
-            </button>    
+            </button>     
             <button class="filter-tab relative" data-filter="full">
                 已額滿
                 <span id="g-badge-full" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
@@ -301,8 +275,8 @@
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">名額</label>
-                    <input type="number" id="m-slots" value="4" min="1" class="dark-input w-full rounded-md mt-1 px-3 py-2">
+                    <label class="text-sm text-gray-400 font-bold">呼叫名額</label>
+                    <input type="number" id="m-slots" value="4" min="1" max="4" class="dark-input w-full rounded-md mt-1 px-3 py-2">
                 </div>
 
                 <div>
@@ -360,7 +334,35 @@
                 <input type="hidden" id="fly-edit-id">
                 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">名額</label>
+                    <label class="text-sm text-gray-400 font-bold">蘑菇種類</label>
+                    <select id="f-type" class="dark-input w-full rounded-md mt-1 px-3 py-2">
+                        <option value="巨菇">巨菇(巨大輝煌、奇異...)</option>
+                        <option value="活動菇">活動菇(一般輝煌、奇異...)</option>
+                        <option value="美片菇">美片菇</option>
+                        <option value="大晶">大晶</option>
+                        <option value="大火">大火</option>
+                        <option value="大水">大水</option>
+                        <option value="大電">大電</option>
+                        <option value="大毒">大毒</option>
+                        <option value="大冰藍">大冰藍</option>
+                        <option value="大紅">大紅</option>
+                        <option value="大黃">大黃</option>
+                        <option value="大藍">大藍</option>
+                        <option value="大紫">大紫</option>
+                        <option value="大粉">大粉</option>
+                        <option value="大灰">大灰</option>
+                        <option value="大白">大白</option>
+                        <option value="晶">晶</option>
+                        <option value="水">水</option>
+                        <option value="火">火</option>
+                        <option value="電">電</option>
+                        <option value="毒">毒</option>
+                        <option value="測試">測試</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-400 font-bold">剩餘名額</label>
                     <input type="number" id="f-slots" value="5" min="1" max="5" class="dark-input w-full rounded-md mt-1 px-3 py-2">
                 </div>
 
@@ -372,7 +374,7 @@
                             📋 貼上
                         </button>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">支援美片圖書館座標格式化</p>
+                    <p class="text-xs text-gray-500 mt-1">支援座標格式化</p>
                 </div>
 
                 <div>
@@ -397,7 +399,33 @@
         </div>
     </div>
 
-    <div id="toast-message" class="hidden fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-[100] font-bold flex items-center gap-2 transform transition-all duration-300"></div>
+    <div id="toast-message" class="hidden fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-[9999] font-bold flex items-center gap-2 transform transition-all duration-300"></div>
+
+    <div id="online-users-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="bg-gray-800 w-full max-w-xs rounded-2xl shadow-xl p-6 border border-gray-600 transform transition-all scale-100">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                <h2 class="text-xl font-bold text-gray-100 flex items-center gap-2">
+                    <span class="text-green-400">●</span> 線上訪客
+                </h2>
+                <button type="button" id="close-online-modal" class="text-gray-400 hover:text-white text-2xl transition">&times;</button>
+            </div>
+            <ul id="online-users-list" class="space-y-2 max-h-64 overflow-y-auto text-gray-300 pr-1 custom-scrollbar">
+                <li class="text-center text-gray-500 py-4">載入中...</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="comment-viewer-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="bg-gray-800 w-full max-w-sm rounded-2xl shadow-xl p-6 border border-gray-600 transform transition-all scale-100">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span>💬</span> 完整留言
+                </h3>
+                <button id="close-comment-modal" class="text-gray-400 hover:text-white text-2xl transition">&times;</button>
+            </div>
+            <div id="comment-viewer-content" class="text-cyan-300 text-base break-words font-medium leading-relaxed bg-gray-900/50 p-4 rounded-lg border border-gray-700"></div>
+        </div>
+    </div>
 
     <script>
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
@@ -407,7 +435,6 @@
 
         // 本地狀態
         let myGuestPostIds = JSON.parse(localStorage.getItem('my_guest_post_ids') || '[]');
-        // 自飛的本地 ID 紀錄
         let myFlyPostIds = JSON.parse(localStorage.getItem('my_fly_post_ids') || '[]');
 
         // 全域冷卻變數 (4秒)
@@ -416,16 +443,16 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
-            loadGuestInfo();    // 載入訪客資訊
-            loadChallenges();   // 載入挑戰列表
-            startGlobalCountdown(); // 啟動倒數計時
-            setupOnlinePresence(); // 設定在線人數
+            loadGuestInfo();    
+            loadChallenges();   
+            startGlobalCountdown(); 
+            setupOnlinePresence(); 
             
             // 訂閱更新 (新增 guest_fly_posts 監聽)
             supabaseClient.channel('guest-view')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, loadChallenges)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, loadChallenges)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_fly_posts' }, loadChallenges) // 新增這行
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_fly_posts' }, loadChallenges) 
                 .subscribe();
         });
 
@@ -448,7 +475,6 @@
                 return;
             }
             
-            // 加入好友碼格式檢查 (12位純數字)
             if (!/^\d{12}$/.test(code)) {
                 showToast('好友碼格式錯誤：必須為12位純數字', true);
                 return;
@@ -463,7 +489,7 @@
         function checkInfoComplete() {
             if(nickInput.value && codeInput.value) {
                 actionArea.classList.remove('hidden');
-                updateGuestQuota(); // 顯示按鈕時順便查額度
+                updateGuestQuota(); 
             }
         }
 
@@ -472,7 +498,6 @@
         async function loadChallenges() {
             const list = document.getElementById('guest-list');
 
-            // 1. 定義蘑菇樣式表 (從前台移植過來的)
             const mushroomStyles = {
                 '巨菇':     { bg: 'bg-cyan-400',     text: 'text-black' },
                 '活動菇':   { bg: 'bg-lime-400',     text: 'text-black' },
@@ -498,7 +523,6 @@
                 '測試':     { bg: 'bg-black',        text: 'text-white' },
             };
 
-            // 時段顯示對照表
             const detailsMap = {
                 '宵夜': '宵夜 (21:00~01:00)',
                 '早餐': '早餐 (06:00~11:00)',
@@ -508,11 +532,9 @@
                 '滿人開': '滿人開 (人滿後發)'
             };
 
-            // 讀取本地「我的報名紀錄」 (格式: Array of { challengeId, guestName })
             let myGuestSignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
 
             try {
-                // 修改：同時呼叫兩支 API
                 const [challengesRes, flyRes] = await Promise.all([
                     supabaseClient.functions.invoke('admin-actions', { body: JSON.stringify({ action: 'list-guest-challenges' }) }),
                     supabaseClient.functions.invoke('admin-actions', { body: JSON.stringify({ action: 'list-guest-fly' }) })
@@ -521,15 +543,11 @@
                 if(challengesRes.error) throw challengesRes.error;
                 if(flyRes.error) throw flyRes.error;
                 
-                // 一般挑戰資料 (標記 type = 'normal')
                 const normalData = (challengesRes.data.data || []).map(c => ({ ...c, dataType: 'normal' }));
-                // 自飛資料 (標記 type = 'fly')
                 const flyData = (flyRes.data.data || []).map(f => ({ ...f, dataType: 'fly' }));
 
-                // 合併資料 (依據 created_at 或 start_time 排序，這裡簡單用建立時間倒序)
-                // 注意：challenges 表沒有 created_at 回傳(依您的表結構)，可以用 id 或 start_time
                 const allData = [...normalData, ...flyData].sort((a, b) => {
-                   const timeA = a.created_at || a.start_time; // 自飛用 created_at, 一般用 start_time 近似
+                   const timeA = a.created_at || a.start_time; 
                    const timeB = b.created_at || b.start_time;
                    return new Date(timeB) - new Date(timeA);
                 });
@@ -539,14 +557,15 @@
                 if(allData.length === 0) { list.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">目前沒有任何挑戰</p>'; return; }
 
                 // 計算紅點
-                let countAll = 0; // 含自飛
-                let countFly = 0; // 純自飛
+                let countAll = 0; 
+                let countFly = 0; 
+                let countNormal = 0;
                 let countFull = 0;
                 let countMine = 0;
 
                 allData.forEach(c => {
                     const isFly = c.dataType === 'fly';
-                    const isFull = !isFly && c.status === '已額滿'; // 自飛通常沒有額滿狀態，除非滿 slots (這裡先簡單判斷)
+                    const isFull = !isFly && c.status === '已額滿'; 
                     
                     let isMine = false;
                     if(isFly) isMine = myFlyPostIds.includes(c.id);
@@ -558,16 +577,16 @@
                     // 2. 自飛
                     if (isFly) countFly++;
 
-                    // 3. 已額滿 (只算大聲公)
+                    // 3. 大聲公 (非自飛 & 未額滿)
+                    if (!isFly && !isFull) countNormal++;
+
+                    // 4. 已額滿 (只算大聲公)
                     if (!isFly && isFull) countFull++;
 
-                    // 4. 我的
+                    // 5. 我的
                     if (isMine) countMine++;
                 });
 
-
-
-                // 更新 Badge
                 const updateBadge = (id, count) => {
                     const el = document.getElementById(id);
                     if(el) {
@@ -577,19 +596,19 @@
                 };
                 updateBadge('g-badge-all', countAll);
                 updateBadge('g-badge-fly', countFly); 
+                updateBadge('g-badge-normal', countNormal);
                 updateBadge('g-badge-full', countFull);
                 updateBadge('g-badge-mine', countMine);
 
                 // 渲染列表
                 list.innerHTML = allData.map(c => {
                     if (c.dataType === 'fly') {
-                        return renderFlyCard(c); // 抽離自飛卡片渲染邏輯
+                        return renderFlyCard(c, mushroomStyles); 
                     } else {
-                        return renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups); // 既有的渲染邏輯
+                        return renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups);
                     }
                 }).join('');
 
-                // 渲染完畢後套用篩選與倒數更新
                 applyFilter();
                 updateAllCountdowns();
 
@@ -599,10 +618,13 @@
             }
         }
 
-        function renderFlyCard(c) {
+        function renderFlyCard(c, mushroomStyles) {
             const isMine = myFlyPostIds.includes(c.id);
             
-            // 處理火侯樣式
+            const type = c.mushroom_type || '自飛菇'; 
+            const style = mushroomStyles[type] || { bg: 'bg-gray-700', text: 'text-white' };
+            const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap leading-none`;
+
             let cookingStyleClass = 'text-gray-400 border-gray-500/30';
             const cStyle = c.cooking_style || '';
             if (cStyle.includes('大火')) cookingStyleClass = 'text-red-500 border-red-500/30';
@@ -610,16 +632,13 @@
             else if (cStyle.includes('隨便')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
             const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>`;
 
-            // 處理備註
             let notesHtml = '';
             if (c.notes && c.notes.trim()) {
                  notesHtml = `<div class="mt-1 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // 發菇者 (點擊複製好友碼)
             const hostDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${c.friend_code}')" title="複製好友碼: ${c.friend_code}">${c.nickname}</span>`;
 
-            // 操作按鈕
             let actionBtnHtml = '';
             if (isMine) {
                 actionBtnHtml = `
@@ -634,7 +653,6 @@
                     </button>`;
             }
 
-            // ★ 修改：時間格式改為 YYYY/MM/DD HH:mm:ss
             const postTime = new Date(c.created_at).toLocaleString('zh-TW', { hour12: false });
 
             return `
@@ -648,15 +666,15 @@
                     </div>
                     
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="text-2xl">✈️</span>
-                        <h3 class="text-lg font-bold text-cyan-400">座標自飛</h3>
+                        <h3 class="${titleClasses}">${type}</h3>
+                        <span class="text-sm font-bold text-gray-500 leading-none">#${c.id}</span>
                     </div>
 
                     <p class="text-sm text-gray-300 font-bold mb-2">發菇者: ${hostDisplay}</p>
                     
                     <div class="text-sm text-gray-400 space-y-1">
                         <p>發布時間: ${postTime}</p>
-                        <p>名額: ${c.slots} 人</p>
+                        <p>剩餘名額: ${c.slots} 人</p>
                         <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded border border-gray-700">
                             <span class="font-mono text-xs text-gray-300 truncate select-all">${c.coordinates}</span>
                         </div>
@@ -670,22 +688,16 @@
         }
 
         function renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups) {
-            // 1. 判斷基本狀態
-            // myGuestPostIds 為全域變數，紀錄我發布過的 ID
             const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
-            
-            // 判斷我是否已報名 (比對 localStorage 紀錄)
             const mySignupRecord = myGuestSignups.find(s => String(s.challengeId) === String(c.id));
             const isSignedUp = !!mySignupRecord;
 
             const signupCount = c.signups ? c.signups.length : 0;
             const displayDetails = detailsMap[c.details] || c.details;
             
-            // 2. 樣式計算 (背景色)
             const style = mushroomStyles[c.mushroom_type] || { bg: 'bg-gray-700', text: 'text-white' };
             const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap leading-none`;
 
-            // 3. 狀態標籤邏輯
             let statusBadgeHtml = '';
             let statusClass = 'status-open';
             let statusText = '報名中';
@@ -699,7 +711,6 @@
             }
             statusBadgeHtml = `<span class="${statusClass} status-badge">${statusText}</span>`;
 
-            // 4. 時間顯示與倒數計時邏輯
             let timeDisplayHtml = '';
             if (c.status === '預計開放' && new Date(c.start_time) > new Date()) {
                 timeDisplayHtml = `<p class="text-yellow-400 font-bold">等待時間: <span class="countdown-timer" data-starttime="${c.start_time}">計算中...</span></p>`;
@@ -707,7 +718,6 @@
                 timeDisplayHtml = `<p>開放報名時間: ${new Date(c.start_time).toLocaleString('zh-TW', {hour12:false})}</p>`;
             }
 
-            // 5. 火侯樣式邏輯
             let cookingStyleClass = 'text-gray-400 border-gray-500/30';
             const cStyle = c.cooking_style || '';
             if (cStyle.includes('大火快炒')) cookingStyleClass = 'text-red-500 border-red-500/30';
@@ -716,38 +726,82 @@
             
             const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>`;
 
-            // 6. 參加者名單 HTML 生成
             let participantsHtml = '';
             if (signupCount > 0) {
-                const sortedSignups = c.signups.sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
-                const rows = sortedSignups.map((s, idx) => {
-                    const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
+                const localNick = localStorage.getItem('guest_nick');
+                const localCode = localStorage.getItem('guest_code');
+                const myGuestId = (localNick && localCode) ? `${localNick}💪${localCode}` : null;
 
-                    // 判斷是正式會員還是訪客
-                    let rawName = '未知';
-                    if (s.profile && s.profile.nickname) {
-                        rawName = s.profile.nickname; // 正式會員
-                    } else if (s.guest_name) {
-                        rawName = s.guest_name; // 訪客 (格式: 暱稱💪好友碼)
+                const sortedSignups = c.signups.sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
+                
+                const rows = sortedSignups.map((s, idx) => {
+                    const isWaitlist = idx >= c.slots;
+                    
+                    let separatorHtml = '';
+                    if (idx === c.slots) {
+                        separatorHtml = `
+                            <div class="flex items-center my-2">
+                                <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
+                                <span class="mx-2 text-[10px] text-orange-400 font-bold bg-orange-900/30 px-2 rounded-full">備取區</span>
+                                <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
+                            </div>
+                        `;
                     }
-                    // 處理好友碼擷取 (支援 💪 或 ✈️ 或 純數字)
+
+                    let rankDisplay;
+                    if (isWaitlist) {
+                        const waitRank = idx - c.slots + 1;
+                        rankDisplay = `<span class="text-xs text-orange-400 font-bold w-6 text-center mr-1">備${waitRank}</span>`;
+                    } else {
+                        const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
+                        rankDisplay = `<span class="participant-rank">${rank}</span>`;
+                    }
+
+                    let rawName = s.guest_name || (s.profile ? s.profile.nickname : '未知');
+                    if (s.profile && s.profile.nickname) rawName = s.profile.nickname;
+                    else if (s.guest_name) rawName = s.guest_name;
+
                     const codeMatch = rawName.match(/(\d{12})/);
                     const friendCode = codeMatch ? codeMatch[1] : '';
+                    let displayName = rawName;
 
-                    // 顯示名稱處理 (移除好友碼部分，讓版面乾淨)
-                    let displayName = rawName.replace(/[✈️💪]?[\s\uFEFF\xA0]*\d{12}$/, '').trim();
-
-                    const time = formatSignupTime(s.signed_up_at);
                     const clickAttr = friendCode ? `onclick="copyText('${friendCode}')" title="點擊複製: ${friendCode}"` : '';
                     const nameClass = friendCode ? 'text-gray-300 font-mono copy-cursor truncate' : 'text-gray-300 truncate';
                     
+                    const commentVal = s.comment || '';
+                    let commentBlock = '';
+
+                    const isMe = s.guest_name && (s.guest_name === myGuestId);
+
+                    if (isMe) {
+                        const commentDisplay = commentVal ? `<span class="text-cyan-300">${commentVal}</span>` : `<span class="text-gray-500 text-[10px] opacity-50 hover:opacity-100">＋留言</span>`;
+                        const commentAction = `onclick="window.editSignupComment(${c.id}, '${commentVal.replace(/'/g, "\\'")}', event)"`;
+                        
+                        commentBlock = `
+                            <button ${commentAction} class="ml-2 text-xs border border-gray-600 bg-gray-800/80 px-2 py-0.5 rounded hover:bg-gray-700 transition max-w-[100px] truncate" title="點擊修改留言">
+                                ${commentDisplay}
+                            </button>`;
+                    } else {
+                        if (commentVal) {
+                            const safeComment = commentVal.replace(/'/g, "\\'");
+                            
+                            commentBlock = `
+                                <span onclick="window.openCommentModal('${safeComment}')" 
+                                      class="ml-2 text-xs text-cyan-300 bg-gray-800/50 px-2 py-0.5 rounded max-w-[100px] truncate cursor-pointer border border-transparent hover:bg-gray-700 hover:border-cyan-500/50 transition select-none"
+                                      title="點擊查看完整內容">
+                                    ${commentVal}
+                                </span>`;
+                        }
+                    }
+
                     return `
-                        <div class="participant-item">
+                        ${separatorHtml}
+                        <div class="participant-item ${isWaitlist ? 'opacity-90' : ''}">
                             <div class="flex items-center w-full overflow-hidden">
-                                <span class="participant-rank">${rank}</span>
-                                <span class="${nameClass} flex-1" ${clickAttr}>${rawName}</span>
+                                ${rankDisplay}
+                                <span class="${nameClass} flex-1" ${clickAttr}>${displayName}</span>
+                                ${commentBlock}
                             </div>
-                            <span class="text-gray-500 font-mono text-xs ml-2 whitespace-nowrap">${time}</span>
                         </div>
                     `;
                 }).join('');
@@ -761,26 +815,21 @@
                     </div>`;
             }
 
-            // 7. 操作按鈕邏輯
             let actionButtonHtml = '';
 
             if (isMine) {
-                // 如果我是發菇者 -> 顯示編輯/刪除
                 actionButtonHtml = `
                     <div class="mt-4 flex gap-2">
                         <button onclick="editGuestPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">編輯</button>
                         <button onclick="deleteGuestPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">刪除</button>
                     </div>`;
             } else if (isSignedUp) {
-                // 如果我已報名 -> 顯示取消
                 actionButtonHtml = `<button onclick="handleGuestCancel(${c.id})" class="mt-4 w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">取消報名</button>`;
             } else if (c.status === '已額滿') {
                 actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>已額滿</button>`;
             } else if (c.status === '預計開放') {
                 actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>尚未開放</button>`;
             } else {
-                // 正常報名狀態 (檢查全域冷卻)
-                // globalCooldownUntil 為全域變數
                 const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
                 
                 if (cooldownLeft > 0) {
@@ -790,13 +839,11 @@
                 }
             }
             
-            // 8. 備註顯示
             let notesHtml = '';
             if (c.notes && c.notes.trim() !== '') {
                  notesHtml = `<div class="mt-1 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // 9. 發菇者顯示與複製功能
             const hostNameRaw = c.display_host_name || '未知';
             const hostCodeMatch = hostNameRaw.match(/(\d{12})/);
             let hostDisplayHtml = hostNameRaw;
@@ -806,8 +853,6 @@
                 hostDisplayHtml = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${code}')" title="點擊複製好友碼: ${code}">${hostNameRaw}</span>`;
             }
 
-            // 10. 回傳完整卡片 HTML
-            // 注意：這裡加入了 data-datatype="normal"
             return `
                 <div class="challenge-card p-4 rounded-xl relative hover:border-pink-500 transition-colors duration-300" 
                      data-status="${c.status}" 
@@ -829,7 +874,7 @@
                         ${timeDisplayHtml}
                         <p>呼叫時段: 📣 ${displayDetails}</p>
                         ${fireHtml}
-                        <p>名額: ${signupCount} / ${c.slots}</p>
+                        <p>呼叫名額: ${signupCount} / ${c.slots}</p>
                         ${notesHtml}
                     </div>
                     ${participantsHtml}
@@ -839,7 +884,6 @@
             `;
         }
 
-        // --- Modal 操作 ---
         const modal = document.getElementById('guest-modal');
         const form = document.getElementById('guest-form');
         const timeInput = document.getElementById('m-time');
@@ -880,7 +924,6 @@
 
         document.getElementById('close-modal').onclick = () => modal.classList.add('hidden');
 
-        // 表單送出
         form.onsubmit = async (e) => {
             e.preventDefault();
             
@@ -934,7 +977,7 @@
                 showToast(action === 'guest-create-challenge' ? '發布成功！' : '更新成功！', false);
                 modal.classList.add('hidden');
                 loadChallenges();
-                updateGuestQuota(); // 發布成功後更新額度顯示
+                updateGuestQuota(); 
 
             } catch (err) {
                 console.error(err);
@@ -947,9 +990,7 @@
         };
 
         window.editGuestPost = async (id) => {
-            // ✅ 新寫法 (呼叫後端 API，解決 406 錯誤)
             try {
-                // 1. 呼叫後端取得單筆資料
                 const { data: res, error } = await supabaseClient.functions.invoke('admin-actions', {
                     body: JSON.stringify({ action: 'get-guest-challenge', payload: { challengeId: id } })
                 });
@@ -957,11 +998,10 @@
                 if (error) throw error;
                 if (res.error) throw new Error(res.error);
                 
-                const data = res.data; // 取得資料
+                const data = res.data; 
                 
                 if(!data) { showToast('無法讀取資料', true); return; }
                 
-                // 2. 回填資料到表單
                 document.getElementById('edit-id').value = data.id;
                 document.getElementById('m-type').value = data.mushroom_type;
                 document.getElementById('m-slots').value = data.slots;
@@ -996,13 +1036,11 @@
                 showToast('已刪除', false);
                 loadChallenges();
                 
-                // 刪除成功後，立即更新額度顯示
                 updateGuestQuota(); 
 
             } catch(e) { showToast(`刪除失敗: ${e.message}`, true); }
         };
 
-        // 複製文字功能
         function copyText(text) {
             navigator.clipboard.writeText(text).then(() => {
                 showToast(`已複製: ${text}`, false);
@@ -1011,7 +1049,6 @@
             });
         }
 
-        // 輔助函式：排名後綴
         function getRankSuffix(n) {
             if(n % 100 >= 11 && n % 100 <= 13) return 'th';
             switch(n % 10) {
@@ -1022,7 +1059,6 @@
             }
         }
 
-        // 輔助函式：格式化時間 (只顯示秒數或分秒)
         function formatSignupTime(iso) {
             if(!iso) return '';
             const d = new Date(iso);
@@ -1033,8 +1069,10 @@
             const el = document.getElementById('toast-message');
             if(!el) return;
             el.innerHTML = `${isErr ? '❌' : '✅'} ${msg}`;
-            el.className = `fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-[100] font-bold flex items-center gap-2 transform transition-all duration-300 ${isErr ? 'bg-red-600/95' : 'bg-green-600/95'} translate-y-0`;
+            
+            el.className = `fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-[9999] font-bold flex items-center gap-2 transform transition-all duration-300 ${isErr ? 'bg-red-600/95' : 'bg-green-600/95'} translate-y-0`;
             el.classList.remove('hidden');
+            
             setTimeout(() => {
                 el.classList.add('translate-y-[-20px]', 'opacity-0');
                 setTimeout(() => {
@@ -1044,7 +1082,6 @@
             }, 3000);
         }
 
-        // 更新訪客額度顯示
         async function updateGuestQuota() {
             const quotaEl = document.getElementById('quota-display');
             if(!quotaEl) return;
@@ -1061,7 +1098,6 @@
                 
                 quotaEl.textContent = count;
                 
-                // 額外優化：如果滿了，變紅色並鎖住按鈕
                 const btn = document.getElementById('open-post-modal');
                 if (count >= limit) {
                     quotaEl.classList.add('text-red-500');
@@ -1075,7 +1111,7 @@
                     if(btn) {
                         btn.disabled = false;
                         btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                        btn.innerHTML = '<span style="font-size: 25px;">📣</span> 發布蘑菇挑戰 <span style="font-size: 25px;">🍄</span>';
+                        btn.innerHTML = '<span style="font-size: 25px;">📢</span> 大聲公呼叫蘑菇 <span style="font-size: 25px;">🍄</span>';
                     }
                 }
             } catch (e) {
@@ -1084,7 +1120,6 @@
             }
         }
 
-        // --- 篩選邏輯 ---
         const filterBtns = document.querySelectorAll('.filter-tab');
         filterBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1100,22 +1135,22 @@
             let count = 0;
             
             cards.forEach(card => {
-                const status = card.dataset.status; // normal 卡片才有
-                const dataType = card.dataset.datatype; // 'normal' or 'fly'
+                const status = card.dataset.status; 
+                const dataType = card.dataset.datatype; 
                 const isMine = card.dataset.ismine === 'true';
                 let show = false;
 
                 if (activeFilter === 'all') {
-                    // 全部：顯示所有自飛 + 所有非額滿的大聲公
                     if (dataType === 'fly') show = true;
                     else if (status !== '已額滿') show = true;
                     
                 } else if (activeFilter === 'fly') {
-                    // 只顯示自飛
                     if (dataType === 'fly') show = true;
 
+                } else if (activeFilter === 'normal') {
+                    if (dataType === 'normal' && status !== '已額滿') show = true;
+
                 } else if (activeFilter === 'full') {
-                    // 只顯示已額滿 (僅大聲公有此狀態)
                     if (dataType === 'normal' && status === '已額滿') show = true;
 
                 } else if (activeFilter === 'mine') {
@@ -1126,7 +1161,6 @@
                 if(show) count++;
             });
 
-            // 處理空狀態提示 (可選)
             const list = document.getElementById('guest-list');
             const existMsg = document.getElementById('filter-msg');
             if(existMsg) existMsg.remove();
@@ -1136,7 +1170,6 @@
             }
         }
 
-        // --- 倒數計時邏輯 (移植自 Dashboard) ---
         let countdownInterval;
 
         function startGlobalCountdown() {
@@ -1149,8 +1182,7 @@
             document.querySelectorAll('.countdown-timer').forEach(el => {
                 const diff = new Date(el.dataset.starttime) - new Date();
                 if (diff < 1000) {
-                    // 時間到，重新載入列表以更新狀態
-                    el.closest('.challenge-card').remove(); // 暫時移除或重整
+                    el.closest('.challenge-card').remove(); 
                     loadChallenges(); 
                 } else {
                     const d = Math.floor(diff/86400000);
@@ -1165,26 +1197,21 @@
             });
         }
 
-        // ★ 新增：觸發全域冷卻 (控制秒數)
         function triggerGlobalCooldown() {
-            // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-            // ★ 設定延遲秒數 (4000 = 4秒)
             globalCooldownUntil = Date.now() + 4000; 
-            // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
             if (globalCooldownTimer) clearInterval(globalCooldownTimer);
             
-            // 立即更新一次畫面 (避免等待 setInterval 的 100ms 延遲)
             loadChallenges(); 
 
             globalCooldownTimer = setInterval(() => {
                 const timeLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
-                const btns = document.querySelectorAll('.guest-signup-btn'); // 抓取所有報名按鈕
+                const btns = document.querySelectorAll('.guest-signup-btn'); 
                 
                 if (timeLeft <= 0) {
                     clearInterval(globalCooldownTimer);
                     globalCooldownUntil = 0;
-                    loadChallenges(); // 時間到，刷新回正常按鈕
+                    loadChallenges(); 
                 } else {
                     btns.forEach(btn => {
                         btn.disabled = true;
@@ -1195,20 +1222,16 @@
             }, 100);
         }
 
-        // 處理訪客報名
         window.handleGuestSignup = async (challengeId) => {
-            // 1. 檢查是否已設定身分
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
             if (!nick || !code) {
                 showToast('請先在上方設定您的暱稱與好友碼！', true);
-                // 捲動到設定區
                 document.querySelector('.bg-gray-800').scrollIntoView({ behavior: 'smooth' });
                 return;
             }
 
-            // 2. 執行報名
-            const btn = event.target; // 取得按鈕以停用
+            const btn = event.target; 
             btn.disabled = true; btn.textContent = '報名中...';
 
             try {
@@ -1224,15 +1247,12 @@
 
                 showToast('報名成功！', false);
                 
-                // ★ 新增：啟動 4 秒冷卻鎖
                 triggerGlobalCooldown();
 
-                // 3. 更新本地紀錄
                 let mySignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
                 mySignups.push({ challengeId: challengeId, timestamp: Date.now() });
                 localStorage.setItem('my_guest_signups', JSON.stringify(mySignups));
 
-                // 4. 重新載入列表
                 loadChallenges();
 
             } catch (e) {
@@ -1242,7 +1262,6 @@
             }
         };
 
-        // 處理訪客取消
         window.handleGuestCancel = async (challengeId) => {
             if(!confirm('確定要取消報名嗎？')) return;
 
@@ -1265,7 +1284,6 @@
 
                 showToast('已取消報名', false);
 
-                // 更新本地紀錄 (移除該 ID)
                 let mySignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
                 mySignups = mySignups.filter(s => String(s.challengeId) !== String(challengeId));
                 localStorage.setItem('my_guest_signups', JSON.stringify(mySignups));
@@ -1279,52 +1297,84 @@
             }
         };
 
-        // 在線人數監聽
+        let onlineUserList = []; 
+
         function setupOnlinePresence() {
-            // 嘗試取得訪客暱稱，若無則顯示 '訪客'，避免 undefined
-            const myNick = localStorage.getItem('guest_nick') || `訪客_${Math.floor(Math.random()*1000)}`;
+            const nick = localStorage.getItem('guest_nick');
+            const code = localStorage.getItem('guest_code');
+            let myIdentity = `訪客_${Math.floor(Math.random()*1000)}`;
             
-            // 建立獨立的頻道 guest-room
+            if (nick && code) {
+                myIdentity = `${nick}👼${code}`;
+            }
+            
             const ch = supabaseClient.channel('guest-room', { 
-                config: { presence: { key: myNick } } 
+                config: { presence: { key: myIdentity } } 
             });
 
-            const updateCount = () => {
+            const updateState = () => {
                 const state = ch.presenceState();
-                // 計算總人數 (key 的數量)
-                const count = Object.keys(state).length;
+                const rawList = Object.keys(state); 
+                
+                const namedUsers = rawList.filter(n => !n.startsWith('訪客_'));
+                const guestUsers = rawList.filter(n => n.startsWith('訪客_'));
+                
+                namedUsers.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+                guestUsers.sort();
+
+                onlineUserList = [...namedUsers, ...guestUsers];
+                
                 const el = document.getElementById('online-count');
-                if(el) el.textContent = `目前在線: ${count} 人`;
+                if(el) {
+                    el.textContent = `目前在線: ${onlineUserList.length} 人`;
+                }
             };
 
-            ch.on('presence', { event: 'sync' }, updateCount)
-              .on('presence', { event: 'join' }, updateCount)
-              .on('presence', { event: 'leave' }, updateCount)
+            ch.on('presence', { event: 'sync' }, updateState)
+              .on('presence', { event: 'join' }, updateState)
+              .on('presence', { event: 'leave' }, updateState)
               .subscribe(status => { 
-                  if(status === 'SUBSCRIBED') {
-                      ch.track({ online_at: new Date().toISOString() });
-                  }
+                  if(status === 'SUBSCRIBED') ch.track({ online_at: new Date().toISOString() });
               });
+              
+            const countEl = document.getElementById('online-count');
+            const modal = document.getElementById('online-users-modal');
+            const listEl = document.getElementById('online-users-list');
+            const closeBtn = document.getElementById('close-online-modal');
+
+            if(countEl) {
+                countEl.onclick = () => {
+                    if (onlineUserList.length === 0) {
+                        listEl.innerHTML = '<li class="text-center text-gray-500">目前無人在线</li>';
+                    } else {
+                        listEl.innerHTML = onlineUserList.map(n => `
+                            <li class="flex items-center gap-2 p-2 rounded hover:bg-gray-700/50 border-b border-gray-700 last:border-0 text-sm">
+                                <span class="${n.startsWith('訪客_') ? 'text-gray-500' : 'text-green-400'} text-xs">●</span>
+                                <span class="truncate font-mono text-gray-300">${n}</span>
+                            </li>
+                        `).join('');
+                    }
+                    modal.classList.remove('hidden');
+                };
+            }
+
+            if(closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+            if(modal) {
+                modal.onclick = (e) => { 
+                    if(e.target === modal) modal.classList.add('hidden'); 
+                };
+            }
         }
 
-        // 重新整理按鈕功能
         const refreshBtn = document.getElementById('guest-refresh-btn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
-                // 加入旋轉動畫回饋
                 const icon = refreshBtn.querySelector('svg');
                 if(icon) icon.classList.add('animate-spin');
-                
-                // 稍微延遲後重新整理，讓使用者感覺有在動
                 setTimeout(() => window.location.reload(), 300);
             });
         }
 
-        // ==========================================
-        // ▼▼▼ YouTube 背景音樂控制邏輯 (播放清單版) ▼▼▼
-        // ==========================================
-        
-        // 1. 載入 YouTube IFrame API (這段通用代碼只需執行一次，若您頁面已有可省略)
         if (!window.YT) { 
             var tag = document.createElement('script');
             tag.src = "https://www.youtube.com/iframe_api";
@@ -1336,22 +1386,21 @@
         var musicTimer;
         var isDragging = false; 
 
-        // 2. API 準備好後建立播放器
         function onYouTubeIframeAPIReady() {
             musicPlayer = new YT.Player('youtube-player-container', {
                 height: '200', 
                 width: '200',
                 playerVars: {
                     'listType': 'playlist',
-                    'list': 'PLnvczP3jeVcKbv9p3sHtYmIEPZpuBlOAi', // 官方播放清單
+                    'list': 'PLnvczP3jeVcKbv9p3sHtYmIEPZpuBlOAi', 
                     'playsinline': 1,
                     'controls': 0,     
                     'disablekb': 1,    
                     'fs': 0,           
                     'rel': 0,          
-                    'loop': 1,         // 循環播放
-                    'autoplay': 1,     // ★ 新增：嘗試宣告自動播放
-                    'shuffle': 1       // ★ 新增：預設開啟隨機
+                    'loop': 1,         
+                    'autoplay': 1,     
+                    'shuffle': 1       
                 },
                 events: {
                     'onReady': onPlayerReady,
@@ -1360,39 +1409,27 @@
             });
         }
 
-        // 3. 播放器準備就緒
         function onPlayerReady(event) {
-            // 強制設定隨機
             event.target.setShuffle(true);
             
-            // 抓取總長度
             setTimeout(() => {
                 if (!musicPlayer || !musicPlayer.getDuration) return;
                 const total = musicPlayer.getDuration();
                 if (total) document.getElementById('music-progress').max = Math.floor(total);
             }, 1000);
 
-            // ★ 修改：強壯的自動播放邏輯 (有聲失敗 -> 轉靜音)
             const attemptPlay = () => {
-                // 1. 設定音量
                 musicPlayer.setVolume(50);
-                musicPlayer.unMute(); // 嘗試解開靜音
-                
-                // 2. 嘗試播放 (使用 Promise 或直接呼叫)
-                // 由於 YouTube API 的 playVideoAt 沒有回傳 Promise，我們只能盡量呼叫
+                musicPlayer.unMute(); 
                 musicPlayer.playVideoAt(0);
 
-                // 3. 檢查狀態：如果 1秒後 還沒開始放 (狀態不是 BUFFERING 或 PLAYING)，就轉靜音重試
                 setTimeout(() => {
                     const state = musicPlayer.getPlayerState();
-                    // -1: 未開始, 0: 結束, 2: 暫停, 5: 插入影片
-                    // 如果還停在 -1 或 2，代表被阻擋了
                     if (state === -1 || state === 2) {
                         console.log("有聲播放被阻擋，切換為靜音自動播放");
-                        musicPlayer.mute(); // ★ 關鍵：靜音
-                        musicPlayer.playVideoAt(0); // 再試一次
+                        musicPlayer.mute(); 
+                        musicPlayer.playVideoAt(0); 
                         
-                        // 讓音量按鈕亮紅燈，提示使用者目前是靜音
                         const volBtn = document.getElementById('music-volume-btn');
                         if(volBtn) {
                             volBtn.classList.remove('text-gray-300');
@@ -1405,7 +1442,6 @@
             attemptPlay();
         }
 
-        // 4. 監聽狀態
         function onPlayerStateChange(event) {
             const btnPlay = document.getElementById('icon-play');
             const btnPause = document.getElementById('icon-pause');
@@ -1421,9 +1457,6 @@
             }
         }
 
-        // --- 按鈕互動 ---
-        
-        // 播放/暫停
         document.getElementById('music-toggle-btn').addEventListener('click', function() {
             if (!musicPlayer || !musicPlayer.getPlayerState) return;
             const state = musicPlayer.getPlayerState();
@@ -1434,14 +1467,12 @@
             }
         });
 
-        // ★ 新增：下一首按鈕
         document.getElementById('music-next-btn').addEventListener('click', function() {
             if (musicPlayer && musicPlayer.nextVideo) {
                 musicPlayer.nextVideo();
             }
         });
 
-        // 進度條
         const progressBar = document.getElementById('music-progress');
         progressBar.addEventListener('input', function() {
             isDragging = true;
@@ -1455,7 +1486,6 @@
             musicPlayer.seekTo(this.value, true);
         });
 
-        // 靜音
         document.getElementById('music-volume-btn').addEventListener('click', function() {
             if (!musicPlayer) return;
             if (musicPlayer.isMuted()) {
@@ -1469,7 +1499,6 @@
             }
         });
 
-        // --- 輔助函式 ---
         function startTimer() {
             if (musicTimer) clearInterval(musicTimer);
             musicTimer = setInterval(() => {
@@ -1477,7 +1506,6 @@
                 const current = musicPlayer.getCurrentTime();
                 const total = musicPlayer.getDuration();
                 
-                // 某些時候抓不到總長度，給預設值
                 if (total) {
                     document.getElementById('music-progress').max = Math.floor(total);
                     document.getElementById('music-progress').value = Math.floor(current);
@@ -1500,69 +1528,53 @@
             document.getElementById('music-time').textContent = `${format(current)} / ${format(total)}`;
         }
 
-        // ==========================================
-        // ▼▼▼ 音樂播放器氣泡縮放邏輯 ▼▼▼
-        // ==========================================
-
-        // 1. 取得元素
         const playerContainer = document.getElementById('bg-music-player');
         let collapseTimer = null;
-        const COLLAPSE_DELAY = 3000; // 3秒後縮小
+        const COLLAPSE_DELAY = 3000; 
 
-        // 2. 定義縮小函式
         function collapsePlayer() {
             if(playerContainer) {
                 playerContainer.classList.add('player-collapsed');
             }
         }
 
-        // 3. 定義展開函式
         function expandPlayer() {
             if(playerContainer) {
                 playerContainer.classList.remove('player-collapsed');
-                resetCollapseTimer(); // 展開後重新開始倒數
+                resetCollapseTimer(); 
             }
         }
 
-        // 4. 重置計時器 (如果滑鼠還在上面，就不縮小；滑鼠離開才縮小)
         function resetCollapseTimer() {
             if (collapseTimer) clearTimeout(collapseTimer);
             collapseTimer = setTimeout(collapsePlayer, COLLAPSE_DELAY);
         }
 
-        // 5. 初始化與事件綁定
         if (playerContainer) {
-            // A. 頁面載入後，先啟動一次倒數
             resetCollapseTimer();
 
-            // B. 滑鼠移入：展開並暫停縮小倒數
             playerContainer.addEventListener('mouseenter', () => {
                 if(playerContainer.classList.contains('player-collapsed')) {
                     expandPlayer();
                 }
-                if (collapseTimer) clearTimeout(collapseTimer); // 清除倒數，保持展開
+                if (collapseTimer) clearTimeout(collapseTimer); 
             });
 
-            // C. 滑鼠移出：開始 3 秒倒數準備縮小
             playerContainer.addEventListener('mouseleave', () => {
                 resetCollapseTimer();
             });
 
-            // D. 點擊氣泡：展開 (適用於觸控裝置或點擊氣泡時)
             playerContainer.addEventListener('click', (e) => {
-                // 如果目前是縮小狀態，則展開
                 if (playerContainer.classList.contains('player-collapsed')) {
                     expandPlayer();
-                    e.stopPropagation(); // 避免點擊氣泡瞬間就觸發其他事件
+                    e.stopPropagation(); 
                 }
             });
         }
 
-        // 座標格式化工具
         function formatCoordinateString(input) {
             if (!input) return "";
             let str = input.trim().replace(/，/g, ',');
-            // 簡單判斷度分秒
             const isDMS = str.includes('°') && (str.includes("'") || str.includes('"') || str.includes('’'));
             let lat = 0, lng = 0, success = false;
 
@@ -1594,7 +1606,6 @@
             return success ? `${lat.toFixed(7)}, ${lng.toFixed(7)}` : input;
         }
 
-        // 貼上座標按鈕邏輯
         const fCoords = document.getElementById('f-coords');
         document.getElementById('paste-coords-btn').onclick = async () => {
             try {
@@ -1607,12 +1618,10 @@
             } catch(e) { showToast('無法讀取剪貼簿', true); }
         };
         
-        // 離開焦點時自動格式化
         fCoords.addEventListener('blur', function() {
             this.value = formatCoordinateString(this.value);
         });
         
-        // 開啟自飛 Modal
         const flyModal = document.getElementById('fly-modal');
         const flyForm = document.getElementById('fly-form');
         
@@ -1624,35 +1633,27 @@
         };
         document.getElementById('close-fly-modal').onclick = () => flyModal.classList.add('hidden');
 
-        // 自飛表單送出
         flyForm.onsubmit = async (e) => {
             e.preventDefault();
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
             if (!nick || !code) { showToast('請先設定訪客身分', true); return; }
 
-            // ▼▼▼ 新增：座標格式檢查與自動修正 ▼▼▼
             const coordInput = document.getElementById('f-coords');
             let coordVal = coordInput.value.trim();
 
-            // 1. 嘗試使用工具函式自動格式化 (處理度分秒或中文座標)
-            // (前提是您已在程式碼中加入了 formatCoordinateString 函式)
             coordVal = formatCoordinateString(coordVal);
-            coordInput.value = coordVal; // 將標準化後的值回填至輸入框
+            coordInput.value = coordVal; 
 
-            // 2. 嚴格驗證格式 (必須是 "數字, 數字")
-            // Regex 解釋: 可選負號 + 數字 + 可選小數點 + 逗號 + 可選空白 + 可選負號 + 數字
             const coordRegex = /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/;
             
             if (!coordRegex.test(coordVal)) {
                 showToast('座標格式錯誤！請確認為「緯度, 經度」格式 (例: 22.123, 120.456)', true);
-                // 聚焦錯誤欄位並加入紅框提示
                 coordInput.focus();
                 coordInput.classList.add('ring-2', 'ring-red-500');
                 setTimeout(() => coordInput.classList.remove('ring-2', 'ring-red-500'), 2000);
-                return; // 阻止送出
+                return; 
             }
-            // ▲▲▲ 新增結束 ▲▲▲
 
             const btn = document.getElementById('fly-submit-btn');
             btn.disabled = true; btn.textContent = '處理中...';
@@ -1660,11 +1661,12 @@
             const payload = {
                 nickname: nick,
                 friendCode: code,
+                mushroomType: document.getElementById('f-type').value,
                 slots: document.getElementById('f-slots').value,
-                coordinates: coordVal, // 使用驗證過的座標值
+                coordinates: coordVal, 
                 cookingStyle: document.getElementById('f-style').value,
                 notes: document.getElementById('f-notes').value,
-                id: document.getElementById('fly-edit-id').value // 用於編輯
+                id: document.getElementById('fly-edit-id').value 
             };
 
             const action = payload.id ? 'guest-edit-fly' : 'guest-create-fly';
@@ -1683,7 +1685,7 @@
 
                 showToast(action === 'guest-create-fly' ? '自飛發布成功！' : '更新成功！', false);
                 flyModal.classList.add('hidden');
-                loadChallenges(); // 重新整理列表
+                loadChallenges(); 
 
             } catch (err) {
                 console.error(err);
@@ -1693,17 +1695,12 @@
             }
         };
 
-        // 編輯自飛
         window.editFlyPost = (id) => {
-            // 這裡簡單實作：從 DOM 或重新 fetch 拿資料
-            // 為了方便，我們直接從畫面上按鈕的 context 拿不到資料，建議用 id 去 find
-            // (需將 allData 存為全域變數或用 API 撈單筆)
-            // 這裡用簡單的 hack: 重新呼叫 loadChallenges 時把資料暫存下來 (建議您在 loadChallenges 內把 allData 存到 window.currentAllData)
-            // 假設我們有 window.currentAllData
             const data = window.currentAllData.find(d => d.id === id && d.dataType === 'fly');
             if(!data) return;
 
             document.getElementById('fly-edit-id').value = data.id;
+            document.getElementById('f-type').value = data.mushroom_type || '巨菇'; 
             document.getElementById('f-slots').value = data.slots;
             document.getElementById('f-coords').value = data.coordinates;
             document.getElementById('f-style').value = data.cooking_style;
@@ -1713,7 +1710,6 @@
             flyModal.classList.remove('hidden');
         };
 
-        // 刪除自飛
         window.deleteFlyPost = async (id) => {
             if(!confirm('確定刪除這個自飛座標嗎？')) return;
             try {
@@ -1729,11 +1725,72 @@
             } catch(e) { showToast(`刪除失敗: ${e.message}`, true); }
         };
 
-        // 我要起飛 (複製座標)
         window.handleFlyCopy = (coords) => {
-            copyText(coords);
-            showToast('🚀 座標複製成功！起飛囉～', false);
+            copyText(coords); 
         };
+
+        window.editSignupComment = async (challengeId, currentVal, event) => {
+            if(event) event.stopPropagation(); 
+
+            const nick = localStorage.getItem('guest_nick');
+            const code = localStorage.getItem('guest_code');
+            
+            if (!nick || !code) { 
+                showToast('請先設定訪客身分才能留言', true); 
+                document.querySelector('.bg-gray-800').scrollIntoView({ behavior: 'smooth' });
+                return; 
+            }
+
+            const newVal = prompt('請輸入留言 (例如: 40皮/Pass):', currentVal);
+            if (newVal === null) return; 
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ 
+                        action: 'guest-update-signup-comment', 
+                        payload: { 
+                            challengeId, 
+                            nickname: nick, 
+                            friendCode: code,
+                            comment: newVal 
+                        } 
+                    })
+                });
+
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                showToast('留言已更新', false);
+                loadChallenges(); 
+
+            } catch (e) {
+                console.error(e);
+                showToast('更新失敗，請確認您是該報名者本人', true);
+            }
+        };
+
+        const commentModal = document.getElementById('comment-viewer-modal');
+        const commentContent = document.getElementById('comment-viewer-content');
+        const closeCommentBtn = document.getElementById('close-comment-modal');
+
+        window.openCommentModal = (text) => {
+            if (commentContent && commentModal) {
+                commentContent.textContent = text; 
+                commentModal.classList.remove('hidden');
+            }
+        };
+
+        const hideCommentModal = () => {
+            if (commentModal) commentModal.classList.add('hidden');
+        };
+
+        if (closeCommentBtn) closeCommentBtn.onclick = hideCommentModal;
+        
+        if (commentModal) {
+            commentModal.onclick = (e) => {
+                if (e.target === commentModal) hideCommentModal();
+            };
+        }
     </script>
 </body>
 </html>

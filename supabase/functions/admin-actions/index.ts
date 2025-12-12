@@ -485,7 +485,9 @@ serve(async (req) => {
         let status = '開放報名中';
         if (start > now) {
             status = '預計開放';
-        } else if (signupNum >= slotNum) {
+        } 
+        // ★★★ 修正重點：這裡也要改成 (slotNum + 2) 才會變額滿 ★★★
+        else if (signupNum >= (slotNum + 2)) {
             status = '已額滿';
         }
         // ★★★ 修改結束 ★★★
@@ -532,7 +534,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // ★★★ 訪客報名 (Join) - 補上狀態更新邏輯 ★★★
+// ★★★ 訪客報名 (Join) - 修改版：加入候補名額邏輯 (slots + 2) ★★★
     if (action === 'guest-join-challenge') {
         const { challengeId, nickname, friendCode } = payload;
         const guestName = `${nickname}💪${friendCode}`;
@@ -547,15 +549,16 @@ serve(async (req) => {
         if (findErr || !challenge) throw new Error('找不到該挑戰');
         
         // 安全取得目前人數
-        // 注意：Supabase count 有時回傳 [{count:n}] 有時回傳 [] (若無關聯)
         const currentCount = challenge.signups?.[0]?.count ?? 0;
         
-        if (currentCount >= challenge.slots) {
+        // ★ 修改：允許報名直到 (名額 + 2)
+        // 當人數達到 (Slots + 2) 時才擋下
+        if (currentCount >= (challenge.slots + 2)) {
             // 如果已經滿了，順手修復狀態 (防呆)
             if (challenge.status !== '已額滿') {
                 await adminSupabaseClient.from('challenges').update({ status: '已額滿' }).eq('id', challengeId);
             }
-            throw new Error('報名失敗：該挑戰已額滿');
+            throw new Error('報名失敗：連候補都滿囉！');
         }
 
         // 2. 檢查是否重複報名
@@ -581,9 +584,9 @@ serve(async (req) => {
 
         if (insertErr) throw new Error(`報名失敗: ${insertErr.message}`);
 
-        // ★★★ 關鍵修正：報名成功後，檢查是否滿了，並更新狀態 ★★★
+        // ★ 修改：報名成功後，檢查是否 (名額 + 2) 全滿，若是則更新狀態
         const newTotal = currentCount + 1;
-        if (newTotal >= challenge.slots) {
+        if (newTotal >= (challenge.slots + 2)) {
             await adminSupabaseClient
                 .from('challenges')
                 .update({ status: '已額滿' })
@@ -593,7 +596,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: newSignup }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // ★★★ 修正版：訪客取消報名 (Cancel) - 強化人數計算安全性 ★★★
+    // 訪客取消報名 (Cancel) - 強化人數計算安全性
     if (action === 'guest-cancel-signup') {
         const { challengeId, nickname, friendCode } = payload;
         const guestName = `${nickname}💪${friendCode}`;
@@ -628,7 +631,10 @@ serve(async (req) => {
             // 狀態判斷邏輯
             if (startTime > now) {
                 newStatus = '預計開放';
-            } else if (currentCount >= slots) {
+            } 
+            // ★ 修改重點：這裡原本是 >= slots，現在要改為 >= slots + 2
+            // 只有當 (正取 + 候補) 都滿了，才視為「已額滿」
+            else if (currentCount >= (slots + 2)) {
                 newStatus = '已額滿';
             } else {
                 newStatus = '開放報名中';
@@ -644,6 +650,25 @@ serve(async (req) => {
         }
 
         return new Response(JSON.stringify({ success: true, data: { message: '已取消報名' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 更新報名留言
+    if (action === 'guest-update-signup-comment') {
+        const { challengeId, nickname, friendCode, comment } = payload;
+        const guestName = `${nickname}💪${friendCode}`;
+
+        // 驗證身分並更新
+        const { data, error } = await adminSupabaseClient
+            .from('signups')
+            .update({ comment: comment }) // 更新留言
+            .eq('challenge_id', challengeId)
+            .eq('guest_name', guestName)  // 確保是本人
+            .select()
+            .single();
+
+        if (error) throw new Error('更新留言失敗，請確認身分');
+        
+        return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // ==========================================
@@ -669,12 +694,13 @@ serve(async (req) => {
 
     // 發布自飛
     if (action === 'guest-create-fly') {
-      const { nickname, friendCode, slots, coordinates, cookingStyle, notes } = payload;
+      const { nickname, friendCode, mushroomType, slots, coordinates, cookingStyle, notes } = payload;
       const { data, error } = await adminSupabaseClient
         .from('guest_fly_posts')
         .insert({
           nickname,
           friend_code: friendCode,
+          mushroom_type: mushroomType, // ★ 新增：寫入蘑菇種類
           slots: parseInt(slots),
           coordinates,
           cooking_style: cookingStyle,
@@ -689,10 +715,11 @@ serve(async (req) => {
 
     // 編輯自飛
     if (action === 'guest-edit-fly') {
-      const { id, slots, coordinates, cookingStyle, notes } = payload;
+      const { id, mushroomType, slots, coordinates, cookingStyle, notes } = payload;
       const { data, error } = await adminSupabaseClient
         .from('guest_fly_posts')
         .update({
+          mushroom_type: mushroomType, // ★ 新增：更新蘑菇種類
           slots: parseInt(slots),
           coordinates,
           cooking_style: cookingStyle,
