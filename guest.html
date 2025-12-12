@@ -191,6 +191,26 @@
             </button>
         </div>
 
+        <div id="guest-chat-section" class="hidden bg-gray-800 p-4 rounded-xl border border-gray-700 mb-8 shadow-lg">
+            <h2 class="text-sm font-bold text-gray-400 mb-2 flex justify-between items-center">
+                <span>💬 <span data-i18n="chat_title">訪客留言板</span></span>
+                <span class="text-xs text-gray-500" data-i18n="chat_limit_hint">(保留最新50則)</span>
+            </h2>
+            
+            <div id="chat-messages" class="bg-gray-900/50 rounded-lg p-3 h-40 overflow-y-auto mb-3 space-y-2 custom-scrollbar border border-gray-700">
+                <p class="text-center text-gray-600 text-xs py-10">...</p>
+            </div>
+
+            <form id="chat-form" class="flex gap-2">
+                <input type="text" id="chat-input" class="dark-input flex-1 rounded-md px-3 py-2 text-sm" placeholder="..." maxlength="50" autocomplete="off">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white rounded-md px-4 py-1 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-send-fill" viewBox="0 0 16 16">
+                        <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.476-.476 1.178Z"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+
         <div id="action-area" class="hidden mb-8">
             <div class="flex flex-col md:flex-row gap-4">
                 <button id="open-fly-modal" class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 rounded-xl shadow-lg transition transform hover:scale-105 flex justify-center items-center gap-2">
@@ -2014,6 +2034,12 @@
         // 2. 資源字典 (Resources)
         const RESOURCES = {
             'zh-TW': {
+
+                'chat_title': '訪客留言板',
+                'chat_limit_hint': '(保留最新50則)',
+                'chat_empty': '暫無留言，快來搶頭香！',
+                'chat_error': '發送失敗',
+
                 'header_title': '蘑菇互助刊登區',
                 'online_prefix': '目前在線:',
                 'music_text': 'Music by Pikmin Bloom Official',
@@ -2109,6 +2135,11 @@
                 'prompt_comment': '請輸入留言:', 'toast_cancelled': '已取消報名'
             },
             'en': {
+                'chat_title': 'Guest Chat',
+                'chat_limit_hint': '(Last 50 msgs)',
+                'chat_empty': 'No messages yet.',
+                'chat_error': 'Failed to send',
+
                 'header_title': 'Mushroom Request Board',
                 'online_prefix': 'Online:',
                 'music_text': 'Music by Pikmin Bloom Official',
@@ -2183,6 +2214,11 @@
                 'prompt_comment': 'Enter comment:', 'toast_cancelled': 'Cancelled'
             },
             'ja': {
+                'chat_title': 'ゲスト掲示板',
+                'chat_limit_hint': '(最新50件)',
+                'chat_empty': 'メッセージはまだありません',
+                'chat_error': '送信失敗',
+
                 'header_title': 'キノコ掲示板',
                 'online_prefix': 'オンライン:',
                 'music_text': 'Music by Pikmin Bloom Official',
@@ -2257,6 +2293,11 @@
                 'prompt_comment': 'コメントを入力:', 'toast_cancelled': 'キャンセルしました'
             },
             'ko': {
+                'chat_title': '게스트 채팅',
+                'chat_limit_hint': '(최신 50개)',
+                'chat_empty': '메시지가 없습니다',
+                'chat_error': '전송 실패',
+
                 'header_title': '버섯 협력 게시판',
                 'online_prefix': '접속:',
                 'music_text': 'Music by Pikmin Bloom Official',
@@ -2582,6 +2623,138 @@
                 showToast('圖片上傳失敗，將不含圖片發布', true);
                 return null;
             }
+        }
+
+        // --- 聊天室功能 ---
+        const chatSection = document.getElementById('guest-chat-section');
+        const chatList = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+
+        function initChat() {
+            // 確認有暱稱才顯示聊天室
+            if(localStorage.getItem('guest_nick')) {
+                chatSection.classList.remove('hidden');
+                loadChatMessages();
+                subscribeChat();
+            }
+        }
+
+        // 修改原本的 checkInfoComplete 函式，加入 initChat()
+        // 請找到原本的 checkInfoComplete 並修改如下：
+        function checkInfoComplete() {
+            if(nickInput.value && codeInput.value) {
+                actionArea.classList.remove('hidden');
+                updateGuestQuota(); 
+                initChat(); // <--- 新增這一行
+            }
+        }
+
+        async function loadChatMessages() {
+            const { data, error } = await supabaseClient
+                .from('guest_messages')
+                .select('*')
+                .order('created_at', { ascending: true }) // 舊的在上面
+                .limit(50);
+            
+            if(error) { console.error('Chat load error', error); return; }
+            
+            renderChatMessages(data);
+            scrollToBottom();
+        }
+
+        function renderChatMessages(messages) {
+            if(!messages || messages.length === 0) {
+                chatList.innerHTML = `<p class="text-center text-gray-500 text-xs py-4">${safeT('chat_empty', '暫無留言，快來搶頭香！')}</p>`;
+                return;
+            }
+
+            const myNick = localStorage.getItem('guest_nick');
+            
+            chatList.innerHTML = messages.map(msg => {
+                const isMe = msg.nickname === myNick;
+                const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+                const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
+                
+                return `
+                    <div class="text-xs break-all">
+                        <span class="text-gray-500 font-mono mr-1">[${time}]</span>
+                        <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${msg.nickname}')">${msg.nickname}:</span>
+                        <span class="text-gray-300">${escapeHtml(msg.message)}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function scrollToBottom() {
+            chatList.scrollTop = chatList.scrollHeight;
+        }
+
+        // 避免 XSS 攻擊的簡單處理
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+        
+        // 點擊暱稱可以 Tag 對方 (選用功能)
+        window.insertNickToInput = (nick) => {
+             chatInput.value = `@${nick} ` + chatInput.value;
+             chatInput.focus();
+        };
+
+        // 發送留言
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = chatInput.value.trim();
+            const nick = localStorage.getItem('guest_nick');
+            
+            if(!text || !nick) return;
+            
+            // 簡單防刷 (前端限制，可依需求調整)
+            const btn = chatForm.querySelector('button');
+            btn.disabled = true;
+
+            const { error } = await supabaseClient
+                .from('guest_messages')
+                .insert([{ nickname: nick, message: text }]);
+
+            if(error) {
+                showToast(safeT('chat_error', '發送失敗'), true);
+            } else {
+                chatInput.value = '';
+            }
+            
+            setTimeout(() => btn.disabled = false, 1000); // 1秒冷卻
+        });
+
+        // 即時監聽
+        function subscribeChat() {
+            supabaseClient.channel('public:guest_messages')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'guest_messages' }, payload => {
+                    const newMsg = payload.new;
+                    // 如果目前顯示的是 "暫無留言"，先清空
+                    if(chatList.querySelector('p')) chatList.innerHTML = '';
+                    
+                    const myNick = localStorage.getItem('guest_nick');
+                    const isMe = newMsg.nickname === myNick;
+                    const time = new Date(newMsg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+                    const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
+                    
+                    const html = `
+                        <div class="text-xs break-all animate-fade-in">
+                            <span class="text-gray-500 font-mono mr-1">[${time}]</span>
+                            <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${newMsg.nickname}')">${newMsg.nickname}:</span>
+                            <span class="text-gray-300">${escapeHtml(newMsg.message)}</span>
+                        </div>
+                    `;
+                    chatList.insertAdjacentHTML('beforeend', html);
+                    scrollToBottom();
+                })
+                .subscribe();
         }
     </script>
 </body>
