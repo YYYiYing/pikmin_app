@@ -216,6 +216,43 @@
                 </div>
             </form>
         </div>
+        
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8 shadow-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span>💬</span> 留言板管理
+                </h2>
+                <div class="flex gap-2">
+                    <button onclick="loadAdminMessages()" class="text-sm bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded transition">
+                        🔄 重新整理
+                    </button>
+                    <button onclick="clearAllMessages()" class="text-sm bg-red-900/80 hover:bg-red-700 text-red-100 border border-red-700 px-3 py-1.5 rounded transition font-bold">
+                        ⚠️ 清空所有留言
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-400">
+                    <thead class="text-xs text-gray-400 uppercase bg-gray-700/50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 rounded-tl-lg">時間</th>
+                            <th scope="col" class="px-4 py-3">暱稱</th>
+                            <th scope="col" class="px-4 py-3 w-1/2">內容</th>
+                            <th scope="col" class="px-4 py-3 rounded-tr-lg text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-msg-list">
+                        <tr>
+                            <td colspan="4" class="px-4 py-8 text-center">載入中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <p class="text-xs text-gray-500 mt-2 text-right">顯示最新的 50 筆留言</p>
+        </div>
+
         <div class="mb-8 admin-container rounded-2xl p-6">
             <div class="flex items-center space-x-2 mb-4">
                 <h2 class="text-xl font-bold">蘑菇挑戰管理</h2>
@@ -1102,6 +1139,108 @@
             checkInitialSession();
         });
         
+        // 載入留言列表
+    async function loadAdminMessages() {
+        const listEl = document.getElementById('admin-msg-list');
+        listEl.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center">載入中...</td></tr>';
+
+        try {
+            // 直接讀取資料表 (Admin 頁面通常有讀取權限)
+            const { data, error } = await supabaseClient
+                .from('guest_messages')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                listEl.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">目前沒有留言</td></tr>';
+                return;
+            }
+
+            listEl.innerHTML = data.map(msg => {
+                const time = new Date(msg.created_at).toLocaleString('zh-TW', { hour12: false });
+                // 防 XSS 處理
+                const safeMsg = msg.message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                
+                return `
+                    <tr class="border-b border-gray-700 hover:bg-gray-700/30 transition">
+                        <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-gray-500">${time}</td>
+                        <td class="px-4 py-3 font-bold text-indigo-300 whitespace-nowrap">${msg.nickname}</td>
+                        <td class="px-4 py-3 text-white break-all">${safeMsg}</td>
+                        <td class="px-4 py-3 text-right">
+                            <button onclick="deleteMessage(${msg.id})" class="text-red-400 hover:text-red-200 bg-red-900/20 hover:bg-red-800/50 px-3 py-1 rounded text-xs transition border border-red-900/50">
+                                刪除
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (err) {
+            console.error(err);
+            listEl.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-red-500">讀取失敗: ${err.message}</td></tr>`;
+        }
+    }
+
+    // 刪除單一留言
+    async function deleteMessage(id) {
+        if (!confirm('確定要刪除這則留言嗎？(此操作無法復原)')) return;
+
+        try {
+            // 呼叫後端 Function 進行刪除
+            const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                body: JSON.stringify({ 
+                    action: 'admin-delete-message', 
+                    payload: { id: id } 
+                })
+            });
+
+            if (error) throw error;
+            if (data && data.error) throw new Error(data.error);
+
+            alert('刪除成功');
+            loadAdminMessages(); // 重新整理列表
+
+        } catch (err) {
+            alert(`刪除失敗: ${err.message}`);
+        }
+    }
+
+    // 清空所有留言
+    async function clearAllMessages() {
+        const confirmCode = Math.floor(Math.random() * 9000) + 1000;
+        const userInput = prompt(`警告：這將刪除「所有」留言！\n\n請輸入驗證碼 ${confirmCode} 確認執行：`);
+        
+        if (userInput != confirmCode) {
+            if(userInput !== null) alert('驗證碼錯誤，取消操作');
+            return;
+        }
+
+        try {
+            const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                body: JSON.stringify({ 
+                    action: 'admin-clear-chat' 
+                })
+            });
+
+            if (error) throw error;
+            if (data && data.error) throw new Error(data.error);
+
+            alert('所有留言已清空！');
+            loadAdminMessages();
+
+        } catch (err) {
+            alert(`操作失敗: ${err.message}`);
+        }
+    }
+
+    // 頁面載入時執行
+    document.addEventListener('DOMContentLoaded', () => {
+        // ... 其他 init ...
+        loadAdminMessages();
+    });
     </script>
 </body>
 </html>

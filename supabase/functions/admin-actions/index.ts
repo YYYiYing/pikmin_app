@@ -575,7 +575,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-// ★★★ 訪客報名 (Join) - 修改版：加入候補名額邏輯 (slots + 2) ★★★
+    // ★★★ 訪客報名 (Join) - 修改版：加入候補名額邏輯 (slots + 2) ★★★
     if (action === 'guest-join-challenge') {
         const { challengeId, nickname, friendCode } = payload;
         const guestName = `${nickname}💪${friendCode}`;
@@ -1143,6 +1143,35 @@ serve(async (req) => {
     // --- 管理員操作 Switch ---
     switch (action) {
         
+        // Case 1: 管理員刪除單一留言
+        case 'admin-delete-message': {
+            const { id } = payload;
+            if (!id) throw new Error('Missing message ID');
+
+            // 使用 supabaseAdmin (Service Role) 才有權限刪除
+            const { error } = await supabaseAdmin
+            .from('guest_messages')
+            .delete()
+            .eq('id', id);
+
+            if (error) throw error;
+            
+            return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+        }
+
+        // Case 2: 管理員清空所有留言
+        case 'admin-clear-chat': {
+            // 刪除 id 大於 0 的所有資料 (即全部刪除)
+            const { error } = await supabaseAdmin
+            .from('guest_messages')
+            .delete()
+            .gt('id', 0); 
+
+            if (error) throw error;
+
+            return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+        }
+
         // 取得使用者列表 (含最後登入時間)
         case 'list-users-with-details':
             const { data: profiles, error: profilesError } = await adminSupabaseClient.from('profiles').select('*');
