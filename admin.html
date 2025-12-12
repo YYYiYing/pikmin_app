@@ -222,35 +222,42 @@
                 <h2 class="text-xl font-bold text-white flex items-center gap-2">
                     <span>💬</span> 留言板管理
                 </h2>
-                <div class="flex gap-2">
-                    <button onclick="loadAdminMessages()" class="text-sm bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded transition">
-                        🔄 重新整理
+                <div class="flex items-center gap-3">
+                    <button onclick="batchDeleteMessages()" id="btn-batch-del" class="hidden flex items-center gap-1 text-sm bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded shadow-md transition font-bold animate-pulse">
+                        <span>🗑️</span> 刪除選取 (<span id="batch-count">0</span>)
                     </button>
+                    
+                    <div class="w-[1px] h-6 bg-gray-600 mx-1"></div>
+                    
                     <button onclick="clearAllMessages()" class="text-sm bg-red-900/80 hover:bg-red-700 text-red-100 border border-red-700 px-3 py-1.5 rounded transition font-bold">
-                        ⚠️ 清空所有留言
+                        ⚠️ 清空所有
                     </button>
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto rounded-lg border border-gray-700">
                 <table class="w-full text-sm text-left text-gray-400">
-                    <thead class="text-xs text-gray-400 uppercase bg-gray-700/50">
+                    <thead class="text-xs text-gray-400 uppercase bg-gray-700/80 sticky top-0">
                         <tr>
-                            <th scope="col" class="px-4 py-3 rounded-tl-lg">時間</th>
-                            <th scope="col" class="px-4 py-3">暱稱</th>
-                            <th scope="col" class="px-4 py-3 w-1/2">內容</th>
-                            <th scope="col" class="px-4 py-3 rounded-tr-lg text-right">操作</th>
+                            <th scope="col" class="p-4 w-10">
+                                <div class="flex items-center">
+                                    <input id="msg-check-all" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-500 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer">
+                                </div>
+                            </th>
+                            <th scope="col" class="px-4 py-3 whitespace-nowrap">時間</th>
+                            <th scope="col" class="px-4 py-3 whitespace-nowrap">暱稱</th>
+                            <th scope="col" class="px-4 py-3 w-full">內容</th>
+                            <th scope="col" class="px-4 py-3 text-right whitespace-nowrap">操作</th>
                         </tr>
                     </thead>
-                    <tbody id="admin-msg-list">
+                    <tbody id="admin-msg-list" class="divide-y divide-gray-700">
                         <tr>
-                            <td colspan="4" class="px-4 py-8 text-center">載入中...</td>
+                            <td colspan="5" class="px-4 py-8 text-center">載入中...</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            
-            <p class="text-xs text-gray-500 mt-2 text-right">顯示最新的 50 筆留言</p>
+            <p class="text-xs text-gray-500 mt-2 text-right">顯示最新的 300 筆留言</p>
         </div>
 
         <div class="mb-8 admin-container rounded-2xl p-6">
@@ -1139,13 +1146,24 @@
             checkInitialSession();
         });
         
-        // 載入留言列表
+    // 載入留言列表 (修正版：加入按鈕強制重置)
     async function loadAdminMessages() {
         const listEl = document.getElementById('admin-msg-list');
-        listEl.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center">載入中...</td></tr>';
+        const checkAllBox = document.getElementById('msg-check-all');
+        const batchBtn = document.getElementById('btn-batch-del');
+        
+        // 1. 重置列表顯示
+        listEl.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center">載入中...</td></tr>';
+        
+        // 2. ★ 關鍵修正：強制重置所有控制元件的狀態
+        if (checkAllBox) checkAllBox.checked = false;
+        if (batchBtn) {
+            batchBtn.classList.add('hidden');       // 隱藏
+            batchBtn.disabled = false;              // 啟用
+            batchBtn.innerHTML = `<span>🗑️</span> 刪除選取 (0)`; // 文字歸零
+        }
 
         try {
-            // 直接讀取資料表 (Admin 頁面通常有讀取權限)
             const { data, error } = await supabaseClient
                 .from('guest_messages')
                 .select('*')
@@ -1155,22 +1173,26 @@
             if (error) throw error;
 
             if (!data || data.length === 0) {
-                listEl.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">目前沒有留言</td></tr>';
+                listEl.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">目前沒有留言</td></tr>';
                 return;
             }
 
             listEl.innerHTML = data.map(msg => {
                 const time = new Date(msg.created_at).toLocaleString('zh-TW', { hour12: false });
-                // 防 XSS 處理
                 const safeMsg = msg.message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 
                 return `
-                    <tr class="border-b border-gray-700 hover:bg-gray-700/30 transition">
+                    <tr class="bg-gray-800 hover:bg-gray-700/50 transition group">
+                        <td class="p-4 w-10">
+                            <div class="flex items-center">
+                                <input type="checkbox" value="${msg.id}" class="msg-checkbox w-4 h-4 text-blue-600 bg-gray-700 border-gray-500 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer">
+                            </div>
+                        </td>
                         <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-gray-500">${time}</td>
                         <td class="px-4 py-3 font-bold text-indigo-300 whitespace-nowrap">${msg.nickname}</td>
-                        <td class="px-4 py-3 text-white break-all">${safeMsg}</td>
-                        <td class="px-4 py-3 text-right">
-                            <button onclick="deleteMessage(${msg.id})" class="text-red-400 hover:text-red-200 bg-red-900/20 hover:bg-red-800/50 px-3 py-1 rounded text-xs transition border border-red-900/50">
+                        <td class="px-4 py-3 text-gray-300 break-all">${safeMsg}</td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <button onclick="deleteMessage(${msg.id})" class="text-red-400 hover:text-red-200 text-xs px-3 py-1 rounded hover:bg-red-900/30 transition border border-transparent hover:border-red-800 whitespace-nowrap">
                                 刪除
                             </button>
                         </td>
@@ -1178,9 +1200,90 @@
                 `;
             }).join('');
 
+            // 重新綁定事件
+            bindCheckboxEvents();
+
         } catch (err) {
             console.error(err);
-            listEl.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-red-500">讀取失敗: ${err.message}</td></tr>`;
+            listEl.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-red-500">讀取失敗: ${err.message}</td></tr>`;
+        }
+    }
+
+    // 處理勾選連動邏輯 (修正版：防止 null 錯誤)
+    function bindCheckboxEvents() {
+        const checkAllBox = document.getElementById('msg-check-all');
+        const checkboxes = document.querySelectorAll('.msg-checkbox');
+        const batchBtn = document.getElementById('btn-batch-del');
+
+        // 更新按鈕狀態函式
+        const updateBtnState = () => {
+            if (!batchBtn) return; // 防呆：如果按鈕沒畫出來就跳過
+
+            const checkedCount = document.querySelectorAll('.msg-checkbox:checked').length;
+            
+            if (checkedCount > 0) {
+                batchBtn.classList.remove('hidden');
+                // ★ 修改：直接更新按鈕內的 HTML，不依賴 batch-count span
+                batchBtn.innerHTML = `<span>🗑️</span> 刪除選取 (${checkedCount})`;
+            } else {
+                batchBtn.classList.add('hidden');
+            }
+        };
+
+        // 1. 全選框被點擊
+        if (checkAllBox) {
+            checkAllBox.onchange = () => {
+                checkboxes.forEach(cb => cb.checked = checkAllBox.checked);
+                updateBtnState();
+            };
+        }
+
+        // 2. 單一框被點擊
+        checkboxes.forEach(cb => {
+            cb.onchange = () => {
+                const allChecked = document.querySelectorAll('.msg-checkbox:checked').length === checkboxes.length;
+                if (checkAllBox) checkAllBox.checked = allChecked;
+                updateBtnState();
+            };
+        });
+    }
+
+    // 批量刪除函式
+    async function batchDeleteMessages() {
+        const checkedBoxes = document.querySelectorAll('.msg-checkbox:checked');
+        const ids = Array.from(checkedBoxes).map(cb => cb.value);
+
+        if (ids.length === 0) return;
+
+        if (!confirm(`確定要刪除這 ${ids.length} 則留言嗎？(無法復原)`)) return;
+
+        const batchBtn = document.getElementById('btn-batch-del');
+        const originalText = batchBtn.innerHTML; // 暫存原本文字
+        batchBtn.disabled = true;
+        batchBtn.innerHTML = '處理中...';
+
+        try {
+            const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                body: JSON.stringify({ 
+                    action: 'admin-batch-delete-messages', 
+                    payload: { ids: ids } 
+                })
+            });
+
+            if (error) throw error;
+            if (data && data.error) throw new Error(data.error);
+
+            // alert('刪除成功！'); 
+            
+            // ★ 刪除這行：loadAdminMessages();
+            // 讓 Realtime 去刷新列表
+
+        } catch (err) {
+            console.error(err);
+            alert(`刪除失敗: ${err.message}`);
+            // 只有失敗時才需要手動恢復按鈕，成功時 loadAdminMessages 會重繪整個區塊
+            batchBtn.disabled = false;
+            batchBtn.innerHTML = originalText;
         }
     }
 
@@ -1199,9 +1302,6 @@
 
             if (error) throw error;
             if (data && data.error) throw new Error(data.error);
-
-            alert('刪除成功');
-            loadAdminMessages(); // 重新整理列表
 
         } catch (err) {
             alert(`刪除失敗: ${err.message}`);
@@ -1238,9 +1338,35 @@
 
     // 頁面載入時執行
     document.addEventListener('DOMContentLoaded', () => {
-        // ... 其他 init ...
         loadAdminMessages();
+        setupAdminMessageRealtime();
     });
+
+    // ★★★ Admin 留言板即時監聽系統 ★★★
+    function setupAdminMessageRealtime() {
+        let refreshTimer = null;
+        
+        // 定義刷新邏輯：延遲 0.5 秒執行，避免連續觸發
+        const debouncedReload = () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => {
+                console.log('🔄 Admin: 偵測到留言變動，正在刷新列表...');
+                loadAdminMessages(); 
+            }, 500);
+        };
+
+        // 監聽 guest_messages 表的所有變動 (新增、刪除)
+        supabaseClient.channel('admin-msg-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_messages' }, (payload) => {
+                // 收到訊號，執行刷新
+                debouncedReload();
+            })
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('✅ 後台留言板已連線 (Realtime)');
+                }
+            });
+    }
     </script>
 </body>
 </html>

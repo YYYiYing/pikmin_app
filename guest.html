@@ -174,7 +174,7 @@
             </div>
         </header>
 
-        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8 shadow-lg">
+        <div id="guest-info-section" class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8 shadow-lg">
             <h2 class="text-lg font-bold text-white mb-4">👼 <span data-i18n="section_nickname">設定您的暱稱</span></h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -192,10 +192,19 @@
         </div>
 
         <div id="guest-chat-section" class="hidden bg-gray-800 p-4 rounded-xl border border-gray-700 mb-8 shadow-lg">
-            <h2 class="text-sm font-bold text-gray-400 mb-2 flex justify-between items-center">
-                <span>💬 <span data-i18n="chat_title">訪客留言板</span></span>
-                <span class="text-xs text-gray-500" data-i18n="chat_limit_hint">(保留最新50則)</span>
-            </h2>
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-sm font-bold text-gray-400 flex items-center gap-2">
+                    <span>💬 <span data-i18n="chat_title">訪客留言板</span></span>
+                </h2>
+                
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500 hidden md:inline" data-i18n="chat_limit_hint">(保留最新300則)</span>
+                    
+                    <button id="change-nick-btn" class="hidden text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded transition border border-gray-600 flex items-center gap-1">
+                        <span>⚙️</span> <span data-i18n="btn_change_nick">變更身分</span>
+                    </button>
+                </div>
+            </div>
             
             <div id="chat-messages" class="bg-gray-900/50 rounded-lg p-3 h-40 overflow-y-auto mb-3 space-y-2 custom-scrollbar border border-gray-700">
                 <p class="text-center text-gray-600 text-xs py-10">...</p>
@@ -534,16 +543,153 @@
             setupGuestRealtime(); // 呼叫新的即時監聽函式
         });
 
-        // 讀取/儲存訪客資訊
+        // ==========================================
+        // ▼▼▼ 訪客資訊與介面控制修復版 ▼▼▼
+        // ==========================================
+        
+        // DOM 元素
         const nickInput = document.getElementById('guest-nickname');
         const codeInput = document.getElementById('guest-code');
         const actionArea = document.getElementById('action-area');
+        const changeNickBtn = document.getElementById('change-nick-btn');
 
-        function loadGuestInfo() {
-            nickInput.value = localStorage.getItem('guest_nick') || '';
-            codeInput.value = localStorage.getItem('guest_code') || '';
-            checkInfoComplete();
+        // 控制「暱稱輸入區塊」與「變更按鈕」的顯示狀態
+        function toggleInfoSection(show) {
+            const infoSection = document.getElementById('guest-info-section');
+            const changeBtn = document.getElementById('change-nick-btn');
+
+            if (show) {
+                // 顯示輸入框，隱藏變更按鈕
+                infoSection.classList.remove('hidden');
+                if(changeBtn) changeBtn.classList.add('hidden');
+                infoSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                // 隱藏輸入框，顯示變更按鈕
+                infoSection.classList.add('hidden');
+                if(changeBtn) changeBtn.classList.remove('hidden');
+            }
         }
+
+        // 綁定「變更身分」按鈕事件
+        if (changeNickBtn) {
+            changeNickBtn.addEventListener('click', () => {
+                toggleInfoSection(true);
+            });
+        }
+
+        // 讀取/儲存訪客資訊 (含自動登入檢查)
+        // 讀取/儲存訪客資訊 (修正版：優先使用本地暫存，不強制覆蓋)
+        async function loadGuestInfo() {
+            // 1. 先嘗試讀取本地暫存
+            let savedNick = localStorage.getItem('guest_nick') || '';
+            let savedCode = localStorage.getItem('guest_code') || '';
+
+            // ★ 修改重點：只有當「本地完全沒資料」時，才嘗試去抓帳號資料來填補
+            if (!savedNick && !savedCode) {
+                try {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    
+                    if (session && session.user) {
+                        const { data: profile } = await supabaseClient
+                            .from('profiles')
+                            .select('nickname')
+                            .eq('id', session.user.id)
+                            .single();
+
+                        if (profile && profile.nickname) {
+                            const rawName = profile.nickname;
+                            const match = rawName.match(/(\d{12})/);
+                            
+                            if (match) {
+                                savedCode = match[1];
+                                savedNick = rawName.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
+                                
+                                // 寫入暫存
+                                localStorage.setItem('guest_nick', savedNick);
+                                localStorage.setItem('guest_code', savedCode);
+                            } else {
+                                savedNick = rawName;
+                                localStorage.setItem('guest_nick', savedNick);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Auth check failed', e);
+                }
+            } else {
+                // 如果本地有資料，且使用者有登入，我們依然可以顯示「已連結」的提示，但不覆蓋暱稱
+                // 檢查是否登入純粹為了顯示 UI 提示 (可選)
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                     const sectionTitle = document.querySelector('h2[data-i18n="section_nickname"]');
+                     if(sectionTitle) sectionTitle.innerHTML = `👼 <span class="text-indigo-400">已連結前台帳號</span>`;
+                }
+            }
+
+            // 3. 填入 UI
+            nickInput.value = savedNick;
+            codeInput.value = savedCode;
+            
+            checkInfoComplete();
+
+            // 如果有資料，自動隱藏輸入區塊
+            if (savedNick && savedCode) {
+                toggleInfoSection(false);
+            }
+        }
+
+        // 儲存按鈕事件
+        document.getElementById('save-guest-info').addEventListener('click', () => {
+            const nick = nickInput.value.trim();
+            const code = codeInput.value.trim();
+            
+            if(!nick || !code) {
+                showToast(safeT('toast_fill_all', '請完整填寫暱稱與好友碼'), true);
+                return;
+            }
+            
+            if (!/^\d{12}$/.test(code)) {
+                showToast(safeT('toast_code_fmt', '好友碼格式錯誤：必須為12位純數字'), true);
+                return;
+            }
+            
+            localStorage.setItem('guest_nick', nick);
+            localStorage.setItem('guest_code', code);
+            showToast(safeT('toast_profile_saved', '身分已暫存！'), false);
+            
+            checkInfoComplete();
+            toggleInfoSection(false); // 儲存後隱藏
+        });
+
+        function checkInfoComplete() {
+            if(nickInput.value && codeInput.value) {
+                actionArea.classList.remove('hidden');
+                updateGuestQuota(); 
+                if (typeof initChat === 'function') initChat(); 
+            }
+        }
+
+        // UX 優化：按 Enter 自動儲存
+        document.getElementById('guest-code').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('save-guest-info').click();
+            }
+        });
+        document.getElementById('guest-nickname').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('guest-code').focus();
+            }
+        });
+
+        // (選用) 為了更順暢，也可以讓暱稱輸入框按 Enter 跳到好友碼輸入框
+        document.getElementById('guest-nickname').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('guest-code').focus();
+            }
+        });
 
         document.getElementById('save-guest-info').addEventListener('click', () => {
             const nick = nickInput.value.trim();
@@ -560,8 +706,11 @@
             
             localStorage.setItem('guest_nick', nick);
             localStorage.setItem('guest_code', code);
-            showToast(safeT('toast_profile_saved', '身分已暫存！您可以開始發菇了'), false);
+            showToast(safeT('toast_profile_saved', '身分已暫存！'), false);
             checkInfoComplete();
+
+            // 儲存成功後，隱藏輸入區塊
+            toggleInfoSection(false);
         });
 
         function checkInfoComplete() {
@@ -2091,7 +2240,7 @@
         // 2. 資源字典 (Resources)
         const RESOURCES = {
             'zh-TW': {
-
+                'btn_change_nick': '暱稱變更',
                 'chat_title': '訪客留言板',
                 'chat_limit_hint': '(保留最新300則)',
                 'chat_empty': '暫無留言，快來搶頭香！',
@@ -2192,6 +2341,7 @@
                 'prompt_comment': '請輸入留言:', 'toast_cancelled': '已取消報名'
             },
             'en': {
+                'btn_change_nick': 'Change Name',
                 'chat_title': 'Guest Chat',
                 'chat_limit_hint': '(Last 300 msgs)',
                 'chat_empty': 'No messages yet.',
@@ -2271,6 +2421,7 @@
                 'prompt_comment': 'Enter comment:', 'toast_cancelled': 'Cancelled'
             },
             'ja': {
+                'btn_change_nick': '名前変更',
                 'chat_title': 'ゲスト掲示板',
                 'chat_limit_hint': '(最新300件)',
                 'chat_empty': 'メッセージはまだありません',
@@ -2350,6 +2501,7 @@
                 'prompt_comment': 'コメントを入力:', 'toast_cancelled': 'キャンセルしました'
             },
             'ko': {
+                'btn_change_nick': '닉네임 변경',
                 'chat_title': '게스트 채팅',
                 'chat_limit_hint': '(최신 300개)',
                 'chat_empty': '메시지가 없습니다',
@@ -2682,7 +2834,9 @@
             }
         }
 
-        // --- 聊天室功能 ---
+        // ==========================================
+        // ▼▼▼ 聊天室功能完整修復版 (Chat System) ▼▼▼
+        // ==========================================
         const chatSection = document.getElementById('guest-chat-section');
         const chatList = document.getElementById('chat-messages');
         const chatForm = document.getElementById('chat-form');
@@ -2693,17 +2847,22 @@
             if(localStorage.getItem('guest_nick')) {
                 chatSection.classList.remove('hidden');
                 loadChatMessages();
-                subscribeChat();
+                
+                // ★ 關鍵修正：確保此函式已定義
+                if (typeof subscribeChat === 'function') {
+                    subscribeChat();
+                } else {
+                    console.error('subscribeChat 函式未定義，請檢查程式碼！');
+                }
             }
         }
 
-        // 修改原本的 checkInfoComplete 函式，加入 initChat()
-        // 請找到原本的 checkInfoComplete 並修改如下：
+        // 修改 checkInfoComplete 函式，確保資料完整時啟動聊天室
         function checkInfoComplete() {
             if(nickInput.value && codeInput.value) {
                 actionArea.classList.remove('hidden');
                 updateGuestQuota(); 
-                initChat(); // <--- 新增這一行
+                initChat(); 
             }
         }
 
@@ -2711,7 +2870,7 @@
             const { data, error } = await supabaseClient
                 .from('guest_messages')
                 .select('*')
-                .order('created_at', { ascending: true }) // 舊的在上面
+                .order('created_at', { ascending: true }) 
                 .limit(300);
             
             if(error) { console.error('Chat load error', error); return; }
@@ -2733,16 +2892,19 @@
                 const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
                 const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
                 
-                // ★ 新增：檢查該暱稱是否在線上 (比對 onlineUserList)
-                // onlineUserList 的格式是 "暱稱👼好友碼"，所以要用 startsWith 比對 "暱稱👼"
                 const isOnline = onlineUserList.some(u => u.startsWith(msg.nickname + '👼'));
                 const onlineDot = isOnline ? '<span class="text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
 
+                // 指紋顯示 (如果有)
+                // 根據指紋產生一個固定的顏色 (選用，讓視覺更容易辨識)
+                const fp = msg.ip_fingerprint ? `<span class="text-[10px] text-gray-500 font-mono ml-1" title="IP識別碼">#${msg.ip_fingerprint}</span>` : '';
+
                 return `
-                    <div class="text-xs break-all">
+                    <div id="msg-${msg.id}" class="text-xs break-all transition-all duration-500 hover:bg-gray-800/50 p-0.5 rounded">
                         <span class="text-gray-500 font-mono mr-1">[${time}]</span>
                         ${onlineDot}
-                        <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${msg.nickname}')">${msg.nickname}:</span>
+                        <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${msg.nickname}')">${msg.nickname}</span>
+                        ${fp} <span class="text-gray-400 mx-1">:</span>
                         <span class="text-gray-300">${escapeHtml(msg.message)}</span>
                     </div>
                 `;
@@ -2753,7 +2915,7 @@
             chatList.scrollTop = chatList.scrollHeight;
         }
 
-        // 避免 XSS 攻擊的簡單處理
+        // 避免 XSS 攻擊
         function escapeHtml(text) {
             return text
                 .replace(/&/g, "&amp;")
@@ -2763,13 +2925,13 @@
                 .replace(/'/g, "&#039;");
         }
         
-        // 點擊暱稱可以 Tag 對方 (選用功能)
+        // 點擊暱稱 Tag 對方
         window.insertNickToInput = (nick) => {
              chatInput.value = `@${nick} ` + chatInput.value;
              chatInput.focus();
         };
 
-        // 發送留言
+        // 發送留言 (修改版：改呼叫後端以生成 IP 指紋)
         chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const text = chatInput.value.trim();
@@ -2777,52 +2939,96 @@
             
             if(!text || !nick) return;
             
-            // 簡單防刷 (前端限制，可依需求調整)
             const btn = chatForm.querySelector('button');
             btn.disabled = true;
 
-            const { error } = await supabaseClient
-                .from('guest_messages')
-                .insert([{ nickname: nick, message: text }]);
+            try {
+                // ★ 修改：改用 functions.invoke
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ 
+                        action: 'guest-send-message', 
+                        payload: { nickname: nick, message: text } 
+                    })
+                });
 
-            if(error) {
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                chatInput.value = ''; // 清空輸入框
+
+            } catch (err) {
+                console.error(err);
                 showToast(safeT('chat_error', '發送失敗'), true);
-            } else {
-                chatInput.value = '';
             }
             
-            setTimeout(() => btn.disabled = false, 1000); // 1秒冷卻
+            setTimeout(() => btn.disabled = false, 1000); 
         });
 
-        // 即時監聽
+        // ★★★ 聊天室即時監聽函式 (最重要的部分) ★★★
+        // 即時監聽函式 (整合版：綠燈 + IP指紋 + 即時刪除)
+        // ★ 新增：宣告一個全域變數來存放訂閱頻道
+        let chatSubscription = null;
+
+        // ★★★ 聊天室即時監聽函式 (防重複訂閱版) ★★★
         function subscribeChat() {
-            supabaseClient.channel('public:guest_messages')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'guest_messages' }, payload => {
-                    const newMsg = payload.new;
-                    if(chatList.querySelector('p')) chatList.innerHTML = '';
+            // 1. 如果已經有訂閱，先移除舊的，防止重複監聽導致訊息多重顯示
+            if (chatSubscription) {
+                supabaseClient.removeChannel(chatSubscription);
+                chatSubscription = null;
+            }
+
+            // 2. 建立新訂閱並存入變數
+            chatSubscription = supabaseClient.channel('public:guest_messages')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_messages' }, payload => {
                     
-                    const myNick = localStorage.getItem('guest_nick');
-                    const isMe = newMsg.nickname === myNick;
-                    const time = new Date(newMsg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
-                    const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
-                    
-                    // ★ 新增：即時訊息的綠燈 (發話者剛發言，通常肯定在線，直接顯示或是也檢查一下)
-                    const isOnline = onlineUserList.some(u => u.startsWith(newMsg.nickname + '👼'));
-                    // 剛發言的人理論上一定在線，直接給燈，或者嚴謹檢查皆可。這裡用嚴謹檢查。
-                    const onlineDot = isOnline ? '<span class="text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
-                    
-                    const html = `
-                        <div class="text-xs break-all animate-fade-in">
-                            <span class="text-gray-500 font-mono mr-1">[${time}]</span>
-                            ${onlineDot}
-                            <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${newMsg.nickname}')">${newMsg.nickname}:</span>
-                            <span class="text-gray-300">${escapeHtml(newMsg.message)}</span>
-                        </div>
-                    `;
-                    chatList.insertAdjacentHTML('beforeend', html);
-                    scrollToBottom();
+                    // Case A: 有新留言 (INSERT)
+                    if (payload.eventType === 'INSERT') {
+                        const newMsg = payload.new;
+                        const emptyMsg = chatList.querySelector('p');
+                        if(emptyMsg) emptyMsg.remove();
+                        
+                        const myNick = localStorage.getItem('guest_nick');
+                        const isMe = newMsg.nickname === myNick;
+                        const time = new Date(newMsg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+                        const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
+                        
+                        // 綠燈邏輯
+                        const isOnline = onlineUserList.some(u => u.startsWith(newMsg.nickname + '👼'));
+                        const onlineDot = isOnline ? '<span class="text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
+                        
+                        // 指紋邏輯
+                        const fp = newMsg.ip_fingerprint ? `<span class="text-[10px] text-gray-500 font-mono ml-1" title="IP識別碼">#${newMsg.ip_fingerprint}</span>` : '';
+
+                        const html = `
+                            <div id="msg-${newMsg.id}" class="text-xs break-all animate-fade-in hover:bg-gray-800/50 p-0.5 rounded">
+                                <span class="text-gray-500 font-mono mr-1">[${time}]</span>
+                                ${onlineDot}
+                                <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${newMsg.nickname}')">${newMsg.nickname}</span>
+                                ${fp}
+                                <span class="text-gray-400 mx-1">:</span>
+                                <span class="text-gray-300">${escapeHtml(newMsg.message)}</span>
+                            </div>
+                        `;
+                        chatList.insertAdjacentHTML('beforeend', html);
+                        scrollToBottom();
+                    }
+
+                    // Case B: 有人刪除留言 (DELETE)
+                    if (payload.eventType === 'DELETE') {
+                        const deletedId = payload.old.id;
+                        const el = document.getElementById(`msg-${deletedId}`);
+                        if (el) {
+                            el.style.transition = 'opacity 0.3s ease';
+                            el.style.opacity = '0';
+                            setTimeout(() => el.remove(), 300);
+                        }
+                    }
                 })
-                .subscribe();
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        // console.log('✅ 聊天室已連線'); // 測試用，可註解掉
+                    }
+                });
         }
     </script>
 </body>

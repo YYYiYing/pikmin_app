@@ -842,6 +842,42 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, message: 'Deleted' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // 訪客發送留言 (含 IP 指紋計算)
+    if (action === 'guest-send-message') {
+        const { nickname, message } = payload;
+        if (!message || !message.trim()) throw new Error('訊息不能為空');
+
+        // 1. 獲取 IP
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        
+        // 2. 計算指紋 (簡單雜湊)
+        let fingerprint = 'unknown';
+        if (clientIp !== 'unknown') {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            fingerprint = hashHex.substring(0, 6); 
+        }
+
+        // 3. 寫入資料庫 (使用 adminSupabaseClient 繞過 RLS)
+        const { data, error } = await adminSupabaseClient
+            .from('guest_messages')
+            .insert({
+                nickname: nickname,
+                message: message,
+                ip_fingerprint: fingerprint
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+
     // ============================================================
     // 區塊 B：使用者驗證 (需要 Authorization Header)
     // ============================================================
@@ -1166,6 +1202,24 @@ serve(async (req) => {
                 .from('guest_messages')
                 .delete()
                 .gt('id', 0); 
+
+            if (error) throw error;
+
+            return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+        }
+
+        // Case 3: 管理員批量刪除留言 (新增)
+        case 'admin-batch-delete-messages': {
+            const { ids } = payload;
+            if (!ids || !Array.isArray(ids) || ids.length === 0) {
+                throw new Error('未選擇任何留言');
+            }
+
+            // 使用 .in() 語法進行批量刪除
+            const { error } = await adminSupabaseClient
+                .from('guest_messages')
+                .delete()
+                .in('id', ids);
 
             if (error) throw error;
 
