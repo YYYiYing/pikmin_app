@@ -2847,15 +2847,86 @@
 
     /** [在線狀態] */
     function setupOnlinePresence() {
-        const ch = supabaseClient.channel('online-users', { config: { presence: { key: currentUserProfile.nickname } } });
-        const upd = () => {
-            onlineNicknames = Object.keys(ch.presenceState());
-            onlineUsersContainer.querySelector('span').textContent = `在線: ${onlineNicknames.length}人`;
-        };
-        ch.on('presence', { event: 'sync' }, upd).on('presence', { event: 'join' }, upd).on('presence', { event: 'leave' }, upd)
-          .subscribe(status => { if(status==='SUBSCRIBED') ch.track({ online_at: new Date().toISOString() }); });
-    }
+            const nick = localStorage.getItem('guest_nick');
+            const code = localStorage.getItem('guest_code');
+            let myIdentity = `Guest_${Math.floor(Math.random()*1000)}`;
+            
+            if (nick && code) {
+                myIdentity = `${nick}👼${code}`;
+            }
+            
+            const ch = supabaseClient.channel('guest-room', { 
+                config: { presence: { key: myIdentity } } 
+            });
 
+            // ★ 修改 1：將 UI 更新邏輯獨立成一個全域函式
+            window.refreshOnlineCountUI = () => {
+                const el = document.getElementById('online-count');
+                const prefix = window.t ? window.t('online_prefix') : '目前在線:';
+                const unit = window.t ? window.t('unit_person') : '人';
+
+                if(el && typeof onlineUserList !== 'undefined') {
+                    el.textContent = `${prefix} ${onlineUserList.length} ${unit}`;
+                }
+            };
+
+            const updateState = () => {
+                const state = ch.presenceState();
+                const rawList = Object.keys(state); 
+                
+                const namedUsers = rawList.filter(n => n.includes('👼'));
+                const guestUsers = rawList.filter(n => !n.includes('👼'));
+                
+                namedUsers.sort((a, b) => {
+                    const nameA = a.split('👼')[0] || a;
+                    const nameB = b.split('👼')[0] || b;
+                    return nameA.localeCompare(nameB, 'zh-Hant');
+                });
+
+                guestUsers.sort();
+
+                onlineUserList = [...namedUsers, ...guestUsers];
+                
+                // ★ 修改 2：呼叫剛剛定義的獨立函式
+                window.refreshOnlineCountUI();
+            };
+
+            ch.on('presence', { event: 'sync' }, updateState)
+              .on('presence', { event: 'join' }, updateState)
+              .on('presence', { event: 'leave' }, updateState)
+              .subscribe(status => { 
+                  if(status === 'SUBSCRIBED') ch.track({ online_at: new Date().toISOString() });
+              });
+              
+            const countEl = document.getElementById('online-count');
+            const modal = document.getElementById('online-users-modal');
+            const listEl = document.getElementById('online-users-list');
+            const closeBtn = document.getElementById('close-online-modal');
+
+            if(countEl) {
+                countEl.onclick = () => {
+                    if (onlineUserList.length === 0) {
+                        listEl.innerHTML = '<li class="text-center text-gray-500">...</li>';
+                    } else {
+                        listEl.innerHTML = onlineUserList.map(n => `
+                            <li class="flex items-center gap-2 p-2 rounded hover:bg-gray-700/50 border-b border-gray-700 last:border-0 text-sm">
+                                <span class="${n.startsWith('Guest_') ? 'text-gray-500' : 'text-green-400'} text-xs">●</span>
+                                <span class="truncate font-mono text-gray-300">${n}</span>
+                            </li>
+                        `).join('');
+                    }
+                    modal.classList.remove('hidden');
+                };
+            }
+
+            if(closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+            if(modal) {
+                modal.onclick = (e) => { 
+                    if(e.target === modal) modal.classList.add('hidden'); 
+                };
+            }
+        }
+        
     /** [工具] 截圖 */
     screenshotButton.addEventListener('click', () => {
         screenshotButton.disabled=true; screenshotButton.innerHTML='截圖中...';

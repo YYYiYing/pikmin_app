@@ -1679,35 +1679,36 @@
                 config: { presence: { key: myIdentity } } 
             });
 
+            // ★ 修改 1：將 UI 更新邏輯獨立成一個全域函式
+            window.refreshOnlineCountUI = () => {
+                const el = document.getElementById('online-count');
+                const prefix = window.t ? window.t('online_prefix') : '目前在線:';
+                const unit = window.t ? window.t('unit_person') : '人';
+
+                if(el && typeof onlineUserList !== 'undefined') {
+                    el.textContent = `${prefix} ${onlineUserList.length} ${unit}`;
+                }
+            };
+
             const updateState = () => {
                 const state = ch.presenceState();
                 const rawList = Object.keys(state); 
                 
-                // 1. 分組：利用是否包含 '👼' 來判斷是「已命名」還是「純訪客」
                 const namedUsers = rawList.filter(n => n.includes('👼'));
                 const guestUsers = rawList.filter(n => !n.includes('👼'));
                 
-                // 2. 排序「已命名」：依照暱稱 (👼 前面的文字) 進行中文排序
                 namedUsers.sort((a, b) => {
                     const nameA = a.split('👼')[0] || a;
                     const nameB = b.split('👼')[0] || b;
                     return nameA.localeCompare(nameB, 'zh-Hant');
                 });
 
-                // 3. 排序「純訪客」：一般排序
                 guestUsers.sort();
 
-                // 4. 組合名單：已命名在前 (...)，純訪客在後 (...)
                 onlineUserList = [...namedUsers, ...guestUsers];
                 
-                // --- 以下是更新介面文字的程式碼 (保持原樣即可，或直接複製覆蓋) ---
-                const el = document.getElementById('online-count');
-                const prefix = window.t ? window.t('online_prefix') : '目前在線:';
-                const unit = window.t ? window.t('unit_person') : '人';
-
-                if(el) {
-                    el.textContent = `${prefix} ${onlineUserList.length} ${unit}`;
-                }
+                // ★ 修改 2：呼叫剛剛定義的獨立函式
+                window.refreshOnlineCountUI();
             };
 
             ch.on('presence', { event: 'sync' }, updateState)
@@ -2687,8 +2688,8 @@
          */
         function updateDOM(lang) {
             // 同步修改 HTML lang 屬性
-            // 這會讓瀏覽器原生的 input type="file" (選擇檔案/未選擇檔案) 嘗試切換語言
-            document.documentElement.lang = lang;
+            document.documentElement.lang = lang; 
+
             const dict = RESOURCES[lang] || RESOURCES['zh-TW'];
             
             // Text Content
@@ -2706,6 +2707,11 @@
             // 觸發外部渲染重繪
             if (typeof window.loadChallenges === 'function') {
                 setTimeout(() => window.loadChallenges(), 50);
+            }
+
+            // ★ 新增：觸發「線上人數」重新渲染
+            if (typeof window.refreshOnlineCountUI === 'function') {
+                window.refreshOnlineCountUI();
             }
         }
 
