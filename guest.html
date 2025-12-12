@@ -369,7 +369,7 @@
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">蘑菇美片 (選填)</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_postcard_image">蘑菇美片 (選填)</label>
                     <input type="file" id="m-image" accept="image/*" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-pink-600 file:text-white hover:file:bg-pink-700 mt-1"/>
                 </div>
 
@@ -468,7 +468,7 @@
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">蘑菇美片 (選填)</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_postcard_image">蘑菇美片 (選填)</label>
                     <input type="file" id="f-image" accept="image/*" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-700 mt-1"/>
                 </div>
 
@@ -932,9 +932,11 @@
                     notesHtml = `<div class="mt-1 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // ★ 新增：顯示圖片按鈕邏輯
+            // 加入 safeT 翻譯
+            const viewImgText = safeT('btn_view_postcard', '📷 查看明信片');
+
             let imageBtnHtml = (c.image_url && c.image_url.startsWith('http')) 
-                ? `<button onclick="openImageViewer('${c.image_url}')" class="mt-2 text-xs bg-gray-700 text-pink-300 px-2 py-1 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1 transition w-fit"><span class="text-sm">📷</span> 查看美片</button>` 
+                ? `<button onclick="openImageViewer('${c.image_url}')" class="mt-2 text-xs bg-gray-700 text-pink-300 px-2 py-1 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1 transition w-fit">${viewImgText}</button>` 
                 : '';
 
             const hostLabel = safeT('label_host', '發菇者');
@@ -1182,9 +1184,11 @@
                     notesHtml = `<div class="mt-1 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // ★ 新增：顯示圖片按鈕邏輯
+            // 加入 safeT 翻譯，並將文字改為「查看明信片」
+            const viewImgText = safeT('btn_view_postcard', '📷 查看明信片');
+            
             let imageBtnHtml = (c.image_url && c.image_url.startsWith('http')) 
-                ? `<button onclick="openImageViewer('${c.image_url}')" class="mt-2 text-xs bg-gray-700 text-pink-300 px-2 py-1 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1 transition w-fit"><span class="text-sm">📷</span> 查看美片</button>` 
+                ? `<button onclick="openImageViewer('${c.image_url}')" class="mt-2 text-xs bg-gray-700 text-pink-300 px-2 py-1 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1 transition w-fit">${viewImgText}</button>` 
                 : '';
 
             const hostNameRaw = c.display_host_name || '未知';
@@ -2276,6 +2280,8 @@
                 'label_remember': '記住時間 (下次自動帶入)',
                 'label_period': '大聲公呼叫時段',
                 'label_cooking': '火侯',
+                'btn_view_postcard': '📷 查看明信片', 
+                'label_postcard_image': '蘑菇美片 (選填)',
                 'label_notes': '備註（選填）',
                 'ph_notes': '發菇者留言...',
                 'btn_cancel': '取消',
@@ -2366,7 +2372,10 @@
                 'loading_msg': 'Searching for mushrooms...', 'modal_post_title': 'Post Mushroom Challenge',
                 'label_m_type': 'Type', 'label_slots': 'Slots Needed', 'label_open_time': 'Start Time',
                 'btn_now': 'Now', 'label_remember': 'Remember Time', 'label_period': 'Call Time Period',
-                'label_cooking': 'Power Level', 'label_notes': 'Notes (Optional)', 'ph_notes': 'Leave a message...',
+                'label_cooking': 'Power Level',
+                'btn_view_postcard': '📷 View Postcard',
+                'label_postcard_image': 'Postcard Image (Optional)',
+                'label_notes': 'Notes (Optional)', 'ph_notes': 'Leave a message...',
                 'btn_cancel': 'Cancel', 'btn_submit': 'Submit', 'modal_fly_title': '✈️ Share Coordinates',
                 'label_slots_rem': 'Slots Left', 'label_coords': 'Coordinates', 'btn_paste': 'Paste',
                 'hint_coords_format': 'Auto-format supported', 'ph_notes_fly': 'Extra info...',
@@ -2446,7 +2455,10 @@
                 'loading_msg': '読み込み中...', 'modal_post_title': 'キノコを投稿',
                 'label_m_type': '種類', 'label_slots': '募集人数', 'label_open_time': '開始時間',
                 'btn_now': '現在', 'label_remember': '時間を記憶', 'label_period': '時間帯',
-                'label_cooking': '火力', 'label_notes': 'メモ (任意)', 'ph_notes': 'メッセージ...',
+                'label_cooking': '火力',
+                'btn_view_postcard': '📷 ポスカを見る',
+                'label_postcard_image': 'ポストカード (任意)',
+                'label_notes': 'メモ (任意)', 'ph_notes': 'メッセージ...',
                 'btn_cancel': 'キャンセル', 'btn_submit': '送信', 'modal_fly_title': '✈️ 座標をシェア',
                 'label_slots_rem': '残り枠', 'label_coords': '座標', 'btn_paste': '貼り付け',
                 'hint_coords_format': 'フォーマット自動変換', 'ph_notes_fly': '補足...',
@@ -2526,7 +2538,10 @@
                 'loading_msg': '로딩 중...', 'modal_post_title': '버섯 모집 등록',
                 'label_m_type': '종류', 'label_slots': '모집 인원', 'label_open_time': '시작 시간',
                 'btn_now': '현재', 'label_remember': '시간 기억하기', 'label_period': '시간대',
-                'label_cooking': '화력', 'label_notes': '메모 (선택)', 'ph_notes': '메시지 남기기...',
+                'label_cooking': '화력',
+                'btn_view_postcard': '📷 엽서 보기',
+                'label_postcard_image': '엽서 이미지 (선택)',
+                'label_notes': '메모 (선택)', 'ph_notes': '메시지 남기기...',
                 'btn_cancel': '취소', 'btn_submit': '등록', 'modal_fly_title': '✈️ 좌표 공유',
                 'label_slots_rem': '남은 자리', 'label_coords': '좌표', 'btn_paste': '붙여넣기',
                 'hint_coords_format': '좌표 자동 변환', 'ph_notes_fly': '추가 정보...',
@@ -2671,6 +2686,9 @@
          * 4.3 DOM 更新器
          */
         function updateDOM(lang) {
+            // 同步修改 HTML lang 屬性
+            // 這會讓瀏覽器原生的 input type="file" (選擇檔案/未選擇檔案) 嘗試切換語言
+            document.documentElement.lang = lang;
             const dict = RESOURCES[lang] || RESOURCES['zh-TW'];
             
             // Text Content
