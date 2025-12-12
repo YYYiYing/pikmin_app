@@ -61,10 +61,10 @@
         #bg-music-player.player-collapsed {
             left: auto !important;
             right: 1.5rem !important; 
-            bottom: 1.5rem !important; 
+            bottom: 0 rem !important; 
             transform: translateX(0) !important;
-            width: 3.5rem;
-            height: 3.5rem;
+            width: 2.5rem;
+            height: 2.5rem;
             padding: 0;
             border-radius: 9999px;
             background-color: rgba(17, 24, 39, 0.9); 
@@ -75,6 +75,8 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            /* Avoid overlapping with i18n widget if moved */
+            margin-bottom: 20px; 
         }
         #bg-music-player.player-collapsed .player-controls-wrapper,
         #bg-music-player.player-collapsed > a {
@@ -113,13 +115,13 @@
                         <span>📣</span> Pikmin Bloom
                     </div>
                     <div class="flex items-center gap-2">
-                        蘑菇互助刊登區 <span>💪</span>
+                        <span data-i18n="header_title">蘑菇互助刊登區</span> <span>💪</span>
                     </div>
                 </h1>
                 
                 <div class="flex items-center gap-3 mt-1">
                     <div id="online-count" class="text-white font-bold text-lg drop-shadow-md cursor-pointer hover:text-cyan-400 transition" title="點擊查看名單">
-                        目前在線: ...
+                        <span data-i18n="online_prefix">目前在線:</span> ...
                     </div>
                     
                     <button id="guest-refresh-btn" class="text-gray-400 hover:text-white transition bg-gray-800/50 p-1.5 rounded-full hover:bg-gray-700" title="重新整理">
@@ -131,11 +133,11 @@
                 </div>
             </div>
 
-            <div id="bg-music-player" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col gap-1 items-center group transition-all duration-500">
+            <div id="bg-music-player" class="fixed bottom-4 right-4 z-40 flex flex-col gap-1 items-center group transition-all duration-500">
                 <div class="bubble-icon">🎵</div>
                 <a href="https://www.youtube.com/playlist?list=PLnvczP3jeVcKbv9p3sHtYmIEPZpuBlOAi" target="_blank" class="ml-2 text-[10px] text-gray-400 hover:text-pink-400 transition no-underline flex items-center gap-1 shadow-sm bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm border border-gray-700" title="前往官方播放清單">
                     <span>🎵</span>
-                    <span>Music by Pikmin Bloom Official</span>
+                    <span data-i18n="music_text">Music by Pikmin Bloom Official</span>
                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
                         <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
                         <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
@@ -171,156 +173,157 @@
         </header>
 
         <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8 shadow-lg">
-            <h2 class="text-lg font-bold text-white mb-4">👼 設定您的暱稱</h2>
+            <h2 class="text-lg font-bold text-white mb-4">👼 <span data-i18n="section_nickname">設定您的暱稱</span></h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                    <label class="block text-sm text-gray-400 mb-1">遊戲暱稱</label>
-                    <input type="text" id="guest-nickname" class="dark-input w-full rounded-md px-3 py-2" placeholder="如何稱呼您?">
+                    <label class="block text-sm text-gray-400 mb-1" data-i18n="label_nickname">遊戲暱稱</label>
+                    <input type="text" id="guest-nickname" class="dark-input w-full rounded-md px-3 py-2" data-i18n-placeholder="ph_nickname" placeholder="如何稱呼您?">
                 </div>
                 <div>
-                    <label class="block text-sm text-gray-400 mb-1">好友碼 (12位數字)</label>
+                    <label class="block text-sm text-gray-400 mb-1" data-i18n="label_friend_code">好友碼 (12位數字)</label>
                     <input type="text" id="guest-code" class="dark-input w-full rounded-md px-3 py-2" placeholder="0000 0000 0000" maxlength="14">
                 </div>
             </div>
             <button id="save-guest-info" class="bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-6 rounded-lg transition w-full md:w-auto shadow-md">
-                💾 儲存後開始發布
+                💾 <span data-i18n="btn_save_profile">儲存後開始發布</span>
             </button>
         </div>
 
         <div id="action-area" class="hidden mb-8">
             <div class="flex flex-col md:flex-row gap-4">
                 <button id="open-fly-modal" class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 rounded-xl shadow-lg transition transform hover:scale-105 flex justify-center items-center gap-2">
-                    <span style="font-size: 25px;">✈️</span> 座標自飛蘑菇<span style="font-size: 25px;">🍄</span>
+                    <span style="font-size: 25px;">✈️</span> <span data-i18n="btn_fly_mushroom">座標自飛蘑菇</span><span style="font-size: 25px;">🍄</span>
                 </button>
                 <button id="open-post-modal" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-xl shadow-lg transition transform hover:scale-105 flex justify-center items-center gap-2">
-                    <span style="font-size: 25px;">📢</span> 大聲公呼叫蘑菇<span style="font-size: 25px;">🍄</span>
+                    <span style="font-size: 25px;">📢</span> <span id="btn-loudspeaker-text" data-i18n="btn_loudspeaker">大聲公呼叫蘑菇</span><span style="font-size: 25px;">🍄</span>
                 </button>
             </div>
             
             <p class="text-center text-xl text-white text-gray-500 mt-2 mb-4 font-mono">
-                同時發布上限: <span id="quota-display" class="text-pink-400 font-bold">--</span> / 6
+                <span data-i18n="quota_label">同時發布上限</span>: <span id="quota-display" class="text-pink-400 font-bold">--</span> / 6
             </p>
             
             <p class="text-center text-sm text-gray-500 mt-2 font-mono">
-                有多餘大聲公未使用嗎？<br>歡迎幫助一菇難求的皮友！<br><br>有荒郊野外的蘑菇座標嗎？<br>也歡迎分享給大家！
+                <span data-i18n="hint_extra_help">有多餘大聲公未使用嗎？歡迎幫助一菇難求的皮友！</span><br>
+                <span data-i18n="hint_remote_coords">有荒郊野外的蘑菇座標嗎？也歡迎分享給大家！</span>
             </p>
         </div>
             
-        <h1 class="text-2xl font-bold text-white mb-2 text-center">🍄 互助蘑菇列表 🍄</h1>
+        <h1 class="text-2xl font-bold text-white mb-2 text-center">🍄 <span data-i18n="list_title">互助蘑菇列表</span> 🍄</h1>
             
         <div class="flex text-xs justify-center gap-2 mb-2" id="filter-tabs">
             <button class="filter-tab active relative" data-filter="all">
-                全部挑戰
+                <span data-i18n="filter_all">全部挑戰</span>
                 <span id="g-badge-all" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
             </button>
             <button class="filter-tab relative" data-filter="fly">
-                自飛菇
+                <span data-i18n="filter_fly">自飛菇</span>
                 <span id="g-badge-fly" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
             </button>
             <button class="filter-tab relative" data-filter="normal">
-                大聲公
+                <span data-i18n="filter_normal">大聲公</span>
                 <span id="g-badge-normal" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
             </button>     
             <button class="filter-tab relative" data-filter="full">
-                已額滿
+                <span data-i18n="filter_full">已額滿</span>
                 <span id="g-badge-full" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
             </button>
             <button class="filter-tab relative" data-filter="mine">
-                我的發布
+                <span data-i18n="filter_mine">我的發布</span>
                 <span id="g-badge-mine" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10 shadow-sm border border-gray-900">0</span>
             </button>
         </div>
             <p class="text-center text-sm text-gray-500 mt-2 mb-4 font-mono">
-                💣 蘑菇卡片逾時自動銷毀 💣<br>
-                ♻️ (大聲公: 6小時 / 自飛: 1小時) ♻️
+                💣 <span data-i18n="warn_destroy">蘑菇卡片逾時自動銷毀</span> 💣<br>
+                ♻️ <span data-i18n="warn_destroy_time">(大聲公: 6小時 / 自飛: 1小時)</span> ♻️
             </p>
         <div id="guest-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <p class="text-gray-500 col-span-full text-center py-8">搜尋菇菇中...</p>
+            <p class="text-gray-500 col-span-full text-center py-8" data-i18n="loading_msg">搜尋菇菇中...</p>
         </div>
     </div>
 
     <div id="guest-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
         <div class="bg-gray-800 w-full max-w-lg rounded-2xl shadow-xl p-6 border border-gray-600 max-h-[90vh] overflow-y-auto">
-            <h2 id="modal-title" class="text-xl font-bold text-white mb-4">發布蘑菇挑戰</h2>
+            <h2 id="modal-title" class="text-xl font-bold text-white mb-4" data-i18n="modal_post_title">發布蘑菇挑戰</h2>
 
             <form id="guest-form" class="space-y-4">
                 <input type="hidden" id="edit-id">
                 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">蘑菇種類</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_m_type">蘑菇種類</label>
                     <select id="m-type" class="dark-input w-full rounded-md mt-1 px-3 py-2">
-                        <option value="巨菇">巨菇(巨大輝煌、奇異...)</option>
-                        <option value="活動菇">活動菇(一般輝煌、奇異...)</option>
-                        <option value="美片菇">美片菇</option>
-                        <option value="大晶">大晶</option>
-                        <option value="大火">大火</option>
-                        <option value="大水">大水</option>
-                        <option value="大電">大電</option>
-                        <option value="大毒">大毒</option>
-                        <option value="大冰藍">大冰藍</option>
-                        <option value="大紅">大紅</option>
-                        <option value="大黃">大黃</option>
-                        <option value="大藍">大藍</option>
-                        <option value="大紫">大紫</option>
-                        <option value="大粉">大粉</option>
-                        <option value="大灰">大灰</option>
-                        <option value="大白">大白</option>
-                        <option value="晶">晶</option>
-                        <option value="水">水</option>
-                        <option value="火">火</option>
-                        <option value="電">電</option>
-                        <option value="毒">毒</option>
-                        <option value="測試">測試</option>
+                        <option value="巨菇" data-i18n="opt_giant">巨菇</option>
+                        <option value="活動菇" data-i18n="opt_event">活動菇</option>
+                        <option value="美片菇" data-i18n="opt_postcard">美片菇</option>
+                        <option value="大晶" data-i18n="opt_crystal_l">大晶</option>
+                        <option value="大火" data-i18n="opt_fire_l">大火</option>
+                        <option value="大水" data-i18n="opt_water_l">大水</option>
+                        <option value="大電" data-i18n="opt_elec_l">大電</option>
+                        <option value="大毒" data-i18n="opt_poison_l">大毒</option>
+                        <option value="大冰藍" data-i18n="opt_ice_l">大冰藍</option>
+                        <option value="大紅" data-i18n="opt_red_l">大紅</option>
+                        <option value="大黃" data-i18n="opt_yellow_l">大黃</option>
+                        <option value="大藍" data-i18n="opt_blue_l">大藍</option>
+                        <option value="大紫" data-i18n="opt_purple_l">大紫</option>
+                        <option value="大粉" data-i18n="opt_pink_l">大粉</option>
+                        <option value="大灰" data-i18n="opt_gray_l">大灰</option>
+                        <option value="大白" data-i18n="opt_white_l">大白</option>
+                        <option value="晶" data-i18n="opt_crystal">晶</option>
+                        <option value="水" data-i18n="opt_water">水</option>
+                        <option value="火" data-i18n="opt_fire">火</option>
+                        <option value="電" data-i18n="opt_elec">電</option>
+                        <option value="毒" data-i18n="opt_poison">毒</option>
+                        <option value="測試" data-i18n="opt_test">測試</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">呼叫名額</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_slots">呼叫名額</label>
                     <input type="number" id="m-slots" value="4" min="1" max="4" class="dark-input w-full rounded-md mt-1 px-3 py-2">
                 </div>
 
                 <div>
                     <div class="flex justify-between items-center">
-                        <label class="text-sm text-gray-400 font-bold">開放報名時間</label>
-                        <button type="button" id="set-time-now" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded hover:bg-indigo-600 font-bold">現在</button>
+                        <label class="text-sm text-gray-400 font-bold" data-i18n="label_open_time">開放報名時間</label>
+                        <button type="button" id="set-time-now" class="text-xs bg-indigo-500 text-white px-2 py-1 rounded hover:bg-indigo-600 font-bold" data-i18n="btn_now">現在</button>
                     </div>
                     <input type="datetime-local" id="m-time" class="dark-input w-full rounded-md mt-1 px-3 py-2" required>
                     
                     <div class="mt-2 flex items-center">
                         <input id="guest-remember-time" type="checkbox" class="h-4 w-4 rounded border-gray-500 bg-gray-600 text-pink-600 focus:ring-pink-500">
-                        <label for="guest-remember-time" class="ml-2 block text-sm text-gray-400">記住時間 (下次自動帶入)</label>
+                        <label for="guest-remember-time" class="ml-2 block text-sm text-gray-400" data-i18n="label_remember">記住時間 (下次自動帶入)</label>
                     </div>
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">大聲公呼叫時段</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_period">大聲公呼叫時段</label>
                     <select id="m-details" class="dark-input w-full rounded-md mt-1 px-3 py-2">
-                        <option value="宵夜">宵夜 (21:00~01:00)</option>
-                        <option value="早餐">早餐 (06:00~11:00)</option>
-                        <option value="午餐">午餐 (11:00~15:00)</option>
-                        <option value="下午茶">下午茶 (15:00~17:00)</option>
-                        <option value="晚餐">晚餐 (17:00~21:00)</option>
-                        <option value="滿人開">滿人開 (人滿後發)</option>
+                        <option value="宵夜" data-i18n="period_night">宵夜 (21:00~01:00)</option>
+                        <option value="早餐" data-i18n="period_breakfast">早餐 (06:00~11:00)</option>
+                        <option value="午餐" data-i18n="period_lunch">午餐 (11:00~15:00)</option>
+                        <option value="下午茶" data-i18n="period_tea">下午茶 (15:00~17:00)</option>
+                        <option value="晚餐" data-i18n="period_dinner">晚餐 (17:00~21:00)</option>
+                        <option value="滿人開" data-i18n="period_full">滿人開 (人滿後發)</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">火侯</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_cooking">火侯</label>
                     <select id="m-style" class="dark-input w-full rounded-md mt-1 px-3 py-2">
-                        <option value="隨便亂炒（不限戰力）">隨便亂炒（不限戰力）</option>
-                        <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
-                        <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
+                        <option value="隨便亂炒（不限戰力）" data-i18n="opt_cook_any">隨便亂炒（不限戰力）</option>
+                        <option value="大火快炒（戰力全開）" data-i18n="opt_cook_hard">大火快炒（戰力全開）</option>
+                        <option value="細火慢燉（控制戰力）" data-i18n="opt_cook_slow">細火慢燉（控制戰力）</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">備註（選填）</label>
-                    <input type="text" id="m-notes" class="dark-input w-full rounded-md mt-1 px-3 py-2" placeholder="發菇者留言...">
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_notes">備註（選填）</label>
+                    <input type="text" id="m-notes" class="dark-input w-full rounded-md mt-1 px-3 py-2" data-i18n-placeholder="ph_notes" placeholder="發菇者留言...">
                 </div>
 
                 <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
-                    <button type="button" id="close-modal" class="bg-gray-600 hover:bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold transition">取消</button>
-                    <button type="submit" id="submit-btn" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-2.5 rounded-lg font-bold transition shadow-lg">確認送出</button>
+                    <button type="button" id="close-modal" class="bg-gray-600 hover:bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold transition" data-i18n="btn_cancel">取消</button>
+                    <button type="submit" id="submit-btn" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-2.5 rounded-lg font-bold transition shadow-lg" data-i18n="btn_submit">確認送出</button>
                 </div>
             </form>
         </div>
@@ -328,72 +331,72 @@
 
     <div id="fly-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
         <div class="bg-gray-800 w-full max-w-lg rounded-2xl shadow-xl p-6 border border-gray-600 max-h-[90vh] overflow-y-auto">
-            <h2 id="fly-modal-title" class="text-xl font-bold text-white mb-4">✈️ 發布自飛座標</h2>
+            <h2 id="fly-modal-title" class="text-xl font-bold text-white mb-4" data-i18n="modal_fly_title">✈️ 發布自飛座標</h2>
 
             <form id="fly-form" class="space-y-4">
                 <input type="hidden" id="fly-edit-id">
                 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">蘑菇種類</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_m_type">蘑菇種類</label>
                     <select id="f-type" class="dark-input w-full rounded-md mt-1 px-3 py-2">
-                        <option value="巨菇">巨菇(巨大輝煌、奇異...)</option>
-                        <option value="活動菇">活動菇(一般輝煌、奇異...)</option>
-                        <option value="美片菇">美片菇</option>
-                        <option value="大晶">大晶</option>
-                        <option value="大火">大火</option>
-                        <option value="大水">大水</option>
-                        <option value="大電">大電</option>
-                        <option value="大毒">大毒</option>
-                        <option value="大冰藍">大冰藍</option>
-                        <option value="大紅">大紅</option>
-                        <option value="大黃">大黃</option>
-                        <option value="大藍">大藍</option>
-                        <option value="大紫">大紫</option>
-                        <option value="大粉">大粉</option>
-                        <option value="大灰">大灰</option>
-                        <option value="大白">大白</option>
-                        <option value="晶">晶</option>
-                        <option value="水">水</option>
-                        <option value="火">火</option>
-                        <option value="電">電</option>
-                        <option value="毒">毒</option>
-                        <option value="測試">測試</option>
+                        <option value="巨菇" data-i18n="opt_giant">巨菇</option>
+                        <option value="活動菇" data-i18n="opt_event">活動菇</option>
+                        <option value="美片菇" data-i18n="opt_postcard">美片菇</option>
+                        <option value="大晶" data-i18n="opt_crystal_l">大晶</option>
+                        <option value="大火" data-i18n="opt_fire_l">大火</option>
+                        <option value="大水" data-i18n="opt_water_l">大水</option>
+                        <option value="大電" data-i18n="opt_elec_l">大電</option>
+                        <option value="大毒" data-i18n="opt_poison_l">大毒</option>
+                        <option value="大冰藍" data-i18n="opt_ice_l">大冰藍</option>
+                        <option value="大紅" data-i18n="opt_red_l">大紅</option>
+                        <option value="大黃" data-i18n="opt_yellow_l">大黃</option>
+                        <option value="大藍" data-i18n="opt_blue_l">大藍</option>
+                        <option value="大紫" data-i18n="opt_purple_l">大紫</option>
+                        <option value="大粉" data-i18n="opt_pink_l">大粉</option>
+                        <option value="大灰" data-i18n="opt_gray_l">大灰</option>
+                        <option value="大白" data-i18n="opt_white_l">大白</option>
+                        <option value="晶" data-i18n="opt_crystal">晶</option>
+                        <option value="水" data-i18n="opt_water">水</option>
+                        <option value="火" data-i18n="opt_fire">火</option>
+                        <option value="電" data-i18n="opt_elec">電</option>
+                        <option value="毒" data-i18n="opt_poison">毒</option>
+                        <option value="測試" data-i18n="opt_test">測試</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">剩餘名額</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_slots_rem">剩餘名額</label>
                     <input type="number" id="f-slots" value="5" min="1" max="5" class="dark-input w-full rounded-md mt-1 px-3 py-2">
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">座標</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_coords">座標</label>
                     <div class="relative mt-1">
                         <input type="text" id="f-coords" required placeholder="例如: 22.123, 120.456" class="dark-input w-full rounded-md px-3 py-2 pr-20">
-                        <button type="button" id="paste-coords-btn" class="absolute right-1 top-1 bottom-1 bg-gray-700 hover:bg-gray-600 text-green-400 px-3 rounded transition text-xs font-bold">
+                        <button type="button" id="paste-coords-btn" class="absolute right-1 top-1 bottom-1 bg-gray-700 hover:bg-gray-600 text-green-400 px-3 rounded transition text-xs font-bold" data-i18n="btn_paste">
                             📋 貼上
                         </button>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">支援座標格式化</p>
+                    <p class="text-xs text-gray-500 mt-1" data-i18n="hint_coords_format">支援座標格式化</p>
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">火侯</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_cooking">火侯</label>
                     <select id="f-style" class="dark-input w-full rounded-md mt-1 px-3 py-2">
-                        <option value="隨便亂炒（不限戰力）">隨便亂炒（不限戰力）</option>
-                        <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
-                        <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
+                        <option value="隨便亂炒（不限戰力）" data-i18n="opt_cook_any">隨便亂炒</option>
+                        <option value="大火快炒（戰力全開）" data-i18n="opt_cook_hard">大火快炒</option>
+                        <option value="細火慢燉（控制戰力）" data-i18n="opt_cook_slow">細火慢燉</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold">備註（選填）</label>
-                    <input type="text" id="f-notes" class="dark-input w-full rounded-md mt-1 px-3 py-2" placeholder="補充說明...">
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_notes">備註（選填）</label>
+                    <input type="text" id="f-notes" class="dark-input w-full rounded-md mt-1 px-3 py-2" data-i18n-placeholder="ph_notes_fly" placeholder="補充說明...">
                 </div>
 
                 <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
-                    <button type="button" id="close-fly-modal" class="bg-gray-600 hover:bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold transition">取消</button>
-                    <button type="submit" id="fly-submit-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-2.5 rounded-lg font-bold transition shadow-lg">確認送出</button>
+                    <button type="button" id="close-fly-modal" class="bg-gray-600 hover:bg-gray-500 text-white px-5 py-2.5 rounded-lg font-bold transition" data-i18n="btn_cancel">取消</button>
+                    <button type="submit" id="fly-submit-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-2.5 rounded-lg font-bold transition shadow-lg" data-i18n="btn_submit">確認送出</button>
                 </div>
             </form>
         </div>
@@ -405,12 +408,12 @@
         <div class="bg-gray-800 w-full max-w-xs rounded-2xl shadow-xl p-6 border border-gray-600 transform transition-all scale-100">
             <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
                 <h2 class="text-xl font-bold text-gray-100 flex items-center gap-2">
-                    <span class="text-green-400">●</span> 線上訪客
+                    <span class="text-green-400">●</span> <span data-i18n="online_modal_title">線上訪客</span>
                 </h2>
                 <button type="button" id="close-online-modal" class="text-gray-400 hover:text-white text-2xl transition">&times;</button>
             </div>
             <ul id="online-users-list" class="space-y-2 max-h-64 overflow-y-auto text-gray-300 pr-1 custom-scrollbar">
-                <li class="text-center text-gray-500 py-4">載入中...</li>
+                <li class="text-center text-gray-500 py-4">...</li>
             </ul>
         </div>
     </div>
@@ -419,7 +422,7 @@
         <div class="bg-gray-800 w-full max-w-sm rounded-2xl shadow-xl p-6 border border-gray-600 transform transition-all scale-100">
             <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
                 <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <span>💬</span> 完整留言
+                    <span>💬</span> <span data-i18n="comment_modal_title">完整留言</span>
                 </h3>
                 <button id="close-comment-modal" class="text-gray-400 hover:text-white text-2xl transition">&times;</button>
             </div>
@@ -471,18 +474,18 @@
             const nick = nickInput.value.trim();
             const code = codeInput.value.trim();
             if(!nick || !code) {
-                showToast('請完整填寫暱稱與好友碼', true);
+                showToast(safeT('toast_fill_all', '請完整填寫暱稱與好友碼'), true);
                 return;
             }
             
             if (!/^\d{12}$/.test(code)) {
-                showToast('好友碼格式錯誤：必須為12位純數字', true);
+                showToast(safeT('toast_code_fmt', '好友碼格式錯誤：必須為12位純數字'), true);
                 return;
             }
             
             localStorage.setItem('guest_nick', nick);
             localStorage.setItem('guest_code', code);
-            showToast('身分已暫存！您可以開始發菇了', false);
+            showToast(safeT('toast_profile_saved', '身分已暫存！您可以開始發菇了'), false);
             checkInfoComplete();
         });
 
@@ -494,43 +497,62 @@
         }
 
         let activeFilter = 'all'; // 當前篩選狀態
+
         // 載入挑戰
         async function loadChallenges() {
             const list = document.getElementById('guest-list');
+            if(!list) return;
 
-            const mushroomStyles = {
-                '巨菇':     { bg: 'bg-cyan-400',     text: 'text-black' },
-                '活動菇':   { bg: 'bg-lime-400',     text: 'text-black' },
-                '美片菇':   { bg: 'bg-[#ff0080]',    text: 'text-white' },
-                '大火':     { bg: 'bg-red-600',      text: 'text-white' },
-                '火':       { bg: 'bg-red-600',      text: 'text-white' },
-                '大紅':     { bg: 'bg-red-600',      text: 'text-white' },
-                '大電':     { bg: 'bg-yellow-400',   text: 'text-black' },
-                '電':       { bg: 'bg-yellow-400',   text: 'text-black' },
-                '大黃':     { bg: 'bg-yellow-400',   text: 'text-black' },
-                '大水':     { bg: 'bg-blue-600',     text: 'text-white' },
-                '水':       { bg: 'bg-blue-600',     text: 'text-white' },
-                '大藍':     { bg: 'bg-blue-600',     text: 'text-white' },
-                '大晶':     { bg: 'bg-sky-300',      text: 'text-black' },
-                '晶':       { bg: 'bg-sky-300',      text: 'text-black' },
-                '大冰藍':   { bg: 'bg-sky-300',      text: 'text-black' },
-                '大毒':     { bg: 'bg-green-700',    text: 'text-white' },
-                '毒':       { bg: 'bg-green-700',    text: 'text-white' },
-                '大白':     { bg: 'bg-white',        text: 'text-black' },
-                '大紫':     { bg: 'bg-purple-600',   text: 'text-white' },
-                '大粉':     { bg: 'bg-pink-300',     text: 'text-black' },
-                '大灰':     { bg: 'bg-gray-500',     text: 'text-white' },
-                '測試':     { bg: 'bg-black',        text: 'text-white' },
+            // 1. 蘑菇名稱對照表 (DB中文 -> i18n Key)
+            const typeToKeyMap = {
+                '巨菇': 'opt_giant', '活動菇': 'opt_event', '美片菇': 'opt_postcard',
+                '大晶': 'opt_crystal_l', '大火': 'opt_fire_l', '大水': 'opt_water_l',
+                '大電': 'opt_elec_l', '大毒': 'opt_poison_l', '大冰藍': 'opt_ice_l',
+                '大紅': 'opt_red_l', '大黃': 'opt_yellow_l', '大藍': 'opt_blue_l',
+                '大紫': 'opt_purple_l', '大粉': 'opt_pink_l', '大灰': 'opt_gray_l',
+                '大白': 'opt_white_l', '晶': 'opt_crystal', '水': 'opt_water',
+                '火': 'opt_fire', '電': 'opt_elec', '毒': 'opt_poison', '測試': 'opt_test',
+                '自飛菇': 'btn_fly_mushroom' // 自飛預設值
             };
 
-            const detailsMap = {
-                '宵夜': '宵夜 (21:00~01:00)',
-                '早餐': '早餐 (06:00~11:00)',
-                '午餐': '午餐 (11:00~15:00)',
-                '下午茶': '下午茶 (15:00~17:00)',
-                '晚餐': '晚餐 (17:00~21:00)',
-                '滿人開': '滿人開 (人滿後發)'
+            // 2. 新增：時段對照表 (DB中文 -> i18n Key)
+            const detailsToKeyMap = {
+                '宵夜': 'period_night',
+                '早餐': 'period_breakfast',
+                '午餐': 'period_lunch',
+                '下午茶': 'period_tea',
+                '晚餐': 'period_dinner',
+                '滿人開': 'period_full'
             };
+
+            // 火侯對照表 (DB中文 -> i18n Key)
+            const cookingToKeyMap = {
+                '隨便亂炒（不限戰力）': 'opt_cook_any',
+                '大火快炒（戰力全開）': 'opt_cook_hard',
+                '細火慢燉（控制戰力）': 'opt_cook_slow'
+            };
+
+            // 輔助函式：將資料庫的蘑菇名稱轉為當前語言
+            const getTranslatedType = (dbType) => {
+                const key = typeToKeyMap[dbType];
+                return (key && window.t) ? window.t(key) : dbType;
+            };
+
+            // 新增輔助函式：取得翻譯後的火侯
+            const getTranslatedCooking = (dbCook) => {
+                const key = cookingToKeyMap[dbCook];
+                return (key && window.t) ? window.t(key) : dbCook;
+            };
+
+            // 輔助函式：將資料庫的時段轉為當前語言
+            const getTranslatedDetails = (dbDetail) => {
+                const key = detailsToKeyMap[dbDetail];
+                // 如果找不到 key (舊資料或自訂資料)，就回傳原值
+                return (key && window.t) ? window.t(key) : dbDetail;
+            };
+
+            // 原本的細節對應表僅供 "detailsMap" 變數相容 (若有其他地方用)，但渲染時將改用上面的 translator
+            const detailsMap = { /* 這裡的內容現在主要由 getTranslatedDetails 取代 */ };
 
             let myGuestSignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
 
@@ -554,58 +576,52 @@
 
                 window.currentAllData = allData;
 
-                if(allData.length === 0) { list.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">目前沒有任何挑戰</p>'; return; }
+                if(allData.length === 0) { 
+                    list.innerHTML = `<p class="col-span-full text-center text-gray-500 py-8">${window.t ? window.t('no_challenges') : '目前沒有任何挑戰'}</p>`; 
+                    return; 
+                }
 
-                // 計算紅點
-                let countAll = 0; 
-                let countFly = 0; 
-                let countNormal = 0;
-                let countFull = 0;
-                let countMine = 0;
-
+                // 計算紅點邏輯 (保持不變)
+                let countAll = 0; let countFly = 0; let countNormal = 0; let countFull = 0; let countMine = 0;
                 allData.forEach(c => {
                     const isFly = c.dataType === 'fly';
                     const isFull = !isFly && c.status === '已額滿'; 
-                    
                     let isMine = false;
                     if(isFly) isMine = myFlyPostIds.includes(c.id);
                     else isMine = myGuestPostIds.some(id => String(id) === String(c.id));
-
-                    // 1. 全部 (未額滿的大聲公 + 所有自飛)
                     if (isFly || !isFull) countAll++;
-
-                    // 2. 自飛
                     if (isFly) countFly++;
-
-                    // 3. 大聲公 (非自飛 & 未額滿)
                     if (!isFly && !isFull) countNormal++;
-
-                    // 4. 已額滿 (只算大聲公)
                     if (!isFly && isFull) countFull++;
-
-                    // 5. 我的
                     if (isMine) countMine++;
                 });
-
                 const updateBadge = (id, count) => {
                     const el = document.getElementById(id);
-                    if(el) {
-                        el.textContent = count > 99 ? '99+' : count;
-                        el.classList.toggle('hidden', count === 0);
-                    }
+                    if(el) { el.textContent = count > 99 ? '99+' : count; el.classList.toggle('hidden', count === 0); }
                 };
-                updateBadge('g-badge-all', countAll);
-                updateBadge('g-badge-fly', countFly); 
-                updateBadge('g-badge-normal', countNormal);
-                updateBadge('g-badge-full', countFull);
-                updateBadge('g-badge-mine', countMine);
+                updateBadge('g-badge-all', countAll); updateBadge('g-badge-fly', countFly); 
+                updateBadge('g-badge-normal', countNormal); updateBadge('g-badge-full', countFull); updateBadge('g-badge-mine', countMine);
 
-                // 渲染列表
+                // --- 渲染列表 ---
+                const mushroomStyles = {
+                    '巨菇': { bg: 'bg-cyan-400', text: 'text-black' },
+                    '活動菇': { bg: 'bg-lime-400', text: 'text-black' },
+                    '美片菇': { bg: 'bg-[#ff0080]', text: 'text-white' },
+                    '大火': { bg: 'bg-red-600', text: 'text-white' }, '火': { bg: 'bg-red-600', text: 'text-white' }, '大紅': { bg: 'bg-red-600', text: 'text-white' },
+                    '大電': { bg: 'bg-yellow-400', text: 'text-black' }, '電': { bg: 'bg-yellow-400', text: 'text-black' }, '大黃': { bg: 'bg-yellow-400', text: 'text-black' },
+                    '大水': { bg: 'bg-blue-600', text: 'text-white' }, '水': { bg: 'bg-blue-600', text: 'text-white' }, '大藍': { bg: 'bg-blue-600', text: 'text-white' },
+                    '大晶': { bg: 'bg-sky-300', text: 'text-black' }, '晶': { bg: 'bg-sky-300', text: 'text-black' }, '大冰藍': { bg: 'bg-sky-300', text: 'text-black' },
+                    '大毒': { bg: 'bg-green-700', text: 'text-white' }, '毒': { bg: 'bg-green-700', text: 'text-white' },
+                    '大白': { bg: 'bg-white', text: 'text-black' }, '大紫': { bg: 'bg-purple-600', text: 'text-white' }, '大粉': { bg: 'bg-pink-300', text: 'text-black' }, '大灰': { bg: 'bg-gray-500', text: 'text-white' }, '測試': { bg: 'bg-black', text: 'text-white' }
+                };
+
                 list.innerHTML = allData.map(c => {
                     if (c.dataType === 'fly') {
-                        return renderFlyCard(c, mushroomStyles); 
+                        // 修改這一行：多傳入 getTranslatedCooking
+                        return renderFlyCard(c, mushroomStyles, getTranslatedType, getTranslatedCooking); 
                     } else {
-                        return renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups);
+                        // 修改這一行：多傳入 getTranslatedCooking
+                        return renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups, getTranslatedType, getTranslatedDetails, getTranslatedCooking);
                     }
                 }).join('');
 
@@ -614,46 +630,68 @@
 
             } catch (err) {
                 console.error(err);
-                list.innerHTML = '<p class="col-span-full text-center text-red-400">讀取失敗</p>';
+                list.innerHTML = `<p class="col-span-full text-center text-red-400">${window.t ? window.t('load_fail') : '讀取失敗'}</p>`;
             }
         }
 
-        function renderFlyCard(c, mushroomStyles) {
+        // 輔助函式：取得翻譯 (若模組尚未載入，回傳預設值)
+        function safeT(key, defaultVal) {
+            return window.t ? window.t(key) : defaultVal;
+        }
+
+        // 修改 renderFlyCard：補上第三個參數 typeTranslator
+        function renderFlyCard(c, mushroomStyles, typeTranslator, cookingTranslator) {
             const isMine = myFlyPostIds.includes(c.id);
             
-            const type = c.mushroom_type || '自飛菇'; 
-            const style = mushroomStyles[type] || { bg: 'bg-gray-700', text: 'text-white' };
+            const rawType = c.mushroom_type || '自飛菇';
+            // 現在 typeTranslator 已經正確傳入，不會報錯了
+            const displayType = typeTranslator ? typeTranslator(rawType) : rawType;
+            
+            const style = mushroomStyles[rawType] || { bg: 'bg-gray-700', text: 'text-white' };
             const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap leading-none`;
 
             let cookingStyleClass = 'text-gray-400 border-gray-500/30';
             const cStyle = c.cooking_style || '';
+            
+            // 2. 取得翻譯後的火侯文字
+            const displayCooking = cookingTranslator ? cookingTranslator(cStyle) : cStyle;
+
+            // 判斷顏色還是用原始中文 cStyle (這部分保持不變)
             if (cStyle.includes('大火')) cookingStyleClass = 'text-red-500 border-red-500/30';
             else if (cStyle.includes('細火')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
             else if (cStyle.includes('隨便')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
-            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>`;
-
+            
+            const fireLabel = safeT('label_cooking', '火侯');
+            
+            // 3. HTML 裡面的變數改成 displayCooking
+            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">${fireLabel}:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${displayCooking || '未指定'}</span></div>`;
+            
             let notesHtml = '';
             if (c.notes && c.notes.trim()) {
                  notesHtml = `<div class="mt-1 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            const hostDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${c.friend_code}')" title="複製好友碼: ${c.friend_code}">${c.nickname}</span>`;
+            const hostLabel = safeT('label_host', '發菇者');
+            const hostDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${c.friend_code}')" title="${safeT('hint_copy_code', '複製好友碼')}: ${c.friend_code}">${c.nickname}</span>`;
 
             let actionBtnHtml = '';
             if (isMine) {
                 actionBtnHtml = `
                     <div class="mt-4 flex gap-2">
-                        <button onclick="editFlyPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">編輯</button>
-                        <button onclick="deleteFlyPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">刪除</button>
+                        <button onclick="editFlyPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">${safeT('btn_edit', '編輯')}</button>
+                        <button onclick="deleteFlyPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">${safeT('btn_delete', '刪除')}</button>
                     </div>`;
             } else {
                 actionBtnHtml = `
                     <button onclick="handleFlyCopy('${c.coordinates}')" class="mt-4 w-full bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition shadow-lg transform active:scale-95 flex justify-center items-center gap-2">
-                        <span>🚀</span> 我要起飛
+                        <span>🚀</span> ${safeT('btn_take_off', '我要起飛')}
                     </button>`;
             }
 
             const postTime = new Date(c.created_at).toLocaleString('zh-TW', { hour12: false });
+            const timeLabel = safeT('label_post_time', '發布時間');
+            const slotsLabel = safeT('label_slots_rem', '剩餘名額');
+            const flyTag = safeT('tag_fly', '自飛');
 
             return `
                 <div class="challenge-card p-4 rounded-xl relative border border-cyan-800 bg-gray-800/80 hover:border-cyan-500 transition-colors duration-300" 
@@ -661,20 +699,19 @@
                      data-ismine="${isMine}">
                     
                     <div class="absolute top-2 right-2 flex items-center gap-2">
-                        <span class="bg-cyan-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">自飛</span>
+                        <span class="bg-cyan-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">${flyTag}</span>
                         <span class="guest-badge">GUEST</span>
                     </div>
                     
                     <div class="flex items-center gap-2 mb-2">
-                        <h3 class="${titleClasses}">${type}</h3>
-                        <span class="text-sm font-bold text-gray-500 leading-none">#${c.id}</span>
+                        <h3 class="${titleClasses}">${displayType}</h3> <span class="text-sm font-bold text-gray-500 leading-none">#${c.id}</span>
                     </div>
 
-                    <p class="text-sm text-gray-300 font-bold mb-2">發菇者: ${hostDisplay}</p>
+                    <p class="text-sm text-gray-300 font-bold mb-2">${hostLabel}: ${hostDisplay}</p>
                     
                     <div class="text-sm text-gray-400 space-y-1">
-                        <p>發布時間: ${postTime}</p>
-                        <p>剩餘名額: ${c.slots} 人</p>
+                        <p>${timeLabel}: ${postTime}</p>
+                        <p>${slotsLabel}: ${c.slots} ${safeT('unit_person', '人')}</p>
                         <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded border border-gray-700">
                             <span class="font-mono text-xs text-gray-300 truncate select-all">${c.coordinates}</span>
                         </div>
@@ -687,45 +724,63 @@
             `;
         }
 
-        function renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups) {
+        function renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups, typeTranslator, detailsTranslator, cookingTranslator) {
             const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
             const mySignupRecord = myGuestSignups.find(s => String(s.challengeId) === String(c.id));
             const isSignedUp = !!mySignupRecord;
 
             const signupCount = c.signups ? c.signups.length : 0;
-            const displayDetails = detailsMap[c.details] || c.details;
             
-            const style = mushroomStyles[c.mushroom_type] || { bg: 'bg-gray-700', text: 'text-white' };
+            // 修改 1: 使用翻譯函式處理時段顯示 (原本是查 detailsMap)
+            const displayDetails = detailsTranslator ? detailsTranslator(c.details) : c.details;
+            
+            // 修改 2: 分離「原始中文名稱」(查樣式用) 與 「顯示名稱」(翻譯用)
+            const rawType = c.mushroom_type;
+            const displayType = typeTranslator ? typeTranslator(rawType) : rawType;
+
+            // 樣式查找依舊使用原始中文 Key
+            const style = mushroomStyles[rawType] || { bg: 'bg-gray-700', text: 'text-white' };
             const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap leading-none`;
 
             let statusBadgeHtml = '';
             let statusClass = 'status-open';
-            let statusText = '報名中';
+            let statusText = safeT('status_open', '報名中');
 
             if (c.status === '已額滿') {
                 statusClass = 'status-full';
-                statusText = '已額滿';
+                statusText = safeT('status_full', '已額滿');
             } else if (c.status === '預計開放') {
                 statusClass = 'status-pending';
-                statusText = '預計開放';
+                statusText = safeT('status_pending', '預計開放');
             }
             statusBadgeHtml = `<span class="${statusClass} status-badge">${statusText}</span>`;
 
             let timeDisplayHtml = '';
+            const waitLabel = safeT('label_wait_time', '等待時間');
+            const openLabel = safeT('label_open_time', '開放報名時間');
+            
             if (c.status === '預計開放' && new Date(c.start_time) > new Date()) {
-                timeDisplayHtml = `<p class="text-yellow-400 font-bold">等待時間: <span class="countdown-timer" data-starttime="${c.start_time}">計算中...</span></p>`;
+                timeDisplayHtml = `<p class="text-yellow-400 font-bold">${waitLabel}: <span class="countdown-timer" data-starttime="${c.start_time}">...</span></p>`;
             } else {
-                timeDisplayHtml = `<p>開放報名時間: ${new Date(c.start_time).toLocaleString('zh-TW', {hour12:false})}</p>`;
+                timeDisplayHtml = `<p>${openLabel}: ${new Date(c.start_time).toLocaleString('zh-TW', {hour12:false})}</p>`;
             }
 
             let cookingStyleClass = 'text-gray-400 border-gray-500/30';
             const cStyle = c.cooking_style || '';
-            if (cStyle.includes('大火快炒')) cookingStyleClass = 'text-red-500 border-red-500/30';
-            else if (cStyle.includes('細火慢燉')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
-            else if (cStyle.includes('隨便亂炒')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
             
-            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>`;
+            // 2. 取得翻譯後的火侯文字
+            const displayCooking = cookingTranslator ? cookingTranslator(cStyle) : cStyle;
 
+            // 判斷顏色保持原樣
+            if (cStyle.includes('大火')) cookingStyleClass = 'text-red-500 border-red-500/30';
+            else if (cStyle.includes('細火')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
+            else if (cStyle.includes('隨便')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
+            
+            const fireLabel = safeT('label_cooking', '火侯');
+            
+            // 3. HTML 裡面的變數改成 displayCooking
+            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">${fireLabel}:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${displayCooking || '未指定'}</span></div>`;
+                    
             let participantsHtml = '';
             if (signupCount > 0) {
                 const localNick = localStorage.getItem('guest_nick');
@@ -742,7 +797,7 @@
                         separatorHtml = `
                             <div class="flex items-center my-2">
                                 <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
-                                <span class="mx-2 text-[10px] text-orange-400 font-bold bg-orange-900/30 px-2 rounded-full">備取區</span>
+                                <span class="mx-2 text-[10px] text-orange-400 font-bold bg-orange-900/30 px-2 rounded-full">${safeT('separator_waitlist', '備取區')}</span>
                                 <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
                             </div>
                         `;
@@ -751,7 +806,7 @@
                     let rankDisplay;
                     if (isWaitlist) {
                         const waitRank = idx - c.slots + 1;
-                        rankDisplay = `<span class="text-xs text-orange-400 font-bold w-6 text-center mr-1">備${waitRank}</span>`;
+                        rankDisplay = `<span class="text-xs text-orange-400 font-bold w-6 text-center mr-1">${safeT('rank_wait', '備')}${waitRank}</span>`;
                     } else {
                         const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
                         rankDisplay = `<span class="participant-rank">${rank}</span>`;
@@ -765,20 +820,21 @@
                     const friendCode = codeMatch ? codeMatch[1] : '';
                     let displayName = rawName;
 
-                    const clickAttr = friendCode ? `onclick="copyText('${friendCode}')" title="點擊複製: ${friendCode}"` : '';
+                    const clickAttr = friendCode ? `onclick="copyText('${friendCode}')" title="${safeT('hint_click_copy', '點擊複製')}: ${friendCode}"` : '';
                     const nameClass = friendCode ? 'text-gray-300 font-mono copy-cursor truncate' : 'text-gray-300 truncate';
                     
                     const commentVal = s.comment || '';
                     let commentBlock = '';
 
                     const isMe = s.guest_name && (s.guest_name === myGuestId);
+                    const addMsg = safeT('btn_add_comment', '＋留言');
 
                     if (isMe) {
-                        const commentDisplay = commentVal ? `<span class="text-cyan-300">${commentVal}</span>` : `<span class="text-gray-500 text-[10px] opacity-50 hover:opacity-100">＋留言</span>`;
+                        const commentDisplay = commentVal ? `<span class="text-cyan-300">${commentVal}</span>` : `<span class="text-gray-500 text-[10px] opacity-50 hover:opacity-100">${addMsg}</span>`;
                         const commentAction = `onclick="window.editSignupComment(${c.id}, '${commentVal.replace(/'/g, "\\'")}', event)"`;
                         
                         commentBlock = `
-                            <button ${commentAction} class="ml-2 text-xs border border-gray-600 bg-gray-800/80 px-2 py-0.5 rounded hover:bg-gray-700 transition max-w-[100px] truncate" title="點擊修改留言">
+                            <button ${commentAction} class="ml-2 text-xs border border-gray-600 bg-gray-800/80 px-2 py-0.5 rounded hover:bg-gray-700 transition max-w-[100px] truncate" title="Edit">
                                 ${commentDisplay}
                             </button>`;
                     } else {
@@ -788,7 +844,7 @@
                             commentBlock = `
                                 <span onclick="window.openCommentModal('${safeComment}')" 
                                       class="ml-2 text-xs text-cyan-300 bg-gray-800/50 px-2 py-0.5 rounded max-w-[100px] truncate cursor-pointer border border-transparent hover:bg-gray-700 hover:border-cyan-500/50 transition select-none"
-                                      title="點擊查看完整內容">
+                                      title="View">
                                     ${commentVal}
                                 </span>`;
                         }
@@ -810,7 +866,7 @@
                     <div class="participant-list">
                         ${rows}
                         <div class="text-center mt-2 border-t border-gray-700/50 pt-1">
-                            <span class="text-white font-bold text-xs opacity-80">✨ 點擊暱稱複製好友碼 ✨</span>
+                            <span class="text-white font-bold text-xs opacity-80">✨ ${safeT('hint_copy_nick', '點擊暱稱複製好友碼')} ✨</span>
                         </div>
                     </div>`;
             }
@@ -820,22 +876,23 @@
             if (isMine) {
                 actionButtonHtml = `
                     <div class="mt-4 flex gap-2">
-                        <button onclick="editGuestPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">編輯</button>
-                        <button onclick="deleteGuestPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">刪除</button>
+                        <button onclick="editGuestPost(${c.id})" class="flex-1 bg-yellow-600 text-white text-xs py-2 rounded hover:bg-yellow-500 font-bold transition">${safeT('btn_edit', '編輯')}</button>
+                        <button onclick="deleteGuestPost(${c.id})" class="flex-1 bg-red-700 text-white text-xs py-2 rounded hover:bg-red-600 font-bold transition">${safeT('btn_delete', '刪除')}</button>
                     </div>`;
             } else if (isSignedUp) {
-                actionButtonHtml = `<button onclick="handleGuestCancel(${c.id})" class="mt-4 w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">取消報名</button>`;
+                actionButtonHtml = `<button onclick="handleGuestCancel(${c.id})" class="mt-4 w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">${safeT('btn_cancel_join', '取消報名')}</button>`;
             } else if (c.status === '已額滿') {
-                actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>已額滿</button>`;
+                actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>${safeT('status_full', '已額滿')}</button>`;
             } else if (c.status === '預計開放') {
-                actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>尚未開放</button>`;
+                actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>${safeT('btn_not_open', '尚未開放')}</button>`;
             } else {
                 const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
+                const coolText = safeT('btn_cooldown', '冷卻中');
                 
                 if (cooldownLeft > 0) {
-                    actionButtonHtml = `<button class="guest-signup-btn mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
+                    actionButtonHtml = `<button class="guest-signup-btn mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>${coolText} ${cooldownLeft}s</button>`;
                 } else {
-                    actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 立即報名</button>`;
+                    actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 ${safeT('btn_join', '立即報名')}</button>`;
                 }
             }
             
@@ -847,11 +904,15 @@
             const hostNameRaw = c.display_host_name || '未知';
             const hostCodeMatch = hostNameRaw.match(/(\d{12})/);
             let hostDisplayHtml = hostNameRaw;
+            const hostLabel = safeT('label_host', '發菇者');
 
             if (hostCodeMatch) {
                 const code = hostCodeMatch[1];
-                hostDisplayHtml = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${code}')" title="點擊複製好友碼: ${code}">${hostNameRaw}</span>`;
+                hostDisplayHtml = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${code}')" title="${safeT('hint_click_copy', '點擊複製好友碼')}: ${code}">${hostNameRaw}</span>`;
             }
+
+            const callPeriodLabel = safeT('label_period', '呼叫時段');
+            const slotsLabel = safeT('label_slots', '呼叫名額');
 
             return `
                 <div class="challenge-card p-4 rounded-xl relative hover:border-pink-500 transition-colors duration-300" 
@@ -865,16 +926,16 @@
                     </div>
                     
                     <div class="flex items-center gap-2 mb-2">
-                        <h3 class="${titleClasses}">${c.mushroom_type}</h3>
+                        <h3 class="${titleClasses}">${displayType}</h3>
                         <span class="text-sm font-bold text-gray-500 leading-none">#${c.id}</span>
                     </div>
 
-                    <p class="text-sm text-pink-400 font-bold mb-2">發菇者: ${hostDisplayHtml}</p>
+                    <p class="text-sm text-pink-400 font-bold mb-2">${hostLabel}: ${hostDisplayHtml}</p>
                     <div class="text-sm text-gray-400 space-y-1">
                         ${timeDisplayHtml}
-                        <p>呼叫時段: 📣 ${displayDetails}</p>
+                        <p>${callPeriodLabel}: 📣 ${displayDetails}</p>
                         ${fireHtml}
-                        <p>呼叫名額: ${signupCount} / ${c.slots}</p>
+                        <p>${slotsLabel}: ${signupCount} / ${c.slots}</p>
                         ${notesHtml}
                     </div>
                     ${participantsHtml}
@@ -900,7 +961,7 @@
         document.getElementById('open-post-modal').onclick = () => {
             form.reset();
             document.getElementById('edit-id').value = '';
-            document.getElementById('modal-title').textContent = '發布蘑菇挑戰';
+            document.getElementById('modal-title').textContent = safeT('modal_post_title', '發布蘑菇挑戰');
             
             const savedTime = localStorage.getItem('guest_saved_time');
             const isRemembered = localStorage.getItem('guest_is_remembered') === 'true';
@@ -929,10 +990,11 @@
             
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
-            if (!nick || !code) { showToast('請先設定訪客身分', true); return; }
+            if (!nick || !code) { showToast(safeT('toast_fill_all', '請先設定訪客身分'), true); return; }
 
             const btn = document.getElementById('submit-btn');
-            btn.disabled = true; btn.textContent = '處理中...';
+            const originalBtnText = btn.textContent;
+            btn.disabled = true; btn.textContent = '...';
 
             const timeVal = timeInput.value; 
             if (rememberCheck.checked && timeVal) {
@@ -974,7 +1036,7 @@
                     localStorage.setItem('my_guest_post_ids', JSON.stringify(myGuestPostIds));
                 }
 
-                showToast(action === 'guest-create-challenge' ? '發布成功！' : '更新成功！', false);
+                showToast(safeT('toast_success', '成功！'), false);
                 modal.classList.add('hidden');
                 loadChallenges();
                 updateGuestQuota(); 
@@ -982,10 +1044,10 @@
             } catch (err) {
                 console.error(err);
                 let msg = err.message;
-                if (msg.includes('400')) msg = '資料不完整';
-                showToast(`失敗: ${msg}`, true);
+                if (msg.includes('400')) msg = 'Data Error';
+                showToast(`Error: ${msg}`, true);
             } finally {
-                btn.disabled = false; btn.textContent = '確認送出';
+                btn.disabled = false; btn.textContent = originalBtnText;
             }
         };
 
@@ -1014,17 +1076,17 @@
                 document.getElementById('m-style').value = data.cooking_style;
                 document.getElementById('m-notes').value = data.notes || '';
                 
-                document.getElementById('modal-title').textContent = '編輯訪客挑戰';
+                document.getElementById('modal-title').textContent = safeT('modal_edit_title', '編輯訪客挑戰');
                 modal.classList.remove('hidden');
 
             } catch (e) { 
                 console.error(e);
-                showToast('讀取失敗，請稍後再試', true);
+                showToast(safeT('load_fail', '讀取失敗'), true);
             }
         };
 
         window.deleteGuestPost = async (id) => {
-            if(!confirm('確定刪除這張訪客蘑菇嗎？')) return;
+            if(!confirm(safeT('confirm_delete', '確定刪除嗎？'))) return;
             try {
                 const { error } = await supabaseClient.functions.invoke('admin-actions', {
                     body: JSON.stringify({ action: 'guest-delete-challenge', payload: { challengeId: id } })
@@ -1033,7 +1095,7 @@
                 
                 myGuestPostIds = myGuestPostIds.filter(pid => pid !== id);
                 localStorage.setItem('my_guest_post_ids', JSON.stringify(myGuestPostIds));
-                showToast('已刪除', false);
+                showToast(safeT('toast_deleted', '已刪除'), false);
                 loadChallenges();
                 
                 updateGuestQuota(); 
@@ -1043,7 +1105,7 @@
 
         function copyText(text) {
             navigator.clipboard.writeText(text).then(() => {
-                showToast(`已複製: ${text}`, false);
+                showToast(`${safeT('toast_copied', '已複製')}: ${text}`, false);
             }).catch(err => {
                 showToast('複製失敗', true);
             });
@@ -1057,12 +1119,6 @@
                 case 3: return 'rd';
                 default: return 'th';
             }
-        }
-
-        function formatSignupTime(iso) {
-            if(!iso) return '';
-            const d = new Date(iso);
-            return `${d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}.${d.getMilliseconds().toString().padStart(3,'0')}`;
         }
 
         function showToast(msg, isErr) {
@@ -1099,19 +1155,20 @@
                 quotaEl.textContent = count;
                 
                 const btn = document.getElementById('open-post-modal');
+                const btnText = document.getElementById('btn-loudspeaker-text');
+                
                 if (count >= limit) {
                     quotaEl.classList.add('text-red-500');
                     if(btn) {
                         btn.disabled = true;
                         btn.classList.add('opacity-50', 'cursor-not-allowed');
-                        btn.innerHTML = '🚫 今日額度已滿';
+                        // Keep text update simple or handle via i18n logic if needed
                     }
                 } else {
                     quotaEl.classList.remove('text-red-500');
                     if(btn) {
                         btn.disabled = false;
                         btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                        btn.innerHTML = '<span style="font-size: 25px;">📢</span> 大聲公呼叫蘑菇 <span style="font-size: 25px;">🍄</span>';
                     }
                 }
             } catch (e) {
@@ -1166,7 +1223,8 @@
             if(existMsg) existMsg.remove();
             
             if(count === 0 && cards.length > 0) {
-                list.insertAdjacentHTML('beforeend', '<p id="filter-msg" class="col-span-full text-center text-gray-500 py-8">此分類下沒有蘑菇</p>');
+                const msg = safeT('no_filter_match', '此分類下沒有蘑菇');
+                list.insertAdjacentHTML('beforeend', `<p id="filter-msg" class="col-span-full text-center text-gray-500 py-8">${msg}</p>`);
             }
         }
 
@@ -1190,9 +1248,12 @@
                     const m = Math.floor((diff%3600000)/60000);
                     const s = Math.floor((diff%60000)/1000);
                     
-                    if(d>0) el.textContent = `${d}天${h}時後`;
-                    else if(h>0) el.textContent = `${h}時${m}分後`;
-                    else el.textContent = `${m}分${s}秒後`;
+                    let timeStr = "";
+                    if(d>0) timeStr = `${d}d ${h}h`;
+                    else if(h>0) timeStr = `${h}h ${m}m`;
+                    else timeStr = `${m}m ${s}s`;
+                    
+                    el.textContent = timeStr;
                 }
             });
         }
@@ -1207,6 +1268,7 @@
             globalCooldownTimer = setInterval(() => {
                 const timeLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
                 const btns = document.querySelectorAll('.guest-signup-btn'); 
+                const coolText = safeT('btn_cooldown', '冷卻中');
                 
                 if (timeLeft <= 0) {
                     clearInterval(globalCooldownTimer);
@@ -1216,7 +1278,7 @@
                     btns.forEach(btn => {
                         btn.disabled = true;
                         btn.classList.add('btn-cooldown');
-                        btn.textContent = `冷卻中 ${timeLeft}s`;
+                        btn.textContent = `${coolText} ${timeLeft}s`;
                     });
                 }
             }, 100);
@@ -1226,13 +1288,13 @@
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
             if (!nick || !code) {
-                showToast('請先在上方設定您的暱稱與好友碼！', true);
+                showToast(safeT('toast_fill_all', '請先在上方設定您的暱稱與好友碼！'), true);
                 document.querySelector('.bg-gray-800').scrollIntoView({ behavior: 'smooth' });
                 return;
             }
 
             const btn = event.target; 
-            btn.disabled = true; btn.textContent = '報名中...';
+            btn.disabled = true; btn.textContent = '...';
 
             try {
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
@@ -1245,7 +1307,7 @@
                 if (error) throw error;
                 if (data && data.error) throw new Error(data.error);
 
-                showToast('報名成功！', false);
+                showToast(safeT('toast_success', '報名成功！'), false);
                 
                 triggerGlobalCooldown();
 
@@ -1257,19 +1319,19 @@
 
             } catch (e) {
                 console.error(e);
-                showToast(`報名失敗: ${e.message}`, true);
-                btn.disabled = false; btn.textContent = '👉 立即報名';
+                showToast(`Error: ${e.message}`, true);
+                btn.disabled = false; btn.textContent = safeT('btn_join', '立即報名');
             }
         };
 
         window.handleGuestCancel = async (challengeId) => {
-            if(!confirm('確定要取消報名嗎？')) return;
+            if(!confirm(safeT('confirm_cancel', '確定要取消報名嗎？'))) return;
 
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
             
             const btn = event.target;
-            btn.disabled = true; btn.textContent = '處理中...';
+            btn.disabled = true; btn.textContent = '...';
 
             try {
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
@@ -1282,7 +1344,7 @@
                 if (error) throw error;
                 if (data && data.error) throw new Error(data.error);
 
-                showToast('已取消報名', false);
+                showToast(safeT('toast_cancelled', '已取消報名'), false);
 
                 let mySignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
                 mySignups = mySignups.filter(s => String(s.challengeId) !== String(challengeId));
@@ -1292,8 +1354,8 @@
 
             } catch (e) {
                 console.error(e);
-                showToast(`取消失敗: ${e.message}`, true);
-                btn.disabled = false; btn.textContent = '取消報名';
+                showToast(`Error: ${e.message}`, true);
+                btn.disabled = false; btn.textContent = safeT('btn_cancel_join', '取消報名');
             }
         };
 
@@ -1302,7 +1364,7 @@
         function setupOnlinePresence() {
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
-            let myIdentity = `訪客_${Math.floor(Math.random()*1000)}`;
+            let myIdentity = `Guest_${Math.floor(Math.random()*1000)}`;
             
             if (nick && code) {
                 myIdentity = `${nick}👼${code}`;
@@ -1316,8 +1378,8 @@
                 const state = ch.presenceState();
                 const rawList = Object.keys(state); 
                 
-                const namedUsers = rawList.filter(n => !n.startsWith('訪客_'));
-                const guestUsers = rawList.filter(n => n.startsWith('訪客_'));
+                const namedUsers = rawList.filter(n => !n.startsWith('Guest_'));
+                const guestUsers = rawList.filter(n => n.startsWith('Guest_'));
                 
                 namedUsers.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
                 guestUsers.sort();
@@ -1325,8 +1387,11 @@
                 onlineUserList = [...namedUsers, ...guestUsers];
                 
                 const el = document.getElementById('online-count');
+                const prefix = safeT('online_prefix', '目前在線:');
+                const unit = safeT('unit_person', '人');
+
                 if(el) {
-                    el.textContent = `目前在線: ${onlineUserList.length} 人`;
+                    el.textContent = `${prefix} ${onlineUserList.length} ${unit}`;
                 }
             };
 
@@ -1345,11 +1410,11 @@
             if(countEl) {
                 countEl.onclick = () => {
                     if (onlineUserList.length === 0) {
-                        listEl.innerHTML = '<li class="text-center text-gray-500">目前無人在线</li>';
+                        listEl.innerHTML = '<li class="text-center text-gray-500">...</li>';
                     } else {
                         listEl.innerHTML = onlineUserList.map(n => `
                             <li class="flex items-center gap-2 p-2 rounded hover:bg-gray-700/50 border-b border-gray-700 last:border-0 text-sm">
-                                <span class="${n.startsWith('訪客_') ? 'text-gray-500' : 'text-green-400'} text-xs">●</span>
+                                <span class="${n.startsWith('Guest_') ? 'text-gray-500' : 'text-green-400'} text-xs">●</span>
                                 <span class="truncate font-mono text-gray-300">${n}</span>
                             </li>
                         `).join('');
@@ -1613,9 +1678,9 @@
                 if(text) {
                     const formatted = formatCoordinateString(text);
                     fCoords.value = formatted;
-                    showToast(formatted !== text ? '已自動轉換座標格式' : '已貼上座標', false);
-                } else showToast('剪貼簿是空的', true);
-            } catch(e) { showToast('無法讀取剪貼簿', true); }
+                    showToast(formatted !== text ? safeT('toast_coords_fmt', '已自動轉換座標格式') : safeT('toast_pasted', '已貼上座標'), false);
+                } else showToast('Clipboard is empty', true);
+            } catch(e) { showToast('Unable to read clipboard', true); }
         };
         
         fCoords.addEventListener('blur', function() {
@@ -1628,7 +1693,7 @@
         document.getElementById('open-fly-modal').onclick = () => {
             flyForm.reset();
             document.getElementById('fly-edit-id').value = '';
-            document.getElementById('fly-modal-title').textContent = '✈️ 發布自飛座標';
+            document.getElementById('fly-modal-title').textContent = safeT('modal_fly_title', '✈️ 發布自飛座標');
             flyModal.classList.remove('hidden');
         };
         document.getElementById('close-fly-modal').onclick = () => flyModal.classList.add('hidden');
@@ -1637,7 +1702,7 @@
             e.preventDefault();
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
-            if (!nick || !code) { showToast('請先設定訪客身分', true); return; }
+            if (!nick || !code) { showToast(safeT('toast_fill_all', '請先設定訪客身分'), true); return; }
 
             const coordInput = document.getElementById('f-coords');
             let coordVal = coordInput.value.trim();
@@ -1648,7 +1713,7 @@
             const coordRegex = /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/;
             
             if (!coordRegex.test(coordVal)) {
-                showToast('座標格式錯誤！請確認為「緯度, 經度」格式 (例: 22.123, 120.456)', true);
+                showToast(safeT('toast_coords_err', '座標格式錯誤！'), true);
                 coordInput.focus();
                 coordInput.classList.add('ring-2', 'ring-red-500');
                 setTimeout(() => coordInput.classList.remove('ring-2', 'ring-red-500'), 2000);
@@ -1656,7 +1721,8 @@
             }
 
             const btn = document.getElementById('fly-submit-btn');
-            btn.disabled = true; btn.textContent = '處理中...';
+            const originalText = btn.textContent;
+            btn.disabled = true; btn.textContent = '...';
 
             const payload = {
                 nickname: nick,
@@ -1683,15 +1749,15 @@
                     localStorage.setItem('my_fly_post_ids', JSON.stringify(myFlyPostIds));
                 }
 
-                showToast(action === 'guest-create-fly' ? '自飛發布成功！' : '更新成功！', false);
+                showToast(safeT('toast_success', '成功！'), false);
                 flyModal.classList.add('hidden');
                 loadChallenges(); 
 
             } catch (err) {
                 console.error(err);
-                showToast(`操作失敗: ${err.message}`, true);
+                showToast(`Error: ${err.message}`, true);
             } finally {
-                btn.disabled = false; btn.textContent = '確認送出';
+                btn.disabled = false; btn.textContent = originalText;
             }
         };
 
@@ -1706,12 +1772,12 @@
             document.getElementById('f-style').value = data.cooking_style;
             document.getElementById('f-notes').value = data.notes || '';
             
-            document.getElementById('fly-modal-title').textContent = '編輯自飛座標';
+            document.getElementById('fly-modal-title').textContent = safeT('modal_edit_title', '編輯');
             flyModal.classList.remove('hidden');
         };
 
         window.deleteFlyPost = async (id) => {
-            if(!confirm('確定刪除這個自飛座標嗎？')) return;
+            if(!confirm(safeT('confirm_delete', '確定刪除嗎？'))) return;
             try {
                 const { error } = await supabaseClient.functions.invoke('admin-actions', {
                     body: JSON.stringify({ action: 'guest-delete-fly', payload: { id } })
@@ -1720,9 +1786,9 @@
                 
                 myFlyPostIds = myFlyPostIds.filter(pid => pid !== id);
                 localStorage.setItem('my_fly_post_ids', JSON.stringify(myFlyPostIds));
-                showToast('已刪除', false);
+                showToast(safeT('toast_deleted', '已刪除'), false);
                 loadChallenges();
-            } catch(e) { showToast(`刪除失敗: ${e.message}`, true); }
+            } catch(e) { showToast(`Error: ${e.message}`, true); }
         };
 
         window.handleFlyCopy = (coords) => {
@@ -1736,12 +1802,12 @@
             const code = localStorage.getItem('guest_code');
             
             if (!nick || !code) { 
-                showToast('請先設定訪客身分才能留言', true); 
+                showToast(safeT('toast_fill_all', '請先設定訪客身分'), true); 
                 document.querySelector('.bg-gray-800').scrollIntoView({ behavior: 'smooth' });
                 return; 
             }
 
-            const newVal = prompt('請輸入留言 (例如: 40皮/Pass):', currentVal);
+            const newVal = prompt(safeT('prompt_comment', '請輸入留言:'), currentVal);
             if (newVal === null) return; 
 
             try {
@@ -1760,12 +1826,12 @@
                 if (error) throw error;
                 if (data && data.error) throw new Error(data.error);
 
-                showToast('留言已更新', false);
+                showToast('Updated', false);
                 loadChallenges(); 
 
             } catch (e) {
                 console.error(e);
-                showToast('更新失敗，請確認您是該報名者本人', true);
+                showToast('Fail', true);
             }
         };
 
@@ -1791,6 +1857,434 @@
                 if (e.target === commentModal) hideCommentModal();
             };
         }
+    </script>
+    <script>
+    (function() {
+        /**
+         * MODULE: i18n Overlay System for Pikmin Bloom Guest Portal
+         */
+        
+        // 1. 設定 (Configuration)
+        const CONFIG = {
+            defaultLang: 'en',
+            storageKey: 'i18n_user_preference',
+            supported: ['en', 'zh-TW', 'ja', 'ko']
+        };
+
+        // 2. 資源字典 (Resources)
+        const RESOURCES = {
+            'zh-TW': {
+                'header_title': '蘑菇互助刊登區',
+                'online_prefix': '目前在線:',
+                'music_text': 'Music by Pikmin Bloom Official',
+                'section_nickname': '設定您的暱稱',
+                'label_nickname': '遊戲暱稱',
+                'label_friend_code': '好友碼 (12位數字)',
+                'ph_nickname': '如何稱呼您?',
+                'btn_save_profile': '儲存後開始發布',
+                'btn_fly_mushroom': '座標自飛蘑菇',
+                'btn_loudspeaker': '大聲公呼叫蘑菇',
+                'quota_label': '同時發布上限',
+                'hint_extra_help': '有多餘大聲公未使用嗎？歡迎幫助一菇難求的皮友！',
+                'hint_remote_coords': '有荒郊野外的蘑菇座標嗎？也歡迎分享給大家！',
+                'list_title': '互助蘑菇列表',
+                'filter_all': '全部挑戰',
+                'filter_fly': '自飛菇',
+                'filter_normal': '大聲公',
+                'filter_full': '已額滿',
+                'filter_mine': '我的發布',
+                'warn_destroy': '蘑菇卡片逾時自動銷毀',
+                'warn_destroy_time': '(大聲公: 6小時 / 自飛: 1小時)',
+                'loading_msg': '搜尋菇菇中...',
+                'modal_post_title': '發布蘑菇挑戰',
+                'label_m_type': '蘑菇種類',
+                'label_slots': '呼叫名額',
+                'label_open_time': '開放報名時間',
+                'btn_now': '現在',
+                'label_remember': '記住時間 (下次自動帶入)',
+                'label_period': '大聲公呼叫時段',
+                'label_cooking': '火侯',
+                'label_notes': '備註（選填）',
+                'ph_notes': '發菇者留言...',
+                'btn_cancel': '取消',
+                'btn_submit': '確認送出',
+                'modal_fly_title': '✈️ 發布自飛座標',
+                'label_slots_rem': '剩餘名額',
+                'label_coords': '座標',
+                'btn_paste': '貼上',
+                'hint_coords_format': '支援座標格式化',
+                'ph_notes_fly': '補充說明...',
+                'online_modal_title': '線上訪客',
+                'comment_modal_title': '完整留言',
+                
+                // 時段
+                'period_night': '宵夜 (21:00~01:00)',
+                'period_breakfast': '早餐 (06:00~11:00)',
+                'period_lunch': '午餐 (11:00~15:00)',
+                'period_tea': '下午茶 (15:00~17:00)',
+                'period_dinner': '晚餐 (17:00~21:00)',
+                'period_full': '滿人開 (人滿後發)',
+
+                // 蘑菇與選項
+                'opt_giant': '巨菇', 'opt_event': '活動菇', 'opt_postcard': '美片菇',
+                'opt_crystal_l': '大晶', 'opt_fire_l': '大火', 'opt_water_l': '大水',
+                'opt_elec_l': '大電', 'opt_poison_l': '大毒', 'opt_ice_l': '大冰藍',
+                'opt_red_l': '大紅', 'opt_yellow_l': '大黃', 'opt_blue_l': '大藍',
+                'opt_purple_l': '大紫', 'opt_pink_l': '大粉', 'opt_gray_l': '大灰',
+                'opt_white_l': '大白', 'opt_crystal': '晶', 'opt_water': '水',
+                'opt_fire': '火', 'opt_elec': '電', 'opt_poison': '毒', 'opt_test': '測試',
+                'opt_cook_any': '隨便亂炒（不限戰力）', 'opt_cook_hard': '大火快炒（戰力全開）', 'opt_cook_slow': '細火慢燉（控制戰力）',
+                'btn_fly_mushroom_card': '自飛菇', // Fallback for fly mushroom type
+
+                'status_open': '報名中', 'status_full': '已額滿', 'status_pending': '預計開放',
+                'label_wait_time': '等待時間', 'separator_waitlist': '備取區', 'rank_wait': '備',
+                'hint_click_copy': '點擊複製', 'btn_add_comment': '＋留言', 'hint_copy_nick': '點擊暱稱複製好友碼',
+                'btn_edit': '編輯', 'btn_delete': '刪除', 'btn_cancel_join': '取消報名',
+                'btn_not_open': '尚未開放', 'btn_cooldown': '冷卻中', 'btn_join': '立即報名',
+                'label_host': '發菇者', 'modal_edit_title': '編輯挑戰', 'confirm_delete': '確定刪除嗎？',
+                'toast_deleted': '已刪除', 'toast_copied': '已複製', 'toast_fill_all': '請完整填寫暱稱與好友碼',
+                'toast_code_fmt': '好友碼格式錯誤：必須為12位純數字', 'toast_profile_saved': '身分已暫存！您可以開始發菇了',
+                'toast_success': '成功！', 'toast_coords_fmt': '已自動轉換座標格式', 'toast_pasted': '已貼上座標',
+                'toast_coords_err': '座標格式錯誤！', 'btn_take_off': '我要起飛', 'unit_person': '人',
+                'label_post_time': '發布時間', 'hint_copy_code': '複製好友碼', 'tag_fly': '自飛',
+                'no_challenges': '目前沒有任何挑戰', 'load_fail': '讀取失敗', 'no_filter_match': '此分類下沒有蘑菇',
+                'prompt_comment': '請輸入留言:', 'toast_cancelled': '已取消報名'
+            },
+            'en': {
+                'header_title': 'Mushroom Request Board',
+                'online_prefix': 'Online:',
+                'music_text': 'Music by Pikmin Bloom Official',
+                'section_nickname': 'Set Your Profile',
+                'label_nickname': 'Game Nickname',
+                'label_friend_code': 'Friend Code (12 Digits)',
+                'ph_nickname': 'What should we call you?',
+                'btn_save_profile': 'Save & Start',
+                'btn_fly_mushroom': 'Share GPS Coords',
+                'btn_loudspeaker': 'Call for Help (Bullhorn)',
+                'quota_label': 'Daily Limit',
+                'hint_extra_help': 'Have extra bullhorns? Help others!',
+                'hint_remote_coords': 'Found a mushroom in nowhere? Share it!',
+                'list_title': 'Mushroom List',
+                'filter_all': 'All', 'filter_fly': 'Coords', 'filter_normal': 'Bullhorn', 'filter_full': 'Full', 'filter_mine': 'Mine',
+                'warn_destroy': 'Cards Auto-Destroy on Timeout', 'warn_destroy_time': '(Bullhorn: 6h / Coords: 1h)',
+                'loading_msg': 'Searching for mushrooms...', 'modal_post_title': 'Post Mushroom Challenge',
+                'label_m_type': 'Type', 'label_slots': 'Slots Needed', 'label_open_time': 'Start Time',
+                'btn_now': 'Now', 'label_remember': 'Remember Time', 'label_period': 'Call Time Period',
+                'label_cooking': 'Power Level', 'label_notes': 'Notes (Optional)', 'ph_notes': 'Leave a message...',
+                'btn_cancel': 'Cancel', 'btn_submit': 'Submit', 'modal_fly_title': '✈️ Share Coordinates',
+                'label_slots_rem': 'Slots Left', 'label_coords': 'Coordinates', 'btn_paste': 'Paste',
+                'hint_coords_format': 'Auto-format supported', 'ph_notes_fly': 'Extra info...',
+                'online_modal_title': 'Online Guests', 'comment_modal_title': 'Full Comment',
+                
+                'period_night': 'Late Night (21:00~01:00)', 'period_breakfast': 'Breakfast (06:00~11:00)',
+                'period_lunch': 'Lunch (11:00~15:00)', 'period_tea': 'Afternoon Tea (15:00~17:00)',
+                'period_dinner': 'Dinner (17:00~21:00)', 'period_full': 'When Full',
+
+                'opt_giant': 'Giant', 'opt_event': 'Event', 'opt_postcard': 'Postcard',
+                'opt_crystal_l': 'L-Crystal', 'opt_fire_l': 'L-Fire', 'opt_water_l': 'L-Water',
+                'opt_elec_l': 'L-Elec', 'opt_poison_l': 'L-Poison', 'opt_ice_l': 'L-Ice',
+                'opt_red_l': 'L-Red', 'opt_yellow_l': 'L-Yellow', 'opt_blue_l': 'L-Blue',
+                'opt_purple_l': 'L-Purple', 'opt_pink_l': 'L-Pink', 'opt_gray_l': 'L-Gray',
+                'opt_white_l': 'L-White', 'opt_crystal': 'Crystal', 'opt_water': 'Water',
+                'opt_fire': 'Fire', 'opt_elec': 'Elec', 'opt_poison': 'Poison', 'opt_test': 'Test',
+                'opt_cook_any': 'Any Power (Chill)', 'opt_cook_hard': 'Full Power (Speed)', 'opt_cook_slow': 'Controlled (Slow)',
+                'btn_fly_mushroom_card': 'Self-Fly', // Fallback for fly mushroom type
+                
+                'status_open': 'Open', 'status_full': 'Full', 'status_pending': 'Pending',
+                'label_wait_time': 'Wait', 'separator_waitlist': 'Waitlist', 'rank_wait': 'W',
+                'hint_click_copy': 'Click to copy', 'btn_add_comment': '+Msg', 'hint_copy_nick': 'Click name to copy Friend Code',
+                'btn_edit': 'Edit', 'btn_delete': 'Delete', 'btn_cancel_join': 'Leave',
+                'btn_not_open': 'Not Open', 'btn_cooldown': 'Cooling', 'btn_join': 'Join Now',
+                'label_host': 'Host', 'modal_edit_title': 'Edit Challenge', 'confirm_delete': 'Delete this?',
+                'toast_deleted': 'Deleted', 'toast_copied': 'Copied', 'toast_fill_all': 'Please fill nickname and friend code',
+                'toast_code_fmt': 'Code must be 12 digits', 'toast_profile_saved': 'Profile Saved!',
+                'toast_success': 'Success!', 'toast_coords_fmt': 'Coords formatted', 'toast_pasted': 'Coords pasted',
+                'toast_coords_err': 'Invalid coordinates!', 'btn_take_off': 'Take Off', 'unit_person': '',
+                'label_post_time': 'Posted', 'hint_copy_code': 'Copy Code', 'tag_fly': 'GPS',
+                'no_challenges': 'No challenges found', 'load_fail': 'Load Failed', 'no_filter_match': 'No mushrooms here',
+                'prompt_comment': 'Enter comment:', 'toast_cancelled': 'Cancelled'
+            },
+            'ja': {
+                'header_title': 'キノコ掲示板',
+                'online_prefix': 'オンライン:',
+                'music_text': 'Music by Pikmin Bloom Official',
+                'section_nickname': 'プロフィール設定',
+                'label_nickname': 'ユーザー名',
+                'label_friend_code': 'フレンドコード (12桁)',
+                'ph_nickname': 'ニックネーム',
+                'btn_save_profile': '保存して開始',
+                'btn_fly_mushroom': '座標シェア',
+                'btn_loudspeaker': 'お助けメガホン募集',
+                'quota_label': '1日の上限',
+                'hint_extra_help': 'メガホンが余っていませんか？助け合いましょう！',
+                'hint_remote_coords': '遠隔地のキノコ座標もシェア大歓迎！',
+                'list_title': 'キノコリスト',
+                'filter_all': '全て', 'filter_fly': '座標', 'filter_normal': 'メガホン', 'filter_full': '満員', 'filter_mine': '自分の投稿',
+                'warn_destroy': 'カードは自動削除されます', 'warn_destroy_time': '(メガホン: 6h / 座標: 1h)',
+                'loading_msg': '読み込み中...', 'modal_post_title': 'キノコを投稿',
+                'label_m_type': '種類', 'label_slots': '募集人数', 'label_open_time': '開始時間',
+                'btn_now': '現在', 'label_remember': '時間を記憶', 'label_period': '時間帯',
+                'label_cooking': '火力', 'label_notes': 'メモ (任意)', 'ph_notes': 'メッセージ...',
+                'btn_cancel': 'キャンセル', 'btn_submit': '送信', 'modal_fly_title': '✈️ 座標をシェア',
+                'label_slots_rem': '残り枠', 'label_coords': '座標', 'btn_paste': '貼り付け',
+                'hint_coords_format': 'フォーマット自動変換', 'ph_notes_fly': '補足...',
+                'online_modal_title': 'オンラインゲスト', 'comment_modal_title': 'コメント全文',
+                
+                'period_night': '深夜 (21:00~01:00)', 'period_breakfast': '朝 (06:00~11:00)',
+                'period_lunch': '昼 (11:00~15:00)', 'period_tea': 'おやつ (15:00~17:00)',
+                'period_dinner': '夕方 (17:00~21:00)', 'period_full': '集まり次第',
+
+                'opt_giant': '巨大な', 'opt_event': 'イベント', 'opt_postcard': 'ポスカ',
+                'opt_crystal_l': '大スイショウ', 'opt_fire_l': '大火', 'opt_water_l': '大水',
+                'opt_elec_l': '大電気', 'opt_poison_l': '大毒', 'opt_ice_l': '大アイス',
+                'opt_red_l': '大赤', 'opt_yellow_l': '大黄', 'opt_blue_l': '大青',
+                'opt_purple_l': '大紫', 'opt_pink_l': '大ピンク', 'opt_gray_l': '大グレー',
+                'opt_white_l': '大白', 'opt_crystal': 'スイショウ', 'opt_water': '水',
+                'opt_fire': '火', 'opt_elec': '電気', 'opt_poison': '毒', 'opt_test': 'テスト',
+                'opt_cook_any': 'おまかせ (火力不問)', 'opt_cook_hard': '高火力 (即割り)', 'opt_cook_slow': '調整 (長時間)',
+                'btn_fly_mushroom_card': '自力キノコ', // Fallback for fly mushroom type
+                
+                'status_open': '募集中', 'status_full': '満員', 'status_pending': '待機中',
+                'label_wait_time': '待機', 'separator_waitlist': 'キャンセル待ち', 'rank_wait': '待',
+                'hint_click_copy': 'コピー', 'btn_add_comment': '＋コメ', 'hint_copy_nick': '名前タップでコードをコピー',
+                'btn_edit': '編集', 'btn_delete': '削除', 'btn_cancel_join': '辞退',
+                'btn_not_open': '未開放', 'btn_cooldown': '待機', 'btn_join': '参加する',
+                'label_host': 'ホスト', 'modal_edit_title': '編集', 'confirm_delete': '削除しますか？',
+                'toast_deleted': '削除しました', 'toast_copied': 'コピーしました', 'toast_fill_all': 'ニックネームとコードを入力してください',
+                'toast_code_fmt': 'コードは12桁の数字です', 'toast_profile_saved': 'プロフィールを保存しました',
+                'toast_success': '成功！', 'toast_coords_fmt': '座標を整形しました', 'toast_pasted': '貼り付けました',
+                'toast_coords_err': '座標形式が不正です', 'btn_take_off': '座標コピー', 'unit_person': '人',
+                'label_post_time': '投稿', 'hint_copy_code': 'コードをコピー', 'tag_fly': '座標',
+                'no_challenges': '投稿はありません', 'load_fail': '読み込み失敗', 'no_filter_match': '該当なし',
+                'prompt_comment': 'コメントを入力:', 'toast_cancelled': 'キャンセルしました'
+            },
+            'ko': {
+                'header_title': '버섯 협력 게시판',
+                'online_prefix': '접속:',
+                'music_text': 'Music by Pikmin Bloom Official',
+                'section_nickname': '프로필 설정',
+                'label_nickname': '닉네임',
+                'label_friend_code': '친구 코드 (12자리)',
+                'ph_nickname': '닉네임 입력',
+                'btn_save_profile': '저장 및 시작',
+                'btn_fly_mushroom': '좌표 공유',
+                'btn_loudspeaker': '메가폰 모집',
+                'quota_label': '일일 한도',
+                'hint_extra_help': '남는 메가폰이 있나요? 친구들을 도와주세요!',
+                'hint_remote_coords': '외딴곳의 버섯 좌표를 공유해주세요!',
+                'list_title': '버섯 리스트',
+                'filter_all': '전체', 'filter_fly': '좌표', 'filter_normal': '메가폰', 'filter_full': '마감', 'filter_mine': '내 글',
+                'warn_destroy': '카드는 시간이 지나면 자동 삭제됩니다', 'warn_destroy_time': '(메가폰: 6h / 좌표: 1h)',
+                'loading_msg': '로딩 중...', 'modal_post_title': '버섯 모집 등록',
+                'label_m_type': '종류', 'label_slots': '모집 인원', 'label_open_time': '시작 시간',
+                'btn_now': '현재', 'label_remember': '시간 기억하기', 'label_period': '시간대',
+                'label_cooking': '화력', 'label_notes': '메모 (선택)', 'ph_notes': '메시지 남기기...',
+                'btn_cancel': '취소', 'btn_submit': '등록', 'modal_fly_title': '✈️ 좌표 공유',
+                'label_slots_rem': '남은 자리', 'label_coords': '좌표', 'btn_paste': '붙여넣기',
+                'hint_coords_format': '좌표 자동 변환', 'ph_notes_fly': '추가 정보...',
+                'online_modal_title': '접속 중인 게스트', 'comment_modal_title': '전체 댓글',
+                
+                'period_night': '야식 (21:00~01:00)', 'period_breakfast': '아침 (06:00~11:00)',
+                'period_lunch': '점심 (11:00~15:00)', 'period_tea': '티타임 (15:00~17:00)',
+                'period_dinner': '저녁 (17:00~21:00)', 'period_full': '풀파티 (인원 충족 시)',
+
+                'opt_giant': '거대', 'opt_event': '이벤트', 'opt_postcard': '엽서',
+                'opt_crystal_l': '큰 수정', 'opt_fire_l': '큰 불꽃', 'opt_water_l': '큰 물',
+                'opt_elec_l': '큰 전기', 'opt_poison_l': '큰 독', 'opt_ice_l': '큰 얼음',
+                'opt_red_l': '큰 빨강', 'opt_yellow_l': '큰 노랑', 'opt_blue_l': '큰 파랑',
+                'opt_purple_l': '큰 보라', 'opt_pink_l': '큰 분홍', 'opt_gray_l': '큰 회색',
+                'opt_white_l': '큰 하양', 'opt_crystal': '수정', 'opt_water': '물',
+                'opt_fire': '불꽃', 'opt_elec': '전기', 'opt_poison': '독', 'opt_test': '테스트',
+                'opt_cook_any': '자유 (전투력 무관)', 'opt_cook_hard': '고화력 (빠르게)', 'opt_cook_slow': '저화력 (천천히)',
+                'btn_fly_mushroom_card': '좌표 버섯', // Fallback for fly mushroom type
+                
+                'status_open': '모집중', 'status_full': '마감', 'status_pending': '대기중',
+                'label_wait_time': '대기', 'separator_waitlist': '대기열', 'rank_wait': '대',
+                'hint_click_copy': '복사', 'btn_add_comment': '+댓글', 'hint_copy_nick': '닉네임을 눌러 코드 복사',
+                'btn_edit': '수정', 'btn_delete': '삭제', 'btn_cancel_join': '취소',
+                'btn_not_open': '미오픈', 'btn_cooldown': '대기', 'btn_join': '참여하기',
+                'label_host': '방장', 'modal_edit_title': '수정하기', 'confirm_delete': '삭제하시겠습니까?',
+                'toast_deleted': '삭제되었습니다', 'toast_copied': '복사되었습니다', 'toast_fill_all': '닉네임과 코드를 입력해주세요',
+                'toast_code_fmt': '코드는 12자리 숫자입니다', 'toast_profile_saved': '저장되었습니다',
+                'toast_success': '성공!', 'toast_coords_fmt': '좌표 형식 변환됨', 'toast_pasted': '붙여넣기 완료',
+                'toast_coords_err': '좌표 형식이 잘못되었습니다', 'btn_take_off': '좌표 복사', 'unit_person': '명',
+                'label_post_time': '게시', 'hint_copy_code': '코드 복사', 'tag_fly': '좌표',
+                'no_challenges': '게시물이 없습니다', 'load_fail': '로딩 실패', 'no_filter_match': '없음',
+                'prompt_comment': '댓글 입력:', 'toast_cancelled': '취소되었습니다'
+            }
+        };
+
+        const LANG_NAMES = {
+            'zh-TW': '繁體中文', 'en': 'English', 'ja': '日本語', 'ko': '한국어'
+        };
+
+        // 3. 樣式 (CSS)
+        const STYLES = `
+            #i18n-widget-root {
+                position: fixed;
+                bottom: 20px;
+                left: 20px; /* 改為左邊 */
+                z-index: 2147483647;
+                font-family: sans-serif;
+            }
+            #i18n-fab {
+                width: 44px;
+                height: 44px;
+                background-color: #1f2937;
+                border-radius: 50%;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                border: 1px solid #374151;
+                color: #d1d5db;
+                transition: transform 0.2s;
+            }
+            #i18n-fab:hover { transform: scale(1.1); color: white; }
+            #i18n-menu {
+                position: absolute;
+                bottom: 55px;
+                left: 0; /* 選單也靠左對齊 */
+                background: #1f2937;
+                border: 1px solid #374151;
+                border-radius: 8px;
+                display: none;
+                flex-direction: column;
+                min-width: 120px;
+                overflow: hidden;
+            }
+            #i18n-menu.active { display: flex; }
+            .i18n-item {
+                padding: 10px 16px;
+                cursor: pointer;
+                color: #9ca3af;
+                font-size: 14px;
+            }
+            .i18n-item:hover { background-color: #374151; color: white; }
+            .i18n-item.selected { color: #ec4899; font-weight: bold; }
+        `;
+
+        // =========================================================================
+        // 4. 核心邏輯 (Core Logic)
+        // =========================================================================
+
+        /**
+         * 4.1 語言偵測
+         */
+        function detectUserLanguage() {
+            try {
+                const manual = localStorage.getItem(CONFIG.storageKey);
+                if (manual && CONFIG.supported.includes(manual)) return manual;
+            } catch (e) {}
+            
+            const langs = navigator.languages || [navigator.language];
+            for (let lang of langs) {
+                if (!lang) continue;
+                if (lang.match(/^zh-(TW|HK|MO|Hant)/i)) return 'zh-TW';
+                if (lang.match(/^zh/i)) continue; 
+                if (lang.match(/^ja/i)) return 'ja';
+                if (lang.match(/^ko/i)) return 'ko';
+                if (lang.match(/^en/i)) return 'en';
+            }
+            return 'zh-TW';
+        }
+
+        /**
+         * 4.2 全域翻譯函式
+         */
+        window.t = function(key) {
+            const lang = localStorage.getItem(CONFIG.storageKey) || detectUserLanguage();
+            const dict = RESOURCES[lang] || RESOURCES['zh-TW'];
+            return dict[key] || key;
+        };
+
+        /**
+         * 4.3 DOM 更新器
+         */
+        function updateDOM(lang) {
+            const dict = RESOURCES[lang] || RESOURCES['zh-TW'];
+            
+            // Text Content
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) el.textContent = dict[key];
+            });
+
+            // Placeholders
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (dict[key]) el.setAttribute('placeholder', dict[key]);
+            });
+            
+            // 觸發外部渲染重繪
+            if (typeof window.loadChallenges === 'function') {
+                setTimeout(() => window.loadChallenges(), 50);
+            }
+        }
+
+        /**
+         * 4.4 UI 渲染器
+         */
+        function renderWidget(currentLang) {
+            const styleEl = document.createElement('style');
+            styleEl.textContent = STYLES;
+            document.head.appendChild(styleEl);
+
+            const root = document.createElement('div');
+            root.id = 'i18n-widget-root';
+
+            const fab = document.createElement('div');
+            fab.id = 'i18n-fab';
+            fab.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M4.545 6.714 4.11 8H3l1.862-5h1.284L8 8H6.833l-.435-1.286H4.545zm1.634-.736L5.5 3.956h-.049l-.679 2.022H6.18z"/><path d="M0 2a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-3H2a2 2 0 0 1-2-2V2zm2-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2zm7.138 9.995c.193.301.402.583.63.846-.748.575-1.673 1.001-2.768 1.292.178.217.451.635.555.867 1.125-.359 2.08-.844 2.886-1.494.777.665 1.739 1.165 2.93 1.472.133-.254.414-.673.629-.89-1.125-.253-2.057-.694-2.82-1.284.681-.747 1.222-1.651 1.621-2.757H14V8h-3v1.047h.765c-.318.844-.74 1.546-1.272 2.13a6.066 6.066 0 0 1-.415-.492 1.988 1.988 0 0 1-.94.31z"/></svg>`;
+
+            const menu = document.createElement('div');
+            menu.id = 'i18n-menu';
+
+            CONFIG.supported.forEach(code => {
+                const item = document.createElement('div');
+                item.className = `i18n-item ${code === currentLang ? 'selected' : ''}`;
+                item.textContent = LANG_NAMES[code];
+                item.onclick = () => {
+                    localStorage.setItem(CONFIG.storageKey, code);
+                    updateDOM(code);
+                    menu.classList.remove('active');
+                    Array.from(menu.children).forEach(c => c.classList.remove('selected'));
+                    item.classList.add('selected');
+                };
+                menu.appendChild(item);
+            });
+
+            fab.onclick = (e) => {
+                e.stopPropagation();
+                menu.classList.toggle('active');
+            };
+
+            document.addEventListener('click', (e) => {
+                if (!root.contains(e.target)) menu.classList.remove('active');
+            });
+
+            root.appendChild(menu);
+            root.appendChild(fab);
+            document.body.appendChild(root);
+        }
+
+        // =========================================================================
+        // 5. 初始化 (Init)
+        // =========================================================================
+
+        function init() {
+            const lang = detectUserLanguage();
+            updateDOM(lang);
+            renderWidget(lang);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
     </script>
 </body>
 </html>
