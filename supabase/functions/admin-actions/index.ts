@@ -421,26 +421,32 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 訪客發菇 (Create)
+    // 訪客發菇 (Create) - [IP 限制 + 圖片寫入]
     if (action === 'guest-create-challenge') {
-        const { nickname, friendCode, mushroomType, slots, startTime, details, cookingStyle, notes } = payload;
+        const { nickname, friendCode, mushroomType, slots, startTime, details, cookingStyle, notes, image_url } = payload;
         
         if (!nickname || !friendCode || !mushroomType || !startTime) throw new Error('欄位不完整');
 
-        // ★ 1. 獲取訪客 IP (從 Header 讀取)
+        // ★ 1. 獲取訪客真實 IP
         const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
 
+        // ★ 2. 設定限制：過去 24 小時內
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+        // ★ 3. 查詢該 IP 在「一般蘑菇」的發文量
         const { count: dailyCount, error: countErr } = await adminSupabaseClient
             .from('challenges')
             .select('*', { count: 'exact', head: true })
             .eq('is_guest', true)
-            .eq('guest_ip', clientIp);
+            .eq('guest_ip', clientIp)
+            .gte('created_at', oneDayAgo);
 
         if (countErr) throw new Error('系統忙碌中，請稍後再試');
 
-        // ★ 修改：上限改為 6，並更新錯誤訊息文字
-        if ((dailyCount || 0) >= 6) {
-            throw new Error('您已達同時發佈上限額度，請先刪除舊卡片或等待系統逾期後自動刪除！');
+        // ★ 4. 執行限制 (例如每日最多 6 則)
+        const IP_DAILY_LIMIT = 6; 
+        if ((dailyCount || 0) >= IP_DAILY_LIMIT) {
+            throw new Error(`您今日(${clientIp})已達一般蘑菇發佈上限 (${IP_DAILY_LIMIT}則)，請明天再來！`);
         }
 
         const displayHostName = `${nickname}✈️${friendCode}`;
@@ -454,22 +460,31 @@ serve(async (req) => {
             details: details,
             cooking_style: cookingStyle,
             notes: notes,
+            image_url: image_url, // ★ 寫入圖片網址
             status: new Date(startTime) > new Date() ? '預計開放' : '開放報名中',
             is_guest: true,
-            guest_ip: clientIp // ★ 4. 記錄 IP
+            guest_ip: clientIp // ★ 寫入 IP
         }).select().single();
 
         if (error) throw new Error(`訪客發布失敗: ${error.message}`);
         return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 訪客編輯 (Update) - 加強安全性
+    // 訪客編輯 (Update) - [狀態計算 + 舊圖清理]
     if (action === 'guest-edit-challenge') {
-        const { challengeId, nickname, friendCode, mushroomType, slots, startTime, details, cookingStyle, notes } = payload;
+        const { challengeId, nickname, friendCode, mushroomType, slots, startTime, details, cookingStyle, notes, image_url } = payload;
         
         const displayHostName = `${nickname}✈️${friendCode}`;
+
+        // ★ 1. 先查出舊資料 (為了拿舊圖 URL，供後續清理用)
+        const { data: oldData } = await adminSupabaseClient
+            .from('challenges')
+            .select('image_url')
+            .eq('id', challengeId)
+            .eq('is_guest', true)
+            .single();
         
-        // ★★★ 修改開始：先查詢目前報名人數，以決定正確狀態 ★★★
+        // ★ 2. 查詢目前報名人數，以決定正確狀態
         const { count: currentSignups, error: countErr } = await adminSupabaseClient
             .from('signups')
             .select('*', { count: 'exact', head: true })
@@ -486,50 +501,76 @@ serve(async (req) => {
         if (start > now) {
             status = '預計開放';
         } 
-        // ★★★ 修正重點：這裡也要改成 (slotNum + 2) 才會變額滿 ★★★
         else if (signupNum >= (slotNum + 2)) {
             status = '已額滿';
         }
-        // ★★★ 修改結束 ★★★
 
-        // ★★★ 關鍵安全鎖：同時比對 ID 與 is_guest=true ★★★
+        // ★ 3. 準備更新物件
+        const updatePayload: any = {
+            display_host_name: displayHostName,
+            mushroom_type: mushroomType,
+            slots: slotNum,
+            start_time: startTime,
+            details: details,
+            cooking_style: cookingStyle,
+            notes: notes,
+            status: status
+        };
+        // 只有當前端有傳 image_url (代表有換圖) 時才更新此欄位
+        if (image_url) updatePayload.image_url = image_url;
+
+        // ★ 4. 執行更新 (同時比對 ID 與 is_guest=true)
         const { error, count } = await adminSupabaseClient
             .from('challenges')
-            .update({
-                display_host_name: displayHostName,
-                mushroom_type: mushroomType,
-                slots: slotNum,
-                start_time: startTime,
-                details: details,
-                cooking_style: cookingStyle,
-                notes: notes,
-                status: status // 使用新計算的狀態
-            }, { count: 'exact' }) 
+            .update(updatePayload, { count: 'exact' }) 
             .eq('id', challengeId)
             .eq('is_guest', true); 
 
         if (error) throw new Error(`編輯失敗: ${error.message}`);
         
         if (count === 0) throw new Error('操作無效：找不到該訪客貼文，或無權限修改此項目。');
+
+        // ★ 5. 垃圾清理：如果有上傳新圖，且原本有舊圖，且兩者不同 -> 刪除 Storage 中的舊圖
+        if (image_url && oldData?.image_url && oldData.image_url !== image_url) {
+            try {
+                const oldFileName = oldData.image_url.split('/').pop();
+                if (oldFileName) await adminSupabaseClient.storage.from('challenge-images').remove([oldFileName]);
+            } catch (e) { console.error('舊圖清理失敗', e); }
+        }
         
         return new Response(JSON.stringify({ success: true, data: { message: '更新成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 訪客刪除 (Delete) - 加強安全性
+    // 訪客刪除 (Delete) - [權限鎖定 + 圖片清理]
     if (action === 'guest-delete-challenge') {
         const { challengeId } = payload;
         
-        // ★★★ 關鍵安全鎖：同時比對 ID 與 is_guest=true ★★★
+        // ★ 1. 先查出圖片 URL
+        const { data: oldData } = await adminSupabaseClient
+            .from('challenges')
+            .select('image_url')
+            .eq('id', challengeId)
+            .eq('is_guest', true)
+            .single();
+        
+        // ★ 2. 執行刪除 (強制鎖定只能刪訪客菇)
         const { error, count } = await adminSupabaseClient
             .from('challenges')
-            .delete({ count: 'exact' }) // 要求回傳影響行數
+            .delete({ count: 'exact' }) 
             .eq('id', challengeId)
-            .eq('is_guest', true); // ★ 強制鎖定：只能刪訪客菇
+            .eq('is_guest', true); 
 
         if (error) throw new Error(`刪除失敗: ${error.message}`);
         
-        // 如果影響行數為 0，代表有人試圖刪除正式使用者的資料，已被擋下
         if (count === 0) throw new Error('操作無效：找不到該訪客貼文，或無權限刪除此項目。');
+
+        // ★ 3. 刪除 Storage 中的圖片檔案
+        if (oldData?.image_url) {
+            try {
+                const fileName = oldData.image_url.split('/').pop();
+                if (fileName) await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
+            } catch (e) { console.error('圖片刪除失敗', e); }
+        }
         
         return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
@@ -692,19 +733,44 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 發布自飛
+    // 發布自飛 (Create) - [IP 限制 + 圖片寫入]
     if (action === 'guest-create-fly') {
-      const { nickname, friendCode, mushroomType, slots, coordinates, cookingStyle, notes } = payload;
+      const { nickname, friendCode, mushroomType, slots, coordinates, cookingStyle, notes, image_url } = payload;
+      
+      // ★ 1. 獲取訪客真實 IP
+      const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+
+      // ★ 2. 設定限制：過去 24 小時內
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      // ★ 3. 查詢該 IP 在「自飛蘑菇」的發文量
+      const { count: dailyFlyCount, error: countErr } = await adminSupabaseClient
+          .from('guest_fly_posts')
+          .select('*', { count: 'exact', head: true })
+          .eq('guest_ip', clientIp)
+          .gte('created_at', oneDayAgo);
+
+      if (countErr) throw new Error('系統忙碌中，請稍後再試');
+
+      // ★ 4. 執行限制 (自飛菇限制 10 則)
+      const FLY_DAILY_LIMIT = 10;
+      if ((dailyFlyCount || 0) >= FLY_DAILY_LIMIT) {
+          throw new Error(`您今日(${clientIp})已達自飛蘑菇發佈上限 (${FLY_DAILY_LIMIT}則)，請明天再來！`);
+      }
+
+      // 寫入資料
       const { data, error } = await adminSupabaseClient
         .from('guest_fly_posts')
         .insert({
           nickname,
           friend_code: friendCode,
-          mushroom_type: mushroomType, // ★ 新增：寫入蘑菇種類
+          mushroom_type: mushroomType,
           slots: parseInt(slots),
           coordinates,
           cooking_style: cookingStyle,
-          notes
+          notes,
+          image_url: image_url, // ★ 寫入圖片網址
+          guest_ip: clientIp // ★ 寫入 IP
         })
         .select()
         .single();
@@ -713,35 +779,66 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 編輯自飛
+    // 編輯自飛 - [舊圖清理]
     if (action === 'guest-edit-fly') {
-      const { id, mushroomType, slots, coordinates, cookingStyle, notes } = payload;
-      const { data, error } = await adminSupabaseClient
-        .from('guest_fly_posts')
-        .update({
-          mushroom_type: mushroomType, // ★ 新增：更新蘑菇種類
+      const { id, mushroomType, slots, coordinates, cookingStyle, notes, image_url } = payload;
+      
+      // ★ 1. 查舊圖
+      const { data: oldData } = await adminSupabaseClient.from('guest_fly_posts').select('image_url').eq('id', id).single();
+
+      // ★ 2. 準備更新物件
+      const updatePayload: any = {
+          mushroom_type: mushroomType,
           slots: parseInt(slots),
           coordinates,
           cooking_style: cookingStyle,
           notes
-        })
+      };
+      if (image_url) updatePayload.image_url = image_url;
+
+      const { data, error } = await adminSupabaseClient
+        .from('guest_fly_posts')
+        .update(updatePayload)
         .eq('id', id)
         .select()
         .single();
         
       if (error) throw error;
+
+      // ★ 3. 清理舊圖
+      if (image_url && oldData?.image_url && oldData.image_url !== image_url) {
+          try {
+              const oldFileName = oldData.image_url.split('/').pop();
+              if (oldFileName) await adminSupabaseClient.storage.from('challenge-images').remove([oldFileName]);
+          } catch (e) { console.error('舊圖清理失敗', e); }
+      }
+
       return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 刪除自飛
+    // 刪除自飛 - [圖片清理]
     if (action === 'guest-delete-fly') {
       const { id } = payload;
+
+      // ★ 1. 查圖
+      const { data: oldData } = await adminSupabaseClient.from('guest_fly_posts').select('image_url').eq('id', id).single();
+
+      // ★ 2. 刪紀錄
       const { error } = await adminSupabaseClient
         .from('guest_fly_posts')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      // ★ 3. 刪檔案
+      if (oldData?.image_url) {
+          try {
+              const fileName = oldData.image_url.split('/').pop();
+              if (fileName) await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
+          } catch (e) { console.error('圖片刪除失敗', e); }
+      }
+
       return new Response(JSON.stringify({ success: true, message: 'Deleted' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 

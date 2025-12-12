@@ -7,6 +7,8 @@
     <link rel="icon" href="./mashroom_s.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
+
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #111827; color: #d1d5db; }
         .dark-input { background-color: #374151; border-color: #4b5563; color: #d1d5db; }
@@ -317,6 +319,11 @@
                 </div>
 
                 <div>
+                    <label class="text-sm text-gray-400 font-bold">蘑菇美片 (選填)</label>
+                    <input type="file" id="m-image" accept="image/*" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-pink-600 file:text-white hover:file:bg-pink-700 mt-1"/>
+                </div>
+
+                <div>
                     <label class="text-sm text-gray-400 font-bold" data-i18n="label_notes">備註（選填）</label>
                     <input type="text" id="m-notes" class="dark-input w-full rounded-md mt-1 px-3 py-2" data-i18n-placeholder="ph_notes" placeholder="發菇者留言...">
                 </div>
@@ -390,6 +397,11 @@
                 </div>
 
                 <div>
+                    <label class="text-sm text-gray-400 font-bold">蘑菇美片 (選填)</label>
+                    <input type="file" id="f-image" accept="image/*" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-700 mt-1"/>
+                </div>
+
+                <div>
                     <label class="text-sm text-gray-400 font-bold" data-i18n="label_notes">備註（選填）</label>
                     <input type="text" id="f-notes" class="dark-input w-full rounded-md mt-1 px-3 py-2" data-i18n-placeholder="ph_notes_fly" placeholder="補充說明...">
                 </div>
@@ -427,6 +439,13 @@
                 <button id="close-comment-modal" class="text-gray-400 hover:text-white text-2xl transition">&times;</button>
             </div>
             <div id="comment-viewer-content" class="text-cyan-300 text-base break-words font-medium leading-relaxed bg-gray-900/50 p-4 rounded-lg border border-gray-700"></div>
+        </div>
+    </div>
+
+    <div id="image-viewer-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onclick="closeImageViewer()">
+        <div class="relative max-w-4xl w-full max-h-[90vh] flex justify-center p-2" onclick="event.stopPropagation()">
+            <button type="button" onclick="closeImageViewer()" class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300 font-bold bg-black/50 rounded-full w-10 h-10 flex items-center justify-center">&times;</button>
+            <img id="viewer-image" src="" alt="蘑菇美片" class="rounded-lg shadow-2xl max-h-[85vh] object-contain bg-gray-900">
         </div>
     </div>
 
@@ -639,12 +658,11 @@
             return window.t ? window.t(key) : defaultVal;
         }
 
-        // 修改 renderFlyCard：補上第三個參數 typeTranslator
+        // 渲染自飛卡片
         function renderFlyCard(c, mushroomStyles, typeTranslator, cookingTranslator) {
             const isMine = myFlyPostIds.includes(c.id);
             
             const rawType = c.mushroom_type || '自飛菇';
-            // 現在 typeTranslator 已經正確傳入，不會報錯了
             const displayType = typeTranslator ? typeTranslator(rawType) : rawType;
             
             const style = mushroomStyles[rawType] || { bg: 'bg-gray-700', text: 'text-white' };
@@ -653,23 +671,25 @@
             let cookingStyleClass = 'text-gray-400 border-gray-500/30';
             const cStyle = c.cooking_style || '';
             
-            // 2. 取得翻譯後的火侯文字
             const displayCooking = cookingTranslator ? cookingTranslator(cStyle) : cStyle;
 
-            // 判斷顏色還是用原始中文 cStyle (這部分保持不變)
             if (cStyle.includes('大火')) cookingStyleClass = 'text-red-500 border-red-500/30';
             else if (cStyle.includes('細火')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
             else if (cStyle.includes('隨便')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
             
             const fireLabel = safeT('label_cooking', '火侯');
             
-            // 3. HTML 裡面的變數改成 displayCooking
             const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">${fireLabel}:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${displayCooking || '未指定'}</span></div>`;
             
             let notesHtml = '';
             if (c.notes && c.notes.trim()) {
-                 notesHtml = `<div class="mt-1 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
+                    notesHtml = `<div class="mt-1 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
+
+            // ★ 新增：顯示圖片按鈕邏輯
+            let imageBtnHtml = (c.image_url && c.image_url.startsWith('http')) 
+                ? `<button onclick="openImageViewer('${c.image_url}')" class="mt-2 text-xs bg-gray-700 text-pink-300 px-2 py-1 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1 transition w-fit"><span class="text-sm">📷</span> 查看美片</button>` 
+                : '';
 
             const hostLabel = safeT('label_host', '發菇者');
             const hostDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${c.friend_code}')" title="${safeT('hint_copy_code', '複製好友碼')}: ${c.friend_code}">${c.nickname}</span>`;
@@ -695,8 +715,8 @@
 
             return `
                 <div class="challenge-card p-4 rounded-xl relative border border-cyan-800 bg-gray-800/80 hover:border-cyan-500 transition-colors duration-300" 
-                     data-datatype="fly" 
-                     data-ismine="${isMine}">
+                        data-datatype="fly" 
+                        data-ismine="${isMine}">
                     
                     <div class="absolute top-2 right-2 flex items-center gap-2">
                         <span class="bg-cyan-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">${flyTag}</span>
@@ -717,6 +737,7 @@
                         </div>
                         ${fireHtml}
                         ${notesHtml}
+                        ${imageBtnHtml}
                     </div>
 
                     ${actionBtnHtml}
@@ -731,14 +752,11 @@
 
             const signupCount = c.signups ? c.signups.length : 0;
             
-            // 修改 1: 使用翻譯函式處理時段顯示 (原本是查 detailsMap)
             const displayDetails = detailsTranslator ? detailsTranslator(c.details) : c.details;
             
-            // 修改 2: 分離「原始中文名稱」(查樣式用) 與 「顯示名稱」(翻譯用)
             const rawType = c.mushroom_type;
             const displayType = typeTranslator ? typeTranslator(rawType) : rawType;
 
-            // 樣式查找依舊使用原始中文 Key
             const style = mushroomStyles[rawType] || { bg: 'bg-gray-700', text: 'text-white' };
             const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap leading-none`;
 
@@ -768,17 +786,14 @@
             let cookingStyleClass = 'text-gray-400 border-gray-500/30';
             const cStyle = c.cooking_style || '';
             
-            // 2. 取得翻譯後的火侯文字
             const displayCooking = cookingTranslator ? cookingTranslator(cStyle) : cStyle;
 
-            // 判斷顏色保持原樣
             if (cStyle.includes('大火')) cookingStyleClass = 'text-red-500 border-red-500/30';
             else if (cStyle.includes('細火')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
             else if (cStyle.includes('隨便')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
             
             const fireLabel = safeT('label_cooking', '火侯');
             
-            // 3. HTML 裡面的變數改成 displayCooking
             const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">${fireLabel}:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${displayCooking || '未指定'}</span></div>`;
                     
             let participantsHtml = '';
@@ -843,8 +858,8 @@
                             
                             commentBlock = `
                                 <span onclick="window.openCommentModal('${safeComment}')" 
-                                      class="ml-2 text-xs text-cyan-300 bg-gray-800/50 px-2 py-0.5 rounded max-w-[100px] truncate cursor-pointer border border-transparent hover:bg-gray-700 hover:border-cyan-500/50 transition select-none"
-                                      title="View">
+                                    class="ml-2 text-xs text-cyan-300 bg-gray-800/50 px-2 py-0.5 rounded max-w-[100px] truncate cursor-pointer border border-transparent hover:bg-gray-700 hover:border-cyan-500/50 transition select-none"
+                                    title="View">
                                     ${commentVal}
                                 </span>`;
                         }
@@ -898,8 +913,13 @@
             
             let notesHtml = '';
             if (c.notes && c.notes.trim() !== '') {
-                 notesHtml = `<div class="mt-1 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
+                    notesHtml = `<div class="mt-1 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
+
+            // ★ 新增：顯示圖片按鈕邏輯
+            let imageBtnHtml = (c.image_url && c.image_url.startsWith('http')) 
+                ? `<button onclick="openImageViewer('${c.image_url}')" class="mt-2 text-xs bg-gray-700 text-pink-300 px-2 py-1 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1 transition w-fit"><span class="text-sm">📷</span> 查看美片</button>` 
+                : '';
 
             const hostNameRaw = c.display_host_name || '未知';
             const hostCodeMatch = hostNameRaw.match(/(\d{12})/);
@@ -916,9 +936,9 @@
 
             return `
                 <div class="challenge-card p-4 rounded-xl relative hover:border-pink-500 transition-colors duration-300" 
-                     data-status="${c.status}" 
-                     data-datatype="normal"
-                     data-ismine="${isMine}">
+                        data-status="${c.status}" 
+                        data-datatype="normal"
+                        data-ismine="${isMine}">
                     
                     <div class="absolute top-2 right-2 flex items-center">
                         ${statusBadgeHtml}
@@ -937,6 +957,7 @@
                         ${fireHtml}
                         <p>${slotsLabel}: ${signupCount} / ${c.slots}</p>
                         ${notesHtml}
+                        ${imageBtnHtml}
                     </div>
                     ${participantsHtml}
                     
@@ -994,7 +1015,8 @@
 
             const btn = document.getElementById('submit-btn');
             const originalBtnText = btn.textContent;
-            btn.disabled = true; btn.textContent = '...';
+            btn.disabled = true; 
+            btn.textContent = '...';
 
             const timeVal = timeInput.value; 
             if (rememberCheck.checked && timeVal) {
@@ -1010,21 +1032,30 @@
 
             const utcStartTime = new Date(timeInput.value).toISOString();
 
-            const payload = {
-                nickname: nick,
-                friendCode: code,
-                mushroomType: document.getElementById('m-type').value,
-                slots: document.getElementById('m-slots').value,
-                startTime: utcStartTime,
-                details: document.getElementById('m-details').value,
-                cookingStyle: document.getElementById('m-style').value,
-                notes: document.getElementById('m-notes').value,
-                challengeId: document.getElementById('edit-id').value
-            };
-
-            const action = payload.challengeId ? 'guest-edit-challenge' : 'guest-create-challenge';
-
             try {
+                // ★ 1. 先執行圖片上傳 (如果有選檔案)
+                // 提示使用者正在上傳
+                if(document.getElementById('m-image').files.length > 0) {
+                    btn.textContent = '上傳中...';
+                }
+                
+                const imageUrl = await uploadImageToStorage('m-image');
+
+                const payload = {
+                    nickname: nick,
+                    friendCode: code,
+                    mushroomType: document.getElementById('m-type').value,
+                    slots: document.getElementById('m-slots').value,
+                    startTime: utcStartTime,
+                    details: document.getElementById('m-details').value,
+                    cookingStyle: document.getElementById('m-style').value,
+                    notes: document.getElementById('m-notes').value,
+                    image_url: imageUrl, // ★ 2. 加入圖片網址
+                    challengeId: document.getElementById('edit-id').value
+                };
+
+                const action = payload.challengeId ? 'guest-edit-challenge' : 'guest-create-challenge';
+
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
                     body: JSON.stringify({ action, payload })
                 });
@@ -1038,6 +1069,10 @@
 
                 showToast(safeT('toast_success', '成功！'), false);
                 modal.classList.add('hidden');
+                
+                // ★ 3. 清空圖片輸入框
+                document.getElementById('m-image').value = ''; 
+                
                 loadChallenges();
                 updateGuestQuota(); 
 
@@ -1724,20 +1759,28 @@
             const originalText = btn.textContent;
             btn.disabled = true; btn.textContent = '...';
 
-            const payload = {
-                nickname: nick,
-                friendCode: code,
-                mushroomType: document.getElementById('f-type').value,
-                slots: document.getElementById('f-slots').value,
-                coordinates: coordVal, 
-                cookingStyle: document.getElementById('f-style').value,
-                notes: document.getElementById('f-notes').value,
-                id: document.getElementById('fly-edit-id').value 
-            };
-
-            const action = payload.id ? 'guest-edit-fly' : 'guest-create-fly';
-
             try {
+                // ★ 1. 先執行圖片上傳
+                if(document.getElementById('f-image').files.length > 0) {
+                    btn.textContent = '上傳中...';
+                }
+                
+                const imageUrl = await uploadImageToStorage('f-image');
+
+                const payload = {
+                    nickname: nick,
+                    friendCode: code,
+                    mushroomType: document.getElementById('f-type').value,
+                    slots: document.getElementById('f-slots').value,
+                    coordinates: coordVal, 
+                    cookingStyle: document.getElementById('f-style').value,
+                    notes: document.getElementById('f-notes').value,
+                    image_url: imageUrl, // ★ 2. 加入圖片網址
+                    id: document.getElementById('fly-edit-id').value 
+                };
+
+                const action = payload.id ? 'guest-edit-fly' : 'guest-create-fly';
+
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
                     body: JSON.stringify({ action, payload })
                 });
@@ -1751,6 +1794,10 @@
 
                 showToast(safeT('toast_success', '成功！'), false);
                 flyModal.classList.add('hidden');
+                
+                // ★ 3. 清空圖片輸入框
+                document.getElementById('f-image').value = '';
+                
                 loadChallenges(); 
 
             } catch (err) {
@@ -2285,6 +2332,86 @@
             init();
         }
     })();
+
+        // --- 圖片處理相關函式 ---
+
+        // 開啟圖片瀏覽器
+        window.openImageViewer = function(url) {
+            const m = document.getElementById('image-viewer-modal'), i = document.getElementById('viewer-image');
+            if(m && i) { i.src=url; m.classList.remove('hidden'); }
+        };
+        window.closeImageViewer = function() {
+            const m = document.getElementById('image-viewer-modal'), i = document.getElementById('viewer-image');
+            if(m) { m.classList.add('hidden'); setTimeout(() => { if(i) i.src=''; }, 300); }
+        };
+
+        // ==========================================
+        // ▼▼▼ 圖片壓縮與上傳模組 (移植自 Dashboard) ▼▼▼
+        // ==========================================
+
+        // 1. 圖片壓縮輔助函式 (Promise Wrapper)
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                // 顯示提示讓使用者知道正在處理
+                showToast('正在壓縮圖片...', false);
+                
+                new Compressor(file, {
+                    quality: 0.6,      // 壓縮品質 0.6 (通常能壓到 500KB 以下)
+                    maxWidth: 1600,    // 限制最大寬度
+                    maxHeight: 1600,   // 限制最大高度
+                    mimeType: 'image/jpeg', // 統一轉為 JPG
+                    success(result) {
+                        // 將 Blob 轉回 File 物件
+                        const compressedFile = new File([result], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        });
+                        resolve(compressedFile);
+                    },
+                    error(err) {
+                        // 壓縮失敗時回傳錯誤，稍後會捕捉並使用原圖
+                        reject(err);
+                    },
+                });
+            });
+        }
+
+        // 2. 上傳圖片到 Storage (已整合壓縮邏輯)
+        async function uploadImageToStorage(fileInputId) {
+            const fileInput = document.getElementById(fileInputId);
+            if (!fileInput || fileInput.files.length === 0) return null;
+
+            const originalFile = fileInput.files[0];
+            let fileToUpload = originalFile;
+
+            // --- 執行壓縮 ---
+            try {
+                // 嘗試壓縮
+                fileToUpload = await compressImage(originalFile);
+                // (除錯用) 在 Console 顯示壓縮前後大小
+                console.log(`[Guest] 壓縮前: ${(originalFile.size/1024/1024).toFixed(2)}MB, 壓縮後: ${(fileToUpload.size/1024/1024).toFixed(2)}MB`);
+            } catch (e) {
+                console.warn("壓縮失敗，將使用原圖上傳", e);
+                // 如果壓縮失敗 (例如瀏覽器不支援)，就用原圖，不中斷流程
+                fileToUpload = originalFile;
+            }
+
+            // --- 執行上傳 ---
+            // 檔名加上亂數與時間戳記，並強制副檔名為 .jpg (因為壓縮後是 jpeg)
+            const fileName = `guest_${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
+            
+            try {
+                const { error: upErr } = await supabaseClient.storage.from('challenge-images').upload(fileName, fileToUpload);
+                if(upErr) throw upErr;
+                
+                const { data } = supabaseClient.storage.from('challenge-images').getPublicUrl(fileName);
+                return data.publicUrl;
+            } catch (err) {
+                console.error('圖片上傳失敗:', err);
+                showToast('圖片上傳失敗，將不含圖片發布', true);
+                return null;
+            }
+        }
     </script>
 </body>
 </html>
