@@ -788,15 +788,51 @@
         });
 
         async function loadChallenges() {
-            challengeListAdmin.innerHTML = '<p>讀取中...</p>';
+            challengeListAdmin.innerHTML = '<p class="text-gray-400">讀取中...</p>';
             try {
-                const { data: challenges, error } = await supabaseClient.from('challenges').select('*, host:profiles(nickname), signups(profile:profiles(nickname))').order('created_at', { ascending: false });
-                if(error) throw error;
-                if(challenges.length === 0) { challengeListAdmin.innerHTML = `<p>目前沒有任何挑戰。</p>`; return; }
+                // 1. 讀取一般/大聲公挑戰 (直接查資料表)
+                const { data: challenges, error: dbError } = await supabaseClient
+                    .from('challenges')
+                    .select('*, host:profiles(nickname), signups(profile:profiles(nickname))')
+                    .order('created_at', { ascending: false });
+                
+                if(dbError) throw dbError;
+
+                // 2. 讀取自飛挑戰 (呼叫 Edge Function)
+                // ★ 修改：不使用解構賦值，直接取得回應物件
+                const flyResponse = await invokeAdminFunction('list-guest-fly', {});
+                // 確保取得的是陣列 (flyResponse.data 才是真正的陣列)
+                const flyList = flyResponse.data || [];
+
+                // 3. 標記資料類型並合併
+                const normalItems = (challenges || []).map(c => ({ ...c, dataType: 'normal' }));
+                const flyItems = (flyList || []).map(f => ({ ...f, dataType: 'fly' }));
+
+                const allItems = [...normalItems, ...flyItems].sort((a, b) => {
+                    // 使用 created_at 進行統一排序
+                    const timeA = new Date(a.created_at).getTime();
+                    const timeB = new Date(b.created_at).getTime();
+                    return timeB - timeA; // 倒序
+                });
+
+                // 4. 渲染
+                if(allItems.length === 0) { 
+                    challengeListAdmin.innerHTML = `<p class="text-gray-500">目前沒有任何挑戰。</p>`; 
+                    return; 
+                }
+                
                 challengeListAdmin.innerHTML = '';          
-                challenges.forEach(c => renderAdminChallengeCard(c));
+                allItems.forEach(item => {
+                    if (item.dataType === 'fly') {
+                        renderAdminFlyCard(item);
+                    } else {
+                        renderAdminChallengeCard(item);
+                    }
+                });
+
             } catch (error) {
-                challengeListAdmin.innerHTML = `<p class="text-red-400">無法載入挑戰列表: ${error.message}</p>`;
+                console.error(error);
+                challengeListAdmin.innerHTML = `<p class="text-red-400">無法載入列表: ${error.message}</p>`;
             }
         }
         
@@ -864,18 +900,71 @@
             challengeListAdmin.appendChild(card); 
         }
 
+        function renderAdminFlyCard(f) {
+            const card = document.createElement('div');
+            card.className = 'challenge-card p-4 border-cyan-800 bg-gray-800/50'; // 加上一點藍色系區隔
+            card.id = `admin-fly-${f.id}`;
+            
+            const postTime = new Date(f.created_at).toLocaleString('zh-TW', { hour12: false, month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+            const type = f.mushroom_type || '自飛菇';
+
+            card.innerHTML = `
+            <div class="flex flex-col justify-between h-full">
+                <div>
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="text-lg font-bold text-cyan-400 flex items-center gap-2">
+                            <span>✈️</span> ${type}
+                            <span class="text-sm text-gray-500">#${f.id}</span>
+                        </h3>
+                        <span class="text-xs font-bold px-2 py-1 rounded-full text-white bg-cyan-600">
+                            自飛
+                        </span>
+                    </div>
+
+                    <div class="text-sm text-gray-400 space-y-1.5">
+                        <p><strong>發布者:</strong> ${f.nickname} <span class="text-xs text-gray-500">(${f.friend_code})</span></p>
+                        <p><strong>發布時間:</strong> ${postTime}</p>
+                        <p><strong>名額:</strong> ${f.slots}</p>
+                        <div class="bg-gray-900/50 p-2 rounded border border-gray-700 font-mono text-xs truncate">
+                            ${f.coordinates}
+                        </div>
+                        <p class="text-xs text-gray-500">備註: ${f.notes || '無'}</p>
+                    </div>
+                </div>
+
+                <div>
+                    <button data-id="${f.id}" data-type="fly" class="delete-challenge-admin-button mt-4 w-full text-white font-bold py-2 px-4 rounded-lg bg-red-800 hover:bg-red-700 transition">
+                        刪除 (自飛)
+                    </button>
+                </div>
+            </div>
+            `;
+            challengeListAdmin.appendChild(card);
+        }
+
         challengeListAdmin.addEventListener('click', async (e) => {
             const button = e.target.closest('.delete-challenge-admin-button');
             if(!button) return;
-            const challengeId = button.dataset.id;
-            if (confirm(`【管理員操作】\n您確定要刪除這個 ID 為 ${challengeId} 的挑戰嗎？\n此操作無法復原。`)) {
+            
+            const id = button.dataset.id;
+            const type = button.dataset.type || 'normal'; // 預設為 normal
+            const name = type === 'fly' ? '自飛挑戰' : '挑戰';
+
+            if (confirm(`【管理員操作】\n您確定要刪除這個 ID 為 ${id} 的${name}嗎？\n此操作無法復原。`)) {
                 button.disabled = true; button.textContent = '刪除中...';
                 try {
-                    await invokeAdminFunction('delete-challenge', { challengeId: challengeId });
-                    showMessage(`挑戰 ${challengeId} 已成功刪除。`, false);
-                    loadChallenges();
+                    if (type === 'fly') {
+                        // 刪除自飛
+                        await invokeAdminFunction('guest-delete-fly', { id: id });
+                    } else {
+                        // 刪除一般
+                        await invokeAdminFunction('delete-challenge', { challengeId: id });
+                    }
+                    
+                    showMessage(`${name} ${id} 已成功刪除。`, false);
+                    loadChallenges(); // 重新整理列表
                 } catch(error) {
-                    showMessage(`刪除挑戰失敗: ${error.message}`, true); 
+                    showMessage(`刪除失敗: ${error.message}`, true); 
                     button.disabled = false; button.textContent = '刪除';
                 }
             }
