@@ -202,7 +202,7 @@
             </div>
 
             <form id="chat-form" class="flex gap-2">
-                <input type="text" id="chat-input" class="dark-input flex-1 rounded-md px-3 py-2 text-sm" placeholder="..." maxlength="50" autocomplete="off">
+                <input type="text" id="chat-input" class="dark-input flex-1 rounded-md px-3 py-2 text-sm" placeholder="..." maxlength="500" autocomplete="off">
                 <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white rounded-md px-4 py-1 transition">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-send-fill" viewBox="0 0 16 16">
                         <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.476-.476 1.178Z"/>
@@ -530,14 +530,8 @@
             loadGuestInfo();    
             loadChallenges();   
             startGlobalCountdown(); 
-            setupOnlinePresence(); 
-            
-            // 訂閱更新 (新增 guest_fly_posts 監聽)
-            supabaseClient.channel('guest-view')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, loadChallenges)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, loadChallenges)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_fly_posts' }, loadChallenges) 
-                .subscribe();
+            setupOnlinePresence();
+            setupGuestRealtime(); // 呼叫新的即時監聽函式
         });
 
         // 讀取/儲存訪客資訊
@@ -945,26 +939,46 @@
                     let commentBlock = '';
 
                     const isMe = s.guest_name && (s.guest_name === myGuestId);
-                    const addMsg = safeT('btn_add_comment', '＋留言');
+                    const addMsg = safeT('btn_add_comment', '留言');
 
                     if (isMe) {
-                        const commentDisplay = commentVal ? `<span class="text-cyan-300">${commentVal}</span>` : `<span class="text-gray-500 text-[10px] opacity-50 hover:opacity-100">${addMsg}</span>`;
+                        // 判斷：是否有留言內容
+                        const hasComment = commentVal && commentVal.trim() !== '';
+
+                        // --- 樣式設定 ---
+                        // 1. 未留言 (銀色高亮)：背景亮銀灰、文字深黑、無邊框、滑鼠移過去變白
+                        // 2. 已留言 (深色沉穩)：背景深灰、文字青色、有邊框、滑鼠移過去變亮灰
+                        const bgClass = hasComment ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-300 hover:bg-white';
+                        const textClass = hasComment ? 'text-cyan-300' : 'text-gray-900 font-extrabold'; // 未留言時加粗
+                        const borderClass = hasComment ? 'border-gray-500' : 'border-transparent shadow-md'; // 未留言加陰影增加立體感
+                        
+                        // 內容顯示
+                        const commentDisplay = hasComment 
+                            ? `<span class="truncate">${commentVal}</span>` 
+                            : `<span class="flex items-center gap-1">✏️ ${addMsg}</span>`;
+
                         const commentAction = `onclick="window.editSignupComment(${c.id}, '${commentVal.replace(/'/g, "\\'")}', event)"`;
                         
+                        // 組合按鈕 HTML
                         commentBlock = `
-                            <button ${commentAction} class="ml-2 text-xs border border-gray-600 bg-gray-800/80 px-2 py-0.5 rounded hover:bg-gray-700 transition max-w-[100px] truncate" title="Edit">
+                            <button ${commentAction} class="ml-2 relative z-10 text-xs border ${borderClass} ${bgClass} ${textClass} px-3 py-1 rounded transition max-w-[120px] shadow-sm flex items-center h-6" title="${hasComment ? '點擊編輯' : '點擊新增留言'}">
                                 ${commentDisplay}
                             </button>`;
                     } else {
                         if (commentVal) {
                             const safeComment = commentVal.replace(/'/g, "\\'");
                             
+                            // ★ 修改樣式：
+                            // 1. onclick 加入 event 參數: window.openCommentModal(..., event)
+                            // 2. class 加入 relative z-10 (提升層級)
+                            // 3. class 改為 bg-gray-700 (不透明實色)
+                            // 4. border-gray-600 (明顯邊框)
                             commentBlock = `
-                                <span onclick="window.openCommentModal('${safeComment}')" 
-                                    class="ml-2 text-xs text-cyan-300 bg-gray-800/50 px-2 py-0.5 rounded max-w-[100px] truncate cursor-pointer border border-transparent hover:bg-gray-700 hover:border-cyan-500/50 transition select-none"
+                                <button type="button" onclick="window.openCommentModal('${safeComment}', event)" 
+                                    class="ml-2 relative z-10 text-xs text-cyan-300 bg-gray-700 px-2 py-0.5 rounded max-w-[120px] truncate cursor-pointer border border-gray-600 hover:bg-gray-600 hover:border-cyan-400 transition select-none shadow-sm"
                                     title="View">
                                     ${commentVal}
-                                </span>`;
+                                </button>`;
                         }
                     }
 
@@ -1999,12 +2013,55 @@
         const commentContent = document.getElementById('comment-viewer-content');
         const closeCommentBtn = document.getElementById('close-comment-modal');
 
-        window.openCommentModal = (text) => {
+        window.openCommentModal = (text, event) => {
+            if (event) event.stopPropagation(); // ★ 關鍵：阻止事件傳遞給下層的複製功能
+            
             if (commentContent && commentModal) {
                 commentContent.textContent = text; 
                 commentModal.classList.remove('hidden');
             }
         };
+
+        // ★★★ 訪客頁面即時監聽系統 (參考 Dashboard 設計) ★★★
+        function setupGuestRealtime() {
+            // 定義一個簡單的防抖動 (Debounce) 函式，避免瞬間大量更新導致畫面閃爍
+            let refreshTimer = null;
+            const debouncedLoad = () => {
+                if (refreshTimer) clearTimeout(refreshTimer);
+                refreshTimer = setTimeout(() => {
+                    console.log('🔄 收到資料庫變更，正在刷新列表...');
+                    loadChallenges(); // 重新讀取挑戰列表
+                }, 300); // 延遲 300ms 執行
+            };
+
+            const channel = supabaseClient.channel('guest-realtime-system');
+
+            // 1. 監聽挑戰表 (Challenges) - 新增、修改、刪除
+            channel.on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, (payload) => {
+                // 如果是訪客頁面，我們只關心訪客菇 (is_guest=true) 或是 全部重整最安全
+                // 為了確保「額滿」、「刪除」等狀態同步，直接重整
+                debouncedLoad();
+            });
+
+            // 2. 監聽報名表 (Signups) - 有人報名、取消、修改留言
+            channel.on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, (payload) => {
+                debouncedLoad();
+            });
+
+            // 3. 監聽自飛菇 (Guest Fly Posts)
+            channel.on('postgres_changes', { event: '*', schema: 'public', table: 'guest_fly_posts' }, (payload) => {
+                debouncedLoad();
+            });
+            
+            // 4. (選用) 監聽留言板，雖然留言板有自己的 subscribeChat，但為了保險起見分開處理
+            // 這裡不需要監聽 guest_messages，因為 chat 模組自己有處理了
+
+            channel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('✅ 已連線至即時更新頻道 (Guest)');
+                }
+            });
+        }
 
         const hideCommentModal = () => {
             if (commentModal) commentModal.classList.add('hidden');
@@ -2036,7 +2093,7 @@
             'zh-TW': {
 
                 'chat_title': '訪客留言板',
-                'chat_limit_hint': '(保留最新50則)',
+                'chat_limit_hint': '(保留最新300則)',
                 'chat_empty': '暫無留言，快來搶頭香！',
                 'chat_error': '發送失敗',
 
@@ -2122,7 +2179,7 @@
 
                 'status_open': '報名中', 'status_full': '已額滿', 'status_pending': '預計開放',
                 'label_wait_time': '等待時間', 'separator_waitlist': '備取區', 'rank_wait': '備',
-                'hint_click_copy': '點擊複製', 'btn_add_comment': '＋留言', 'hint_copy_nick': '點擊暱稱複製好友碼',
+                'hint_click_copy': '點擊複製', 'btn_add_comment': '留言', 'hint_copy_nick': '點擊暱稱複製好友碼',
                 'btn_edit': '編輯', 'btn_delete': '刪除', 'btn_cancel_join': '取消報名',
                 'btn_not_open': '尚未開放', 'btn_cooldown': '冷卻中', 'btn_join': '立即報名',
                 'label_host': '發菇者', 'modal_edit_title': '編輯挑戰', 'confirm_delete': '確定刪除嗎？',
@@ -2136,7 +2193,7 @@
             },
             'en': {
                 'chat_title': 'Guest Chat',
-                'chat_limit_hint': '(Last 50 msgs)',
+                'chat_limit_hint': '(Last 300 msgs)',
                 'chat_empty': 'No messages yet.',
                 'chat_error': 'Failed to send',
 
@@ -2201,7 +2258,7 @@
                 
                 'status_open': 'Open', 'status_full': 'Full', 'status_pending': 'Pending',
                 'label_wait_time': 'Wait', 'separator_waitlist': 'Waitlist', 'rank_wait': 'W',
-                'hint_click_copy': 'Click to copy', 'btn_add_comment': '+Msg', 'hint_copy_nick': 'Click name to copy Friend Code',
+                'hint_click_copy': 'Click to copy', 'btn_add_comment': 'Msg', 'hint_copy_nick': 'Click name to copy Friend Code',
                 'btn_edit': 'Edit', 'btn_delete': 'Delete', 'btn_cancel_join': 'Leave',
                 'btn_not_open': 'Not Open', 'btn_cooldown': 'Cooling', 'btn_join': 'Join Now',
                 'label_host': 'Host', 'modal_edit_title': 'Edit Challenge', 'confirm_delete': 'Delete this?',
@@ -2215,7 +2272,7 @@
             },
             'ja': {
                 'chat_title': 'ゲスト掲示板',
-                'chat_limit_hint': '(最新50件)',
+                'chat_limit_hint': '(最新300件)',
                 'chat_empty': 'メッセージはまだありません',
                 'chat_error': '送信失敗',
 
@@ -2280,7 +2337,7 @@
                 
                 'status_open': '募集中', 'status_full': '満員', 'status_pending': '待機中',
                 'label_wait_time': '待機', 'separator_waitlist': 'キャンセル待ち', 'rank_wait': '待',
-                'hint_click_copy': 'コピー', 'btn_add_comment': '＋コメ', 'hint_copy_nick': '名前タップでコードをコピー',
+                'hint_click_copy': 'コピー', 'btn_add_comment': 'コメ', 'hint_copy_nick': '名前タップでコードをコピー',
                 'btn_edit': '編集', 'btn_delete': '削除', 'btn_cancel_join': '辞退',
                 'btn_not_open': '未開放', 'btn_cooldown': '待機', 'btn_join': '参加する',
                 'label_host': 'ホスト', 'modal_edit_title': '編集', 'confirm_delete': '削除しますか？',
@@ -2294,7 +2351,7 @@
             },
             'ko': {
                 'chat_title': '게스트 채팅',
-                'chat_limit_hint': '(최신 50개)',
+                'chat_limit_hint': '(최신 300개)',
                 'chat_empty': '메시지가 없습니다',
                 'chat_error': '전송 실패',
 
@@ -2359,7 +2416,7 @@
                 
                 'status_open': '모집중', 'status_full': '마감', 'status_pending': '대기중',
                 'label_wait_time': '대기', 'separator_waitlist': '대기열', 'rank_wait': '대',
-                'hint_click_copy': '복사', 'btn_add_comment': '+댓글', 'hint_copy_nick': '닉네임을 눌러 코드 복사',
+                'hint_click_copy': '복사', 'btn_add_comment': '댓글', 'hint_copy_nick': '닉네임을 눌러 코드 복사',
                 'btn_edit': '수정', 'btn_delete': '삭제', 'btn_cancel_join': '취소',
                 'btn_not_open': '미오픈', 'btn_cooldown': '대기', 'btn_join': '참여하기',
                 'label_host': '방장', 'modal_edit_title': '수정하기', 'confirm_delete': '삭제하시겠습니까?',
@@ -2655,7 +2712,7 @@
                 .from('guest_messages')
                 .select('*')
                 .order('created_at', { ascending: true }) // 舊的在上面
-                .limit(50);
+                .limit(300);
             
             if(error) { console.error('Chat load error', error); return; }
             
@@ -2676,9 +2733,15 @@
                 const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
                 const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
                 
+                // ★ 新增：檢查該暱稱是否在線上 (比對 onlineUserList)
+                // onlineUserList 的格式是 "暱稱👼好友碼"，所以要用 startsWith 比對 "暱稱👼"
+                const isOnline = onlineUserList.some(u => u.startsWith(msg.nickname + '👼'));
+                const onlineDot = isOnline ? '<span class="text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
+
                 return `
                     <div class="text-xs break-all">
                         <span class="text-gray-500 font-mono mr-1">[${time}]</span>
+                        ${onlineDot}
                         <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${msg.nickname}')">${msg.nickname}:</span>
                         <span class="text-gray-300">${escapeHtml(msg.message)}</span>
                     </div>
@@ -2736,7 +2799,6 @@
             supabaseClient.channel('public:guest_messages')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'guest_messages' }, payload => {
                     const newMsg = payload.new;
-                    // 如果目前顯示的是 "暫無留言"，先清空
                     if(chatList.querySelector('p')) chatList.innerHTML = '';
                     
                     const myNick = localStorage.getItem('guest_nick');
@@ -2744,9 +2806,15 @@
                     const time = new Date(newMsg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
                     const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
                     
+                    // ★ 新增：即時訊息的綠燈 (發話者剛發言，通常肯定在線，直接顯示或是也檢查一下)
+                    const isOnline = onlineUserList.some(u => u.startsWith(newMsg.nickname + '👼'));
+                    // 剛發言的人理論上一定在線，直接給燈，或者嚴謹檢查皆可。這裡用嚴謹檢查。
+                    const onlineDot = isOnline ? '<span class="text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
+                    
                     const html = `
                         <div class="text-xs break-all animate-fade-in">
                             <span class="text-gray-500 font-mono mr-1">[${time}]</span>
+                            ${onlineDot}
                             <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${newMsg.nickname}')">${newMsg.nickname}:</span>
                             <span class="text-gray-300">${escapeHtml(newMsg.message)}</span>
                         </div>

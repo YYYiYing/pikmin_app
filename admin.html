@@ -1150,7 +1150,7 @@
                 .from('guest_messages')
                 .select('*')
                 .order('created_at', { ascending: false })
-                .limit(50);
+                .limit(300);
 
             if (error) throw error;
 
