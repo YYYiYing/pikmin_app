@@ -1148,11 +1148,11 @@ serve(async (req) => {
             const { id } = payload;
             if (!id) throw new Error('Missing message ID');
 
-            // 使用 supabaseAdmin (Service Role) 才有權限刪除
-            const { error } = await supabaseAdmin
-            .from('guest_messages')
-            .delete()
-            .eq('id', id);
+            // ★修正：改用 adminSupabaseClient
+            const { error } = await adminSupabaseClient 
+                .from('guest_messages')
+                .delete()
+                .eq('id', id);
 
             if (error) throw error;
             
@@ -1161,11 +1161,11 @@ serve(async (req) => {
 
         // Case 2: 管理員清空所有留言
         case 'admin-clear-chat': {
-            // 刪除 id 大於 0 的所有資料 (即全部刪除)
-            const { error } = await supabaseAdmin
-            .from('guest_messages')
-            .delete()
-            .gt('id', 0); 
+            // ★修正：改用 adminSupabaseClient
+            const { error } = await adminSupabaseClient
+                .from('guest_messages')
+                .delete()
+                .gt('id', 0); 
 
             if (error) throw error;
 
