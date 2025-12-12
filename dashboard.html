@@ -900,6 +900,18 @@
     </div>
 </div>
 
+<div id="comment-viewer-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 modal-backdrop">
+    <div class="modal-content w-full max-w-sm rounded-2xl shadow-xl p-6 bg-gray-800 border border-gray-600 transform transition-all scale-100">
+        <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <span>💬</span> 完整留言
+            </h3>
+            <button onclick="document.getElementById('comment-viewer-modal').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl transition">&times;</button>
+        </div>
+        <div id="comment-viewer-content" class="text-cyan-300 text-base break-words font-medium leading-relaxed bg-gray-900/50 p-4 rounded-lg border border-gray-700"></div>
+    </div>
+</div>
+
 <style>
     /* 選圖專用樣式 */
     .lib-item { cursor: pointer; border: 2px solid transparent; transition: all 0.2s; position: relative; }
@@ -1668,34 +1680,92 @@
             const list = sortedSignups.map((signup, index) => {
                 const rankText = `${index + 1}${getRankSuffix(index + 1)}`;
                 
-                // ★ 修正點：統一變數名稱為 rawNickname
-                let rawNickname = signup.profile ? signup.profile.nickname : '未知';
+                // 1. 處理暱稱
+                let rawNickname = signup.profile ? signup.profile.nickname : (signup.guest_name || '未知');
                 const cleanName = rawNickname.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
                 const codeMatch = rawNickname.match(/(\d{12})/);
                 
                 let displayNameDisplay = ''; 
                 if (codeMatch) {
                     const code = codeMatch[1];
-                    // ★ 修正點：這裡正確引用 rawNickname
                     displayNameDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition select-none" onclick="copyHostFriendCode('${rawNickname}')" title="點擊複製好友碼: ${code}">${cleanName}</span>`;
                 } else {
-                    displayNameDisplay = rawNickname;
+                    displayNameDisplay = cleanName;
                 }
                 
+                // 2. 處理愛睏值
                 const absScore = signup.profile?.absent_score || 0;
-                let statusIcon = absScore > 0 ? `<span class="text-xs text-red-400 border border-red-500/50 rounded px-1 ml-1 cursor-help" title="累積缺席點數">💤+${absScore}</span>` : '';
+                let statusIcon = absScore > 0 ? `<span class="text-xs text-red-400 border border-red-500/50 rounded px-1 ml-1 flex-shrink-0 cursor-help" title="累積缺席點數">💤+${absScore}</span>` : '';
 
+                // 3. 處理留言按鈕
+                const commentVal = signup.comment || '';
+                const isMe = signup.user_id === currentUserProfile.id;
+                let commentBlock = '';
+
+                if (isMe) {
+                    const hasComment = commentVal && commentVal.trim() !== '';
+                    const bgClass = 'bg-gray-700 hover:bg-gray-600';
+                    const textClass = hasComment ? 'text-cyan-300' : 'text-gray-400 hover:text-white';
+                    const borderClass = hasComment ? 'border-gray-500' : 'border-gray-500 border-dashed';
+                    
+                    const icon = hasComment ? '📝' : '✏️';
+                    const title = hasComment ? '編輯留言' : '新增留言';
+
+                    commentBlock = `
+                        <button onclick="window.editUserSignupComment(${challenge.id}, '${commentVal.replace(/'/g, "\\'")}', event)" 
+                            class="ml-1 relative z-10 text-xs border ${borderClass} ${bgClass} ${textClass} px-1.5 py-0.5 rounded transition flex items-center justify-center h-5 min-w-[24px] flex-shrink-0" 
+                            title="${title}">
+                            ${icon}
+                        </button>`;
+                } else {
+                    if (commentVal) {
+                        const safeComment = commentVal.replace(/'/g, "\\'");
+                        commentBlock = `
+                            <button onclick="window.openDashboardComment('${safeComment}', event)" 
+                                class="ml-1 relative z-10 text-xs text-cyan-300 bg-gray-700 px-1.5 py-0.5 rounded cursor-pointer border border-gray-600 hover:bg-gray-600 hover:border-cyan-400 transition select-none shadow-sm flex items-center justify-center h-5 min-w-[24px] flex-shrink-0"
+                                title="查看完整留言">
+                                📝
+                            </button>`;
+                    }
+                }
+
+                // 4. 處理操作按鈕 (缺席/撤銷) - ★ 修改樣式與位置準備
                 let actionBtn = '';
                 if (isCurrentUserHost) {
                     const hasReported = challenge.absent_records && challenge.absent_records.some(r => r.reporter_id === currentUserProfile.id && r.absentee_id === signup.user_id);
+                    
+                    // 共通樣式：深灰底、有邊框、無透明度 (常駐顯示)
+                    const baseBtnStyle = "mr-2 text-[10px] bg-gray-700 px-2 py-0.5 rounded transition whitespace-nowrap border";
+                    
                     if (hasReported) {
-                        actionBtn = `<button onclick="revokeAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" class="ml-2 text-[10px] bg-gray-600 text-gray-300 px-2 py-0.5 rounded hover:bg-gray-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">撤銷</button>`;
+                        // 撤銷：灰色字、灰色框
+                        actionBtn = `<button onclick="revokeAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
+                            class="${baseBtnStyle} text-gray-400 border-gray-600 hover:bg-gray-600 hover:text-white" 
+                            title="撤銷缺席標記">撤銷</button>`;
                     } else {
-                        actionBtn = `<button onclick="reportAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" class="ml-2 text-[10px] bg-red-900/80 text-red-200 px-2 py-0.5 rounded hover:bg-red-800 font-bold opacity-0 group-hover:opacity-100 transition-opacity">缺席</button>`;
+                        // 缺席：紅色字、微紅框 (警示意味)
+                        actionBtn = `<button onclick="reportAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
+                            class="${baseBtnStyle} text-red-400 border-red-900/30 hover:bg-gray-600 hover:text-red-300" 
+                            title="回報缺席">缺席</button>`;
                     }
                 }
+
                 const time = formatSignupTime(signup.signed_up_at);
-                return `<div class="participant-item group"><div class="flex items-center overflow-hidden"><span class="participant-rank mr-2 flex-shrink-0">${rankText}</span><span class="text-gray-200 truncate">${displayNameDisplay}</span>${statusIcon}${actionBtn}</div><span class="text-xs text-gray-500 font-mono flex-shrink-0 ml-2">${time}</span></div>`;
+                
+                // ★ 5. 組合 HTML (Flexbox 佈局調整)
+                return `
+                    <div class="participant-item group py-1 flex justify-between items-center">
+                        <div class="flex items-center flex-1 min-w-0 pr-1">
+                            <span class="participant-rank w-6 flex-shrink-0 text-center mr-1">${rankText}</span>
+                            <span class="text-gray-200 truncate font-bold min-w-[30px]">${displayNameDisplay}</span>
+                            ${statusIcon}
+                            ${commentBlock}
+                        </div>
+
+                        <div class="flex items-center flex-shrink-0">
+                            ${actionBtn} <span class="text-xs text-gray-500 font-mono w-20 text-right whitespace-nowrap">${time}</span>
+                        </div>
+                    </div>`;
             }).join('');
             participantsHtml = `<div class="participant-list">${list}</div>`;
         }
@@ -1814,13 +1884,18 @@
         const datePart = now.toISOString().split('T')[0];
 
         if (remTime) {
+            // 如果有記住時間 (只記住 HH:mm)，日期用今天，時間用記憶的
+            const datePart = toLocalISOString(now).split('T')[0];
             challengeForm['start-time'].value = `${datePart}T${remTime}`;
+            
             if(remDetails) challengeForm['details'].value = remDetails;
             if(remStyle) document.getElementById('cooking-style').value = remStyle;
             if(remNotes) document.getElementById('challenge-notes').value = remNotes;
             document.getElementById('remember-time-checkbox').checked = true;
         } else {
-            challengeForm['start-time'].value = now.toISOString().slice(0, 16);
+            // ★ 修改：使用新的工具函式，精準帶入現在時間
+            challengeForm['start-time'].value = toLocalISOString(now);
+            
             document.getElementById('remember-time-checkbox').checked = false;
             document.getElementById('challenge-notes').value = '';
         }
@@ -1880,10 +1955,17 @@
     //  關閉發布視窗
     cancelModalButton.addEventListener('click', () => challengeModal.classList.add('hidden'));
     setTimeNowButton.addEventListener('click', () => {
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        challengeForm['start-time'].value = now.toISOString().slice(0, 16);
+        // 直接使用工具函式
+        challengeForm['start-time'].value = toLocalISOString(new Date());
     });
+
+    // 編輯視窗的立即開放按鈕
+    if (editSetTimeNowButton) {
+        editSetTimeNowButton.addEventListener('click', () => {
+            // 使用工具函式取得當前時間，並填入編輯視窗的時間欄位
+            document.getElementById('edit-start-time').value = toLocalISOString(new Date());
+        });
+    }
 
     // 【發布】表單送出
     challengeForm.addEventListener('submit', async (e) => {
@@ -1991,10 +2073,10 @@
         document.getElementById('edit-mushroom-type').value = c.mushroom_type;
         document.getElementById('edit-slots').value = c.slots;
         
-        // 時間處理
-        const localTime = new Date(c.start_time);
-        localTime.setMinutes(localTime.getMinutes() - localTime.getTimezoneOffset());
-        document.getElementById('edit-start-time').value = localTime.toISOString().slice(0, 16);
+        // ★ 修改：時間處理 (將 UTC 資料庫時間轉為本地 Input 格式)
+        if (c.start_time) {
+            document.getElementById('edit-start-time').value = toLocalISOString(new Date(c.start_time));
+        }
         
         document.getElementById('edit-details').value = c.details;
         document.getElementById('edit-cooking-style').value = c.cooking_style || '大火快炒（戰力全開）';
@@ -2809,6 +2891,18 @@
         }, 3000);
     }
 
+    // ★ 工具函式：取得本地時間字串 (格式：YYYY-MM-DDTHH:mm)
+    // 這能確保輸入框顯示的時間完全等於您的系統時間，不會有時差
+    function toLocalISOString(date) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        const year = date.getFullYear();
+        const month = pad(date.getMonth() + 1);
+        const day = pad(date.getDate());
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
     // 排名後綴 (保留原版)
     function getRankSuffix(n) { if(n%100>=11&&n%100<=13)return'th'; switch(n%10){case 1:return'st';case 2:return'nd';case 3:return'rd';default:return'th';} }
     
@@ -3543,6 +3637,51 @@
             }
         });
     }
+
+    // ★★★ Dashboard 專用：查看留言 ★★★
+    window.openDashboardComment = (text, event) => {
+        if (event) event.stopPropagation();
+        const modal = document.getElementById('comment-viewer-modal');
+        const content = document.getElementById('comment-viewer-content');
+        if (modal && content) {
+            content.textContent = text;
+            modal.classList.remove('hidden');
+        }
+    };
+
+    // ★★★ Dashboard 專用：編輯留言 (修復版：呼叫後端 API) ★★★
+    window.editUserSignupComment = async (challengeId, currentVal, event) => {
+        if (event) event.stopPropagation();
+
+        const newVal = prompt('請輸入留言:', currentVal);
+        if (newVal === null) return; // 取消
+
+        // 顯示載入中
+        showToast('更新留言中...', false);
+
+        try {
+            // 改用 functions.invoke 呼叫後端
+            const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                body: { 
+                    action: 'user-update-signup-comment', 
+                    payload: { 
+                        challengeId: challengeId, 
+                        comment: newVal 
+                    } 
+                } 
+            });
+
+            if (error) throw error;
+            if (data && data.error) throw new Error(data.error);
+
+            showToast('留言已更新', false);
+            // Realtime 會自動刷新畫面
+
+        } catch (e) {
+            console.error(e);
+            showToast(`更新失敗: ${e.message}`, true);
+        }
+    };
 </script>
 </body>
 </html>

@@ -899,6 +899,24 @@ serve(async (req) => {
     // 只要是登入的使用者皆可執行，無需管理員權限
     // ============================================================
 
+    // 用戶更新自己的報名留言
+    if (action === 'user-update-signup-comment') {
+        const { challengeId, comment } = payload;
+        
+        // 驗證並更新 (確保只能改自己的 user_id)
+        const { data, error } = await adminSupabaseClient
+            .from('signups')
+            .update({ comment: comment })
+            .eq('challenge_id', challengeId)
+            .eq('user_id', user.id) // ★ 關鍵：鎖定 user.id
+            .select()
+            .single();
+
+        if (error) throw new Error('更新失敗，找不到報名紀錄');
+        
+        return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
     // 1. 更新訂閱狀態 (改為布林值切換)
     if (action === 'update-subscription') {
         if (payload.userId !== user.id) throw new Error('權限不足 (ID 不符)');
