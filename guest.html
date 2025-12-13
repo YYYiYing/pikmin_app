@@ -1286,6 +1286,19 @@
             const callPeriodLabel = safeT('label_period', '呼叫時段');
             const slotsLabel = safeT('label_slots', '呼叫名額');
 
+            // ★★★ 在 return 之前插入這段計算邏輯 ★★★
+            let slotsDisplayHtml = '';
+            if (signupCount > c.slots) {
+                const waitCount = signupCount - c.slots;
+                // 使用翻譯鍵值 txt_waitlist
+                const waitText = safeT('txt_waitlist', '備取');
+                // 樣式：不加顏色，只加粗體 (font-bold) 與左邊距 (ml-2)
+                slotsDisplayHtml = `${c.slots} / ${c.slots} <span class="font-bold ml-2">${waitText} ${waitCount} / 2</span>`;
+            } else {
+                slotsDisplayHtml = `${signupCount} / ${c.slots}`;
+            }
+
+            // ★★★ 替換原本的 return 區塊 ★★★
             return `
                 <div class="challenge-card p-4 rounded-xl relative hover:border-pink-500 transition-colors duration-300" 
                         data-status="${c.status}" 
@@ -1307,7 +1320,7 @@
                         ${timeDisplayHtml}
                         <p>${callPeriodLabel}: 📣 ${displayDetails}</p>
                         ${fireHtml}
-                        <p>${slotsLabel}: ${signupCount} / ${c.slots}</p>
+                        <p>${slotsLabel}: ${slotsDisplayHtml}</p>
                         ${notesHtml}
                         ${imageBtnHtml}
                     </div>
@@ -2405,6 +2418,7 @@
                 'filter_fly': '自飛菇',
                 'filter_normal': '大聲公',
                 'filter_full': '已額滿',
+                'txt_waitlist': '備取',
                 'filter_mine': '我的發布',
                 'warn_destroy': '蘑菇卡片逾時自動銷毀',
                 'warn_destroy_time': '(大聲公: 6小時 / 自飛: 1小時)',
@@ -2509,7 +2523,9 @@
                 'hint_extra_help': 'Have extra bullhorns? Help others!',
                 'hint_remote_coords': 'Found a mushroom in nowhere? Share it!',
                 'list_title': 'Mushroom List',
-                'filter_all': 'All', 'filter_fly': 'Coords', 'filter_normal': 'Bullhorn', 'filter_full': 'Full', 'filter_mine': 'Mine',
+                'filter_all': 'All', 'filter_fly': 'Coords', 'filter_normal': 'Bullhorn',
+                 'filter_full': 'Full','txt_waitlist': 'Waitlist',
+                'filter_mine': 'Mine',
                 'warn_destroy': 'Cards Auto-Destroy on Timeout', 'warn_destroy_time': '(Bullhorn: 6h / Coords: 1h)',
                 'loading_msg': 'Searching for mushrooms...', 'modal_post_title': 'Post Mushroom Challenge',
                 'label_m_type': 'Type', 'label_slots': 'Slots Needed', 'label_open_time': 'Start Time',
@@ -2597,7 +2613,9 @@
                 'hint_extra_help': 'メガホンが余っていませんか？助け合いましょう！',
                 'hint_remote_coords': '遠隔地のキノコ座標もシェア大歓迎！',
                 'list_title': 'キノコリスト',
-                'filter_all': '全て', 'filter_fly': '座標', 'filter_normal': 'メガホン', 'filter_full': '満員', 'filter_mine': '自分の投稿',
+                'filter_all': '全て', 'filter_fly': '座標', 'filter_normal': 'メガホン',
+                'filter_full': '満員', 'txt_waitlist': 'キャンセル待ち',
+                'filter_mine': '自分の投稿',
                 'warn_destroy': 'カードは自動削除されます', 'warn_destroy_time': '(メガホン: 6h / 座標: 1h)',
                 'loading_msg': '読み込み中...', 'modal_post_title': 'キノコを投稿',
                 'label_m_type': '種類', 'label_slots': '募集人数', 'label_open_time': '開始時間',
@@ -2685,7 +2703,9 @@
                 'hint_extra_help': '남는 메가폰이 있나요? 친구들을 도와주세요!',
                 'hint_remote_coords': '외딴곳의 버섯 좌표를 공유해주세요!',
                 'list_title': '버섯 리스트',
-                'filter_all': '전체', 'filter_fly': '좌표', 'filter_normal': '메가폰', 'filter_full': '마감', 'filter_mine': '내 글',
+                'filter_all': '전체', 'filter_fly': '좌표', 'filter_normal': '메가폰',
+                'filter_full': '마감', 'txt_waitlist': '대기',
+                'filter_mine': '내 글',
                 'warn_destroy': '카드는 시간이 지나면 자동 삭제됩니다', 'warn_destroy_time': '(메가폰: 6h / 좌표: 1h)',
                 'loading_msg': '로딩 중...', 'modal_post_title': '버섯 모집 등록',
                 'label_m_type': '종류', 'label_slots': '모집 인원', 'label_open_time': '시작 시간',
