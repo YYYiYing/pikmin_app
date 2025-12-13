@@ -1945,12 +1945,11 @@
         const remNotes = localStorage.getItem('rememberedNotes');
 
         const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        const datePart = now.toISOString().split('T')[0];
+        // ★ 修改這行：使用 toLocalISOString 取得正確的本地日期字串，避免 UTC 落差
+        const datePart = toLocalISOString(now).split('T')[0];
 
         if (remTime) {
             // 如果有記住時間 (只記住 HH:mm)，日期用今天，時間用記憶的
-            const datePart = toLocalISOString(now).split('T')[0];
             challengeForm['start-time'].value = `${datePart}T${remTime}`;
             
             if(remDetails) challengeForm['details'].value = remDetails;
