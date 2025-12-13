@@ -235,9 +235,9 @@
                 </div>
             </div>
 
-            <div class="overflow-x-auto rounded-lg border border-gray-700">
+            <div id="admin-msg-container" class="overflow-x-auto overflow-y-auto h-[60vh] rounded-lg border border-gray-700 scroll-smooth">
                 <table class="w-full text-sm text-left text-gray-400">
-                    <thead class="text-xs text-gray-400 uppercase bg-gray-700/80 sticky top-0">
+                    <thead class="text-xs text-gray-400 uppercase bg-gray-700 sticky top-0 z-10 shadow-md">
                         <tr>
                             <th scope="col" class="p-4 w-10">
                                 <div class="flex items-center">
@@ -257,7 +257,7 @@
                     </tbody>
                 </table>
             </div>
-            <p class="text-xs text-gray-500 mt-2 text-right">顯示最新的 300 筆留言</p>
+            <p class="text-xs text-gray-500 mt-2 text-right">顯示最新的 300 筆留言 (由舊至新)</p>
         </div>
 
         <div class="mb-8 admin-container rounded-2xl p-6">
@@ -1146,28 +1146,27 @@
             checkInitialSession();
         });
         
-    // 載入留言列表 (修正版：加入按鈕強制重置)
+    // 載入留言列表 (最終版：高度 60vh + 舊上新下 + 自動捲底)
     async function loadAdminMessages() {
         const listEl = document.getElementById('admin-msg-list');
+        const containerEl = document.getElementById('admin-msg-container');
         const checkAllBox = document.getElementById('msg-check-all');
         const batchBtn = document.getElementById('btn-batch-del');
         
-        // 1. 重置列表顯示
-        listEl.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center">載入中...</td></tr>';
-        
-        // 2. ★ 關鍵修正：強制重置所有控制元件的狀態
+        // 1. 初始化按鈕狀態
         if (checkAllBox) checkAllBox.checked = false;
         if (batchBtn) {
-            batchBtn.classList.add('hidden');       // 隱藏
-            batchBtn.disabled = false;              // 啟用
-            batchBtn.innerHTML = `<span>🗑️</span> 刪除選取 (0)`; // 文字歸零
+            batchBtn.classList.add('hidden');       
+            batchBtn.disabled = false;              
+            batchBtn.innerHTML = `<span>🗑️</span> 刪除選取 (0)`; 
         }
 
         try {
+            // 2. 抓取資料 (依然是抓「最新的」300 筆)
             const { data, error } = await supabaseClient
                 .from('guest_messages')
                 .select('*')
-                .order('created_at', { ascending: false })
+                .order('created_at', { ascending: false }) 
                 .limit(300);
 
             if (error) throw error;
@@ -1177,7 +1176,12 @@
                 return;
             }
 
-            listEl.innerHTML = data.map(msg => {
+            // 3. ★ 關鍵步驟：反轉陣列
+            // 原本是 [最新...最舊]，反轉後變成 [最舊...最新]
+            // 這樣渲染出來，最新的就會在表格的最下面
+            const displayData = data.reverse();
+
+            listEl.innerHTML = displayData.map(msg => {
                 const time = new Date(msg.created_at).toLocaleString('zh-TW', { hour12: false });
                 const safeMsg = msg.message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 
@@ -1200,8 +1204,16 @@
                 `;
             }).join('');
 
-            // 重新綁定事件
+            // 4. 重新綁定勾選事件
             bindCheckboxEvents();
+
+            // 5. ★ 關鍵步驟：自動捲動到底部
+            if (containerEl) {
+                // 使用 setTimeout 確保畫面渲染完成後才執行捲動
+                setTimeout(() => {
+                    containerEl.scrollTop = containerEl.scrollHeight;
+                }, 50); // 稍微增加一點延遲確保穩定
+            }
 
         } catch (err) {
             console.error(err);
