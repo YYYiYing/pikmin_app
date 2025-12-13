@@ -494,6 +494,7 @@ serve(async (req) => {
 
         const now = new Date();
         const start = new Date(startTime);
+
         const slotNum = parseInt(slots);
         const signupNum = currentSignups || 0;
 
@@ -501,7 +502,8 @@ serve(async (req) => {
         if (start > now) {
             status = '預計開放';
         } 
-        else if (signupNum >= (slotNum + 2)) {
+        // ★ 修改：只要報名人數 >= 設定名額，就標記為「已額滿」(但仍允許備取報名)
+        else if (signupNum >= slotNum) {
             status = '已額滿';
         }
 
@@ -592,7 +594,7 @@ serve(async (req) => {
         // 安全取得目前人數
         const currentCount = challenge.signups?.[0]?.count ?? 0;
         
-        // ★ 修改：允許報名直到 (名額 + 2)
+        // 允許報名直到 (名額 + 2)
         // 當人數達到 (Slots + 2) 時才擋下
         if (currentCount >= (challenge.slots + 2)) {
             // 如果已經滿了，順手修復狀態 (防呆)
@@ -612,6 +614,48 @@ serve(async (req) => {
 
         if (exist) throw new Error('您已經報名過這場挑戰了');
 
+        // ★★★ 新增：檢查備取上限 (Max 3) ★★★
+        // 只有當本次報名屬於「備取」時 (目前人數 >= slots)，才需要檢查這個人手上是不是已經滿手備取了
+        // 如果本次是「正取」，則不受備取上限限制
+        if (currentCount >= challenge.slots) {
+            // A. 查出這個人所有的報名紀錄
+            const { data: myAllSignups } = await adminSupabaseClient
+                .from('signups')
+                .select('challenge_id, created_at')
+                .eq('guest_name', guestName);
+            
+            if (myAllSignups && myAllSignups.length > 0) {
+                let currentWaitlistCount = 0;
+                
+                // B. 逐一檢查這些報名是否為備取 (Rank > Slots)
+                for (const s of myAllSignups) {
+                    // 查該挑戰的名額
+                    const { data: ch } = await adminSupabaseClient
+                        .from('challenges')
+                        .select('slots')
+                        .eq('id', s.challenge_id)
+                        .single();
+                    
+                    if (ch) {
+                        // 查我在該挑戰的排名 (比我早報名的人數 + 1)
+                        const { count: rank } = await adminSupabaseClient
+                            .from('signups')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('challenge_id', s.challenge_id)
+                            .lte('created_at', s.created_at); // created_at <= 我的時間
+                        
+                        if ((rank || 0) > ch.slots) {
+                            currentWaitlistCount++;
+                        }
+                    }
+                }
+
+                if (currentWaitlistCount >= 3) {
+                    throw new Error('您同時排隊的備取已達上限 (3個)，請先取消其他備取。');
+                }
+            }
+        }
+        
         // 3. 寫入報名表
         const { data: newSignup, error: insertErr } = await adminSupabaseClient
             .from('signups')
@@ -625,9 +669,10 @@ serve(async (req) => {
 
         if (insertErr) throw new Error(`報名失敗: ${insertErr.message}`);
 
-        // ★ 修改：報名成功後，檢查是否 (名額 + 2) 全滿，若是則更新狀態
+        // 報名成功後，檢查是否達到「正取名額」，若是則更新狀態為「已額滿」
+        // (前端會根據人數判斷是否顯示備取按鈕，這裡只需負責切換狀態)
         const newTotal = currentCount + 1;
-        if (newTotal >= (challenge.slots + 2)) {
+        if (newTotal >= challenge.slots) {
             await adminSupabaseClient
                 .from('challenges')
                 .update({ status: '已額滿' })
@@ -673,9 +718,8 @@ serve(async (req) => {
             if (startTime > now) {
                 newStatus = '預計開放';
             } 
-            // ★ 修改重點：這裡原本是 >= slots，現在要改為 >= slots + 2
-            // 只有當 (正取 + 候補) 都滿了，才視為「已額滿」
-            else if (currentCount >= (slots + 2)) {
+            // ★ 修改：這裡也改回 >= slots，若取消後人數仍大於等於名額，維持已額滿
+            else if (currentCount >= slots) {
                 newStatus = '已額滿';
             } else {
                 newStatus = '開放報名中';

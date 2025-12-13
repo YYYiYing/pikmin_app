@@ -993,6 +993,40 @@
             `;
         }
 
+            // ★ 新增：計算訪客目前的備取數量
+        function calculateGuestWaitlistCount() {
+            let count = 0;
+            // 從全域變數 window.currentAllData 讀取所有挑戰資料
+            if (!window.currentAllData) return 0;
+
+            // 取得訪客身分
+            const localNick = localStorage.getItem('guest_nick');
+            const localCode = localStorage.getItem('guest_code');
+            const myGuestId = (localNick && localCode) ? `${localNick}💪${localCode}` : null;
+            if (!myGuestId) return 0;
+
+            window.currentAllData.forEach(c => {
+                if (c.dataType === 'normal' && c.signups) {
+                    // 檢查我是否已報名
+                    const mySignup = c.signups.find(s => {
+                    let rawName = s.guest_name || (s.profile ? s.profile.nickname : '');
+                    return rawName === myGuestId || (s.guest_name === myGuestId);
+                    });
+
+                    if (mySignup) {
+                        // 計算排名
+                        const myTime = new Date(mySignup.signed_up_at).getTime();
+                        const rank = c.signups.filter(s => new Date(s.signed_up_at).getTime() <= myTime).length;
+                        
+                        if (rank > c.slots) {
+                            count++;
+                        }
+                    }
+                }
+            });
+            return count;
+        }
+
         function renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups, typeTranslator, detailsTranslator, cookingTranslator) {
             const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
             const mySignupRecord = myGuestSignups.find(s => String(s.challengeId) === String(c.id));
@@ -1164,18 +1198,43 @@
                     </div>`;
             } else if (isSignedUp) {
                 actionButtonHtml = `<button onclick="handleGuestCancel(${c.id})" class="mt-4 w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition">${safeT('btn_cancel_join', '取消報名')}</button>`;
-            } else if (c.status === '已額滿') {
-                actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>${safeT('status_full', '已額滿')}</button>`;
             } else if (c.status === '預計開放') {
                 actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>${safeT('btn_not_open', '尚未開放')}</button>`;
             } else {
-                const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
-                const coolText = safeT('btn_cooldown', '冷卻中');
-                
-                if (cooldownLeft > 0) {
-                    actionButtonHtml = `<button class="guest-signup-btn mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>${coolText} ${cooldownLeft}s</button>`;
-                } else {
-                    actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 ${safeT('btn_join', '立即報名')}</button>`;
+                // ★ 修改：按鈕邏輯分離
+                // 1. 真正的額滿 (灰色按鈕)：人數 >= 名額 + 2
+                if (signupCount >= (c.slots + 2)) {
+                     actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>${safeT('status_full', '已額滿')}</button>`;
+                } 
+               // 2. 備取階段 (橘色/藍色按鈕)：人數 >= 名額，但還沒到 +2
+                else if (signupCount >= c.slots) {
+                    const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
+                    const waitRank = signupCount - c.slots + 1;
+                    
+                    // ★ 新增：檢查備取上限
+                    if (calculateGuestWaitlistCount() >= 3) {
+                         actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>備取數量已達上限(3)</button>`;
+                    }
+                    else if (cooldownLeft > 0) {
+                        actionButtonHtml = `<button class="guest-signup-btn mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>${safeT('btn_cooldown', '冷卻中')} ${cooldownLeft}s</button>`;
+                    } else {
+                        const btnText = safeT('btn_join_waitlist', '報名備取');
+                        const rankText = safeT('rank_wait', '備');
+                        
+                        // 這裡為了區別，建議備取按鈕可以用不同顏色 (例如 orange)，這裡我先維持 blue 或您可自行改為 bg-orange-600
+                        actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 ${btnText} (${rankText}${waitRank})</button>`;
+                    }
+                } 
+                // 3. 一般報名
+                else {
+                    const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
+                    const coolText = safeT('btn_cooldown', '冷卻中');
+                    
+                    if (cooldownLeft > 0) {
+                        actionButtonHtml = `<button class="guest-signup-btn mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>${coolText} ${cooldownLeft}s</button>`;
+                    } else {
+                        actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg transform active:scale-95">👉 ${safeT('btn_join', '立即報名')}</button>`;
+                    }
                 }
             }
             
@@ -2337,6 +2396,11 @@
                 'label_wait_time': '等待時間', 'separator_waitlist': '備取區', 'rank_wait': '備',
                 'hint_click_copy': '點擊複製', 'btn_add_comment': '留言', 'hint_copy_nick': '點擊暱稱複製好友碼',
                 'btn_edit': '編輯', 'btn_delete': '刪除', 'btn_cancel_join': '取消報名',
+
+                'btn_join_waitlist': '報名備取',
+                'btn_not_open': '尚未開放', 'btn_cooldown': '冷卻中', 'btn_join': '立即報名',
+                'label_host': '發菇者', 'modal_edit_title': '編輯挑戰', 'confirm_delete': '確定刪除嗎？',
+
                 'btn_not_open': '尚未開放', 'btn_cooldown': '冷卻中', 'btn_join': '立即報名',
                 'label_host': '發菇者', 'modal_edit_title': '編輯挑戰', 'confirm_delete': '確定刪除嗎？',
                 'toast_deleted': '已刪除', 'toast_copied': '已複製', 'toast_fill_all': '請完整填寫暱稱與好友碼',
@@ -2420,6 +2484,11 @@
                 'label_wait_time': 'Wait', 'separator_waitlist': 'Waitlist', 'rank_wait': 'W',
                 'hint_click_copy': 'Click to copy', 'btn_add_comment': 'Msg', 'hint_copy_nick': 'Click name to copy Friend Code',
                 'btn_edit': 'Edit', 'btn_delete': 'Delete', 'btn_cancel_join': 'Leave',
+
+                'btn_join_waitlist': 'Join Waitlist',
+                'btn_not_open': 'Not Open', 'btn_cooldown': 'Cooling', 'btn_join': 'Join Now',
+                'label_host': 'Host', 'modal_edit_title': 'Edit Challenge', 'confirm_delete': 'Delete this?',
+
                 'btn_not_open': 'Not Open', 'btn_cooldown': 'Cooling', 'btn_join': 'Join Now',
                 'label_host': 'Host', 'modal_edit_title': 'Edit Challenge', 'confirm_delete': 'Delete this?',
                 'toast_deleted': 'Deleted', 'toast_copied': 'Copied', 'toast_fill_all': 'Please fill nickname and friend code',
@@ -2503,6 +2572,11 @@
                 'label_wait_time': '待機', 'separator_waitlist': 'キャンセル待ち', 'rank_wait': '待',
                 'hint_click_copy': 'コピー', 'btn_add_comment': 'コメ', 'hint_copy_nick': '名前タップでコードをコピー',
                 'btn_edit': '編集', 'btn_delete': '削除', 'btn_cancel_join': '辞退',
+
+                'btn_join_waitlist': 'キャンセル待ち',
+                'btn_not_open': '未開放', 'btn_cooldown': '待機', 'btn_join': '参加する',
+                'label_host': 'ホスト', 'modal_edit_title': '編集', 'confirm_delete': '削除しますか？',
+
                 'btn_not_open': '未開放', 'btn_cooldown': '待機', 'btn_join': '参加する',
                 'label_host': 'ホスト', 'modal_edit_title': '編集', 'confirm_delete': '削除しますか？',
                 'toast_deleted': '削除しました', 'toast_copied': 'コピーしました', 'toast_fill_all': 'ニックネームとコードを入力してください',
@@ -2586,6 +2660,11 @@
                 'label_wait_time': '대기', 'separator_waitlist': '대기열', 'rank_wait': '대',
                 'hint_click_copy': '복사', 'btn_add_comment': '댓글', 'hint_copy_nick': '닉네임을 눌러 코드 복사',
                 'btn_edit': '수정', 'btn_delete': '삭제', 'btn_cancel_join': '취소',
+
+                'btn_join_waitlist': '대기열 참여',
+                'btn_not_open': '미오픈', 'btn_cooldown': '대기', 'btn_join': '참여하기',
+                'label_host': '방장', 'modal_edit_title': '수정하기', 'confirm_delete': '삭제하시겠습니까?',
+
                 'btn_not_open': '미오픈', 'btn_cooldown': '대기', 'btn_join': '참여하기',
                 'label_host': '방장', 'modal_edit_title': '수정하기', 'confirm_delete': '삭제하시겠습니까?',
                 'toast_deleted': '삭제되었습니다', 'toast_copied': '복사되었습니다', 'toast_fill_all': '닉네임과 코드를 입력해주세요',

@@ -1567,6 +1567,32 @@
         updateFilterBadges();
     }
 
+        // ★ 新增：計算當前使用者正在排幾個備取
+    function calculateUserWaitlistCount() {
+        let count = 0;
+        if (!currentUserProfile || !userSignedUpChallengeIds) return 0;
+
+        userSignedUpChallengeIds.forEach(signedCid => {
+            const c = challengesData[signedCid];
+            if (c && c.signups) {
+                // 找到我的報名資料
+                const mySignup = c.signups.find(s => s.user_id === currentUserProfile.id);
+                if (mySignup) {
+                    // 計算我的排名 (過濾掉比我晚報名的)
+                    // 注意：這裡假設 signups 已經是排序過的，或者是用時間比對
+                    const myTime = new Date(mySignup.signed_up_at).getTime();
+                    // 排名 = 比我早或同時報名的人數
+                    const rank = c.signups.filter(s => new Date(s.signed_up_at).getTime() <= myTime).length;
+                    
+                    if (rank > c.slots) {
+                        count++;
+                    }
+                }
+            }
+        });
+        return count;
+    }
+
     // ★ 核心渲染邏輯 (含分身顯示功能優化版)
     /** [核心] 渲染單張挑戰卡片 (修復版：統一變數名稱 + 時段轉換) */
     function renderChallenge(challenge) {
@@ -1648,19 +1674,40 @@
             actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名</button>`;
         } else if (challenge.status === '預計開放') {
             actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>尚未開放</button>`;
-        } else if (challenge.status === '已額滿') {
+        } 
+        // ★ 修改：只有當「人數 >= 名額 + 2」時，才真正顯示已額滿並鎖定
+        else if (challenge.status === '已額滿' && signupCount >= (challenge.slots + 2)) {
             actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>已額滿</button>`;
-        } else if (dailyLimitReached && !challenge.is_guest) { 
-            actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>報名額度已滿</button>`;
         } else {
-            if (currentUserProfile.role === '發菇者') {
-                actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default" disabled>僅發布權限</button>`;
-            } else {
-                const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
-                if (cooldownLeft > 0) {
-                    actionButtonHtml = `<button class="signup-button w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
+            // ★ 判斷目前是否屬於備取階段 (人數已達標，但未滿 +2)
+            const isWaitlist = signupCount >= challenge.slots;
+
+            // 1. 正取檢查：如果「不是」備取，且「每日額度已滿」，則鎖定 (訪客菇除外)
+            if (!isWaitlist && dailyLimitReached && !challenge.is_guest) { 
+                actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>報名額度已滿</button>`;
+            } 
+            // 2. 備取檢查：如果「是」備取，且「手上已有3個備取」，則鎖定 (不扣每日額度)
+            else if (isWaitlist && calculateUserWaitlistCount() >= 3) {
+                actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>備取數量已達上限(3)</button>`;
+            }
+            else {
+                if (currentUserProfile.role === '發菇者') {
+                    actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default" disabled>僅發布權限</button>`;
                 } else {
-                    actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
+                    const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
+                    if (cooldownLeft > 0) {
+                        actionButtonHtml = `<button class="signup-button w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
+                    } else {
+                        // ★ 根據是否為備取，顯示不同按鈕樣式
+                        if (isWaitlist) {
+                            const waitRank = signupCount - challenge.slots + 1;
+                            // 備取按鈕 (橘色)
+                            actionButtonHtml = `<button class="signup-button w-full bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition" data-challenge-id="${challenge.id}">報名備取 (備${waitRank})</button>`;
+                        } else {
+                            // 正取按鈕 (藍色)
+                            actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
+                        }
+                    }
                 }
             }
         }
@@ -1678,9 +1725,28 @@
             const isCurrentUserHost = (challenge.host && challenge.host.id === currentUserProfile.id);
 
             const list = sortedSignups.map((signup, index) => {
-                const rankText = `${index + 1}${getRankSuffix(index + 1)}`;
+                // ★ 新增：備取分隔線邏輯
+                let separatorHtml = '';
+                if (index === challenge.slots) {
+                    separatorHtml = `
+                        <div class="flex items-center my-2 select-none">
+                            <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
+                            <span class="mx-2 text-[10px] text-orange-400 font-bold bg-orange-900/30 px-2 rounded-full">備取區</span>
+                            <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
+                        </div>
+                    `;
+                }
+
+                // ★ 新增：排名顯示邏輯 (正取顯示 1st, 2nd... / 備取顯示 備1, 備2...)
+                let rankText;
+                if (index >= challenge.slots) {
+                    const waitRank = index - challenge.slots + 1;
+                    rankText = `<span class="text-orange-400">備${waitRank}</span>`;
+                } else {
+                    rankText = `${index + 1}${getRankSuffix(index + 1)}`;
+                }
                 
-                // 1. 處理暱稱
+                // 1. 處理暱稱 (保留前台既有邏輯)
                 let rawNickname = signup.profile ? signup.profile.nickname : (signup.guest_name || '未知');
                 const cleanName = rawNickname.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
                 const codeMatch = rawNickname.match(/(\d{12})/);
@@ -1693,7 +1759,7 @@
                     displayNameDisplay = cleanName;
                 }
                 
-                // 2. 處理愛睏值
+                // 2. 處理愛睏值 (保留前台既有邏輯)
                 const absScore = signup.profile?.absent_score || 0;
                 let statusIcon = absScore > 0 ? `<span class="text-xs text-red-400 border border-red-500/50 rounded px-1 ml-1 flex-shrink-0 cursor-help" title="累積缺席點數">💤+${absScore}</span>` : '';
 
@@ -1729,21 +1795,17 @@
                     }
                 }
 
-                // 4. 處理操作按鈕 (缺席/撤銷) - ★ 修改樣式與位置準備
+                // 4. 處理操作按鈕 (缺席/撤銷)
                 let actionBtn = '';
                 if (isCurrentUserHost) {
                     const hasReported = challenge.absent_records && challenge.absent_records.some(r => r.reporter_id === currentUserProfile.id && r.absentee_id === signup.user_id);
-                    
-                    // 共通樣式：深灰底、有邊框、無透明度 (常駐顯示)
                     const baseBtnStyle = "mr-2 text-[10px] bg-gray-700 px-2 py-0.5 rounded transition whitespace-nowrap border";
                     
                     if (hasReported) {
-                        // 撤銷：灰色字、灰色框
                         actionBtn = `<button onclick="revokeAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
                             class="${baseBtnStyle} text-gray-400 border-gray-600 hover:bg-gray-600 hover:text-white" 
                             title="撤銷缺席標記">撤銷</button>`;
                     } else {
-                        // 缺席：紅色字、微紅框 (警示意味)
                         actionBtn = `<button onclick="reportAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
                             class="${baseBtnStyle} text-red-400 border-red-900/30 hover:bg-gray-600 hover:text-red-300" 
                             title="回報缺席">缺席</button>`;
@@ -1752,11 +1814,12 @@
 
                 const time = formatSignupTime(signup.signed_up_at);
                 
-                // ★ 5. 組合 HTML (Flexbox 佈局調整)
+                // ★ 5. 組合 HTML (加入 separatorHtml)
                 return `
+                    ${separatorHtml}
                     <div class="participant-item group py-1 flex justify-between items-center">
                         <div class="flex items-center flex-1 min-w-0 pr-1">
-                            <span class="participant-rank w-6 flex-shrink-0 text-center mr-1">${rankText}</span>
+                            <span class="participant-rank w-8 flex-shrink-0 text-center mr-1">${rankText}</span>
                             <span class="text-gray-200 truncate font-bold min-w-[30px]">${displayNameDisplay}</span>
                             ${statusIcon}
                             ${commentBlock}
@@ -3753,6 +3816,8 @@
             showToast(`更新失敗: ${e.message}`, true);
         }
     };
+
+
 </script>
 </body>
 </html>
