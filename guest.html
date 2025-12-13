@@ -3152,7 +3152,12 @@
         }
 
         function scrollToBottom() {
-            chatList.scrollTop = chatList.scrollHeight;
+            // 加入微小延遲，確保 DOM 元素已完全渲染且高度計算正確後才捲動
+            setTimeout(() => {
+                if (chatList) {
+                    chatList.scrollTop = chatList.scrollHeight;
+                }
+            }, 100); // 延遲 100 毫秒通常就足夠了
         }
 
         // 避免 XSS 攻擊
