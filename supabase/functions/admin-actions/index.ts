@@ -370,10 +370,21 @@ serve(async (req) => {
 
     // 安全性核心：所有 Update/Delete 操作都必須強制加上 .eq('is_guest', true)
     
-    // 查詢訪客今日已發布數量 (用於前端顯示額度)
+    // 查詢訪客今日已發布數量 (用於前端顯示額度) + 回傳 IP 指紋
     if (action === 'get-guest-daily-count') {
         // 1. 獲取訪客 IP
         const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        
+        // ★ 新增：計算指紋 (與發送留言時的邏輯一致)
+        let fingerprint = 'unknown';
+        if (clientIp !== 'unknown') {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            fingerprint = hashHex.substring(0, 6); 
+        }
         
         // 2. 設定時間範圍 (過去 24 小時)
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -388,9 +399,10 @@ serve(async (req) => {
 
         if (error) throw new Error(error.message);
 
+        // ★ 修改：回傳資料中加入 ip_fingerprint
         return new Response(JSON.stringify({ 
             success: true, 
-            data: { count: count || 0, limit: 6 } 
+            data: { count: count || 0, limit: 6, ip_fingerprint: fingerprint } 
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
@@ -655,7 +667,7 @@ serve(async (req) => {
                 }
             }
         }
-        
+
         // 3. 寫入報名表
         const { data: newSignup, error: insertErr } = await adminSupabaseClient
             .from('signups')

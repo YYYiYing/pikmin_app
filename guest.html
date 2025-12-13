@@ -534,6 +534,11 @@
         let myGuestPostIds = JSON.parse(localStorage.getItem('my_guest_post_ids') || '[]');
         let myFlyPostIds = JSON.parse(localStorage.getItem('my_fly_post_ids') || '[]');
 
+        // ★ 新增：目前使用者的 IP 指紋與線上指紋清單
+        let myIpFingerprint = null;
+        let onlineFingerprints = new Set();
+        let guestChannel = null; // 用來存放在線頻道的變數
+        
         // 全域冷卻變數 (4秒)
         let globalCooldownUntil = 0;    
         let globalCooldownTimer = null; 
@@ -663,6 +668,7 @@
             
             checkInfoComplete();
             toggleInfoSection(false); // 儲存後隱藏
+            updateGuestQuota(); // 強制重整額度與連線
         });
 
         function checkInfoComplete() {
@@ -1533,17 +1539,26 @@
                 const count = data.data.count;
                 const limit = data.data.limit;
                 
+                // ★★★ 新增：接收指紋並啟動連線 ★★★
+                // 1. 更新全域變數 myIpFingerprint
+                myIpFingerprint = data.data.ip_fingerprint;
+                
+                // 2. 如果成功拿到指紋，就執行(或重啟)在線狀態連線
+                if (myIpFingerprint) {
+                    setupOnlinePresence();
+                }
+                // ★★★ 結束新增 ★★★
+
                 quotaEl.textContent = count;
                 
                 const btn = document.getElementById('open-post-modal');
-                const btnText = document.getElementById('btn-loudspeaker-text');
+                // const btnText = document.getElementById('btn-loudspeaker-text');
                 
                 if (count >= limit) {
                     quotaEl.classList.add('text-red-500');
                     if(btn) {
                         btn.disabled = true;
                         btn.classList.add('opacity-50', 'cursor-not-allowed');
-                        // Keep text update simple or handle via i18n logic if needed
                     }
                 } else {
                     quotaEl.classList.remove('text-red-500');
@@ -1753,19 +1768,27 @@
         let onlineUserList = []; 
 
         function setupOnlinePresence() {
+            // 1. 準備身分資料
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
-            let myIdentity = `Guest_${Math.floor(Math.random()*1000)}`;
             
-            if (nick && code) {
-                myIdentity = `${nick}👼${code}`;
+            // ★ 新增：如果資料不全或還沒拿到 IP 指紋，先不連線 
+            // (等 updateGuestQuota 拿到指紋後會再呼叫一次此函式)
+            if (!nick || !code || !myIpFingerprint) return;
+
+            let myIdentity = `${nick}👼${code}`;
+
+            // ★ 新增：如果已經有連線，先移除 (這是為了換暱稱時能即時切斷舊身分)
+            if (guestChannel) {
+                supabaseClient.removeChannel(guestChannel);
             }
-            
-            const ch = supabaseClient.channel('guest-room', { 
+
+            // 3. 建立新連線 (並存入全域變數)
+            guestChannel = supabaseClient.channel('guest-room', { 
                 config: { presence: { key: myIdentity } } 
             });
 
-            // ★ 修改 1：將 UI 更新邏輯獨立成一個全域函式
+            // ★ 修改：將 UI 更新邏輯獨立成一個全域函式
             window.refreshOnlineCountUI = () => {
                 const el = document.getElementById('online-count');
                 const prefix = window.t ? window.t('online_prefix') : '目前在線:';
@@ -1774,11 +1797,24 @@
                 if(el && typeof onlineUserList !== 'undefined') {
                     el.textContent = `${prefix} ${onlineUserList.length} ${unit}`;
                 }
+                
+                // ★ 新增：嘗試觸發聊天室綠燈更新 (如果函式已定義)
+                if (typeof updateChatOnlineStatus === 'function') {
+                    updateChatOnlineStatus();
+                }
             };
 
             const updateState = () => {
-                const state = ch.presenceState();
+                const state = guestChannel.presenceState();
                 const rawList = Object.keys(state); 
+                
+                // ★ 新增：收集所有在線者的指紋到全域 Set
+                onlineFingerprints.clear();
+                Object.values(state).forEach(presences => {
+                    presences.forEach(p => {
+                        if (p.fingerprint) onlineFingerprints.add(p.fingerprint);
+                    });
+                });
                 
                 const namedUsers = rawList.filter(n => n.includes('👼'));
                 const guestUsers = rawList.filter(n => !n.includes('👼'));
@@ -1793,23 +1829,33 @@
 
                 onlineUserList = [...namedUsers, ...guestUsers];
                 
-                // ★ 修改 2：呼叫剛剛定義的獨立函式
+                // 呼叫 UI 更新
                 window.refreshOnlineCountUI();
             };
 
-            ch.on('presence', { event: 'sync' }, updateState)
+            guestChannel
+              .on('presence', { event: 'sync' }, updateState)
               .on('presence', { event: 'join' }, updateState)
               .on('presence', { event: 'leave' }, updateState)
               .subscribe(status => { 
-                  if(status === 'SUBSCRIBED') ch.track({ online_at: new Date().toISOString() });
+                  if(status === 'SUBSCRIBED') {
+                      // ★ 關鍵：追蹤時帶上 IP 指紋
+                      guestChannel.track({ 
+                          online_at: new Date().toISOString(),
+                          fingerprint: myIpFingerprint 
+                      });
+                  }
               });
               
+            // Modal 事件綁定
             const countEl = document.getElementById('online-count');
             const modal = document.getElementById('online-users-modal');
             const listEl = document.getElementById('online-users-list');
             const closeBtn = document.getElementById('close-online-modal');
 
-            if(countEl) {
+            // ★ 修改：加入 data-bound 檢查，避免因為多次呼叫此函式而重複綁定事件
+            if(countEl && !countEl.dataset.bound) {
+                countEl.dataset.bound = "true";
                 countEl.onclick = () => {
                     if (onlineUserList.length === 0) {
                         listEl.innerHTML = '<li class="text-center text-gray-500">...</li>';
@@ -1817,7 +1863,7 @@
                         listEl.innerHTML = onlineUserList.map(n => `
                             <li class="flex items-center gap-2 p-2 rounded hover:bg-gray-700/50 border-b border-gray-700 last:border-0 text-sm">
                                 <span class="${n.startsWith('Guest_') ? 'text-gray-500' : 'text-green-400'} text-xs">●</span>
-                                <span class="truncate font-mono text-gray-300">${n}</span>
+                                <span class="truncate font-mono text-gray-300">${n.split('👼')[0]}</span>
                             </li>
                         `).join('');
                     }
@@ -1825,8 +1871,12 @@
                 };
             }
 
-            if(closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
-            if(modal) {
+            if(closeBtn && !closeBtn.dataset.bound) {
+                closeBtn.dataset.bound = "true";
+                closeBtn.onclick = () => modal.classList.add('hidden');
+            }
+            if(modal && !modal.dataset.bound) {
+                modal.dataset.bound = "true";
                 modal.onclick = (e) => { 
                     if(e.target === modal) modal.classList.add('hidden'); 
                 };
@@ -3009,6 +3059,40 @@
             scrollToBottom();
         }
 
+        // ★ 新增：即時更新聊天室綠燈 (不重繪整個列表)
+        function updateChatOnlineStatus() {
+            const msgs = document.querySelectorAll('[id^="msg-"]');
+            msgs.forEach(el => {
+                const fp = el.dataset.fp; // 我們會把指紋存在 dataset
+                const nick = el.dataset.nick; 
+                const dot = el.querySelector('.online-dot');
+                
+                // 判斷邏輯：指紋吻合 OR (沒指紋時) 暱稱吻合
+                let isOnline = false;
+                if (fp && fp !== 'undefined') {
+                    isOnline = onlineFingerprints.has(fp);
+                } else {
+                    // 相容舊資料或沒指紋的情況
+                    isOnline = onlineUserList.some(u => u.startsWith(nick + '👼'));
+                }
+
+                if (isOnline) {
+                    if (!dot) {
+                        // 插入綠燈
+                        const timeSpan = el.querySelector('.font-mono'); // 找時間標籤
+                        if(timeSpan) {
+                            const newDot = document.createElement('span');
+                            newDot.className = 'online-dot text-green-500 mr-1 text-[10px] animate-pulse';
+                            newDot.textContent = '●';
+                            timeSpan.after(newDot); // 插在時間後面
+                        }
+                    }
+                } else {
+                    if (dot) dot.remove(); // 離線則移除
+                }
+            });
+        }
+
         function renderChatMessages(messages) {
             if(!messages || messages.length === 0) {
                 chatList.innerHTML = `<p class="text-center text-gray-500 text-xs py-4">${safeT('chat_empty', '暫無留言，快來搶頭香！')}</p>`;
@@ -3022,15 +3106,21 @@
                 const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
                 const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
                 
-                const isOnline = onlineUserList.some(u => u.startsWith(msg.nickname + '👼'));
-                const onlineDot = isOnline ? '<span class="text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
+                // ★ 修改：優先使用指紋判斷
+                let isOnline = false;
+                if (msg.ip_fingerprint) {
+                    isOnline = onlineFingerprints.has(msg.ip_fingerprint);
+                } else {
+                    isOnline = onlineUserList.some(u => u.startsWith(msg.nickname + '👼'));
+                }
+                
+                const onlineDot = isOnline ? '<span class="online-dot text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
 
-                // 指紋顯示 (如果有)
-                // 根據指紋產生一個固定的顏色 (選用，讓視覺更容易辨識)
                 const fp = msg.ip_fingerprint ? `<span class="text-[10px] text-gray-500 font-mono ml-1" title="IP識別碼">#${msg.ip_fingerprint}</span>` : '';
 
+                // ★ 加入 data-fp 與 data-nick 供即時更新使用
                 return `
-                    <div id="msg-${msg.id}" class="text-xs break-all transition-all duration-500 hover:bg-gray-800/50 p-0.5 rounded">
+                    <div id="msg-${msg.id}" data-fp="${msg.ip_fingerprint}" data-nick="${msg.nickname}" class="text-xs break-all transition-all duration-500 hover:bg-gray-800/50 p-0.5 rounded">
                         <span class="text-gray-500 font-mono mr-1">[${time}]</span>
                         ${onlineDot}
                         <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${msg.nickname}')">${msg.nickname}</span>
