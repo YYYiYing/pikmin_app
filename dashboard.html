@@ -1814,19 +1814,21 @@
 
                 const time = formatSignupTime(signup.signed_up_at);
                 
-                // ★ 5. 組合 HTML (加入 separatorHtml)
+                // ★ 5. 組合 HTML (調整排版：左側資訊流 + 右側操作區)
                 return `
                     ${separatorHtml}
                     <div class="participant-item group py-1 flex justify-between items-center">
-                        <div class="flex items-center flex-1 min-w-0 pr-1">
+                        
+                        <div class="flex items-center flex-1 min-w-0 pr-1 overflow-hidden">
                             <span class="participant-rank w-8 flex-shrink-0 text-center mr-1">${rankText}</span>
-                            <span class="text-gray-200 truncate font-bold min-w-[30px]">${displayNameDisplay}</span>
+                            <span class="text-gray-200 truncate font-bold min-w-[30px]" title="${cleanName}">${displayNameDisplay}</span>
                             ${statusIcon}
                             ${commentBlock}
                         </div>
 
-                        <div class="flex items-center flex-shrink-0">
-                            ${actionBtn} <span class="text-xs text-gray-500 font-mono w-20 text-right whitespace-nowrap">${time}</span>
+                        <div class="flex items-center flex-shrink-0 ml-2">
+                            ${actionBtn} 
+                            <span class="text-xs text-gray-500 font-mono w-20 text-right whitespace-nowrap">${time}</span>
                         </div>
                     </div>`;
             }).join('');
@@ -3060,31 +3062,44 @@
         
         cards.forEach(c => {
             let show = false;
-            const status = c.dataset.status;
+            // 直接讀取卡片上的 dataset 屬性 (由 renderChallenge 寫入)
+            const status = c.dataset.status; 
             const isSignedUp = c.dataset.isSignedUp === 'true';
             const isHosted = c.dataset.isHosted === 'true';
-            // 讀取我們剛剛新增的標記
             const isGuest = c.dataset.isGuest === 'true';
 
-            // 1. 全部挑戰：顯示「未額滿」且「不是訪客」的內部菇
-            if (activeFilter === 'all') {
-                if (status !== '已額滿' && !isGuest) show = true;
-            }
-            // 2. ★ 新增：進口菇：顯示「未額滿」且「是訪客」的菇
-            else if (activeFilter === 'imported') {
-                if (status !== '已額滿' && isGuest) show = true;
-            }
-            // 3. 已額滿：顯示所有已額滿 (包含內部與訪客，方便查歷史)
-            else if (activeFilter === 'full') {
-                if (status === '已額滿') show = true;
-            }
-            // 4. 我的報名
-            else if (activeFilter === 'signed-up') {
-                if (isSignedUp) show = true;
-            }
-            // 5. 我的發布
-            else if (activeFilter === 'hosted') {
-                if (isHosted) show = true;
+            switch (activeFilter) {
+                case 'all':
+                    // 1. 全部挑戰：顯示「非訪客」且「非已額滿」的卡片
+                    // (包含：開放報名中、預計開放)
+                    if (!isGuest && status !== '已額滿') {
+                        show = true;
+                    }
+                    break;
+                    
+                case 'imported':
+                    // 2. 進口菇：顯示「訪客菇」且「非已額滿」的卡片
+                    if (isGuest && status !== '已額滿') {
+                        show = true;
+                    }
+                    break;
+                    
+                case 'full':
+                    // 3. 已額滿：顯示所有「已額滿」的卡片 (包含內部與訪客，可在此報名備取)
+                    if (status === '已額滿') {
+                        show = true;
+                    }
+                    break;
+                    
+                case 'signed-up':
+                    // 4. 已報名
+                    if (isSignedUp) show = true;
+                    break;
+                    
+                case 'hosted':
+                    // 5. 已發布
+                    if (isHosted) show = true;
+                    break;
             }
 
             c.style.display = show ? 'flex' : 'none';
