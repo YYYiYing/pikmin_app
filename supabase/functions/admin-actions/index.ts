@@ -933,6 +933,65 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // 訪客編輯留言 (驗證 IP 指紋)
+    if (action === 'guest-edit-message') {
+        const { id, message } = payload;
+        if (!message || !message.trim()) throw new Error('訊息不能為空');
+
+        // 1. 獲取 IP 並計算指紋 (權限驗證核心)
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        let fingerprint = 'unknown';
+        if (clientIp !== 'unknown') {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+        }
+
+        // 2. 執行更新 (加入指紋比對條件，確保只能改自己的)
+        const { error, count } = await adminSupabaseClient
+            .from('guest_messages')
+            .update({ message: message })
+            .eq('id', id)
+            .eq('ip_fingerprint', fingerprint); // ★ 關鍵安全鎖
+
+        if (error) throw error;
+        if (count === 0) throw new Error('權限不足或留言不存在');
+
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 訪客刪除留言 (收回) (驗證 IP 指紋)
+    if (action === 'guest-delete-message') {
+        const { id } = payload;
+
+        // 1. 計算指紋
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        let fingerprint = 'unknown';
+        if (clientIp !== 'unknown') {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+        }
+
+        // 2. 執行刪除 (加入指紋比對)
+        const { error, count } = await adminSupabaseClient
+            .from('guest_messages')
+            .delete({ count: 'exact' })
+            .eq('id', id)
+            .eq('ip_fingerprint', fingerprint); // ★ 關鍵安全鎖
+
+        if (error) throw error;
+        if (count === 0) throw new Error('權限不足或留言不存在');
+
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+
+
 
     // ============================================================
     // 區塊 B：使用者驗證 (需要 Authorization Header)

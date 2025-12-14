@@ -763,7 +763,7 @@
                 '小粉': 'opt_pink_s', '小冰藍': 'opt_ice_s',
                 
                 // 其他
-                '測試': 'opt_test', '自飛菇': 'btn_fly_mushroom'
+                '測試': 'opt_test', '自飛菇': 'btn_fly_mushroom_card'
             };
             // 2. 新增：時段對照表 (DB中文 -> i18n Key)
             const detailsToKeyMap = {
@@ -906,11 +906,10 @@
 
                 list.innerHTML = allData.map(c => {
                     if (c.dataType === 'fly') {
-                        // 修改這一行：多傳入 getTranslatedCooking
                         return renderFlyCard(c, mushroomStyles, getTranslatedType, getTranslatedCooking); 
                     } else {
-                        // 修改這一行：多傳入 getTranslatedCooking
-                        return renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups, getTranslatedType, getTranslatedDetails, getTranslatedCooking);
+                        // ★ 修改：移除 detailsMap，讓 myGuestSignups往前遞補
+                        return renderNormalCard(c, mushroomStyles, myGuestSignups, getTranslatedType, getTranslatedDetails, getTranslatedCooking);
                     }
                 }).join('');
 
@@ -1051,7 +1050,7 @@
             return count;
         }
 
-        function renderNormalCard(c, mushroomStyles, detailsMap, myGuestSignups, typeTranslator, detailsTranslator, cookingTranslator) {
+        function renderNormalCard(c, mushroomStyles, myGuestSignups, typeTranslator, detailsTranslator, cookingTranslator) {
             const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
             const mySignupRecord = myGuestSignups.find(s => String(s.challengeId) === String(c.id));
             const isSignedUp = !!mySignupRecord;
@@ -1507,7 +1506,7 @@
             navigator.clipboard.writeText(text).then(() => {
                 showToast(`${safeT('toast_copied', '已複製')}: ${text}`, false);
             }).catch(err => {
-                showToast('複製失敗', true);
+                showToast(safeT('toast_copy_fail', '複製失敗'), true);
             });
         }
 
@@ -1552,15 +1551,24 @@
                 const count = data.data.count;
                 const limit = data.data.limit;
                 
-                // ★★★ 新增：接收指紋並啟動連線 ★★★
+                // ★★★ 接收指紋並啟動連線 ★★★
                 // 1. 更新全域變數 myIpFingerprint
                 myIpFingerprint = data.data.ip_fingerprint;
                 
+                
                 // 2. 如果成功拿到指紋，就執行(或重啟)在線狀態連線
                 if (myIpFingerprint) {
+                    // A. 啟動在線狀態連線
                     setupOnlinePresence();
+
+                    // 關鍵修復：指紋拿到後，重新載入留言板 (解決按鈕消失問題)
+                    // 判斷聊天室是否開啟中，若是，則重整以顯示編輯按鈕
+                    const chatSection = document.getElementById('guest-chat-section');
+                    if (chatSection && !chatSection.classList.contains('hidden')) {
+                        // 這裡呼叫 loadChatMessages 會用最新的 myIpFingerprint 重新渲染列表
+                        loadChatMessages(); 
+                    }
                 }
-                // ★★★ 結束新增 ★★★
 
                 quotaEl.textContent = count;
                 
@@ -1726,7 +1734,7 @@
                 if (error) throw error;
                 if (data && data.error) throw new Error(data.error);
 
-                showToast(safeT('toast_success', '報名成功！'), false);
+                showToast(safeT('toast_join_success', '報名成功！'), false);
                 
                 triggerGlobalCooldown();
 
@@ -1744,7 +1752,7 @@
         };
 
         window.handleGuestCancel = async (challengeId) => {
-            if(!confirm(safeT('confirm_cancel', '確定要取消報名嗎？'))) return;
+            if (!confirm(safeT('confirm_cancel_join', '確定要取消報名嗎？'))) return;
 
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
@@ -1763,7 +1771,7 @@
                 if (error) throw error;
                 if (data && data.error) throw new Error(data.error);
 
-                showToast(safeT('toast_cancelled', '已取消報名'), false);
+                showToast(safeT('toast_cancel_success', '已取消報名'), false);
 
                 let mySignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
                 mySignups = mySignups.filter(s => String(s.challengeId) !== String(challengeId));
@@ -2391,62 +2399,135 @@
             supported: ['en', 'zh-TW', 'ja', 'ko']
         };
 
-        // 2. 資源字典 (Resources)
+        const LANG_NAMES = {
+            'zh-TW': '繁體中文', 'en': 'English', 'ja': '日本語', 'ko': '한국어'
+        };
+
+       // 2. 資源字典 (Resources) - 整理版 v2025.12.14
         const RESOURCES = {
             'zh-TW': {
-                'btn_change_nick': '暱稱變更',
-                'chat_title': '訪客留言板',
-                'chat_limit_hint': '(保留最新300則)',
-                'chat_empty': '暫無留言，快來搶頭香！',
-                'chat_error': '發送失敗',
+                // --- 全域提示與 Toast (Global Messages) ---
+                'toast_success': '成功！',
+                'toast_copy_success': '已複製',
+                'toast_copy_fail': '複製失敗',
+                'toast_join_success': '報名成功！',
+                'toast_cancel_success': '已取消報名',
+                'toast_post_success': '發布成功！',
+                'toast_update_success': '更新成功',
+                'toast_delete_success': '刪除成功',
+                'toast_deleted': '已刪除',
+                'toast_copied': '已複製',
+                'toast_pasted': '已貼上座標',
+                'toast_coords_fmt': '已自動轉換座標格式',
+                'toast_coords_err': '座標格式錯誤！',
+                'toast_profile_saved': '身分已暫存！您可以開始發菇了',
+                'toast_fill_all': '請完整填寫暱稱與好友碼',
+                'toast_code_fmt': '好友碼格式錯誤：必須為12位純數字',
+                'toast_cancelled': '已取消報名',
+                'alert_fill_all': '請輸入完整資訊',
+                'confirm_delete_post': '確定要刪除這則挑戰嗎？',
+                'confirm_cancel_join': '確定要取消報名嗎？',
+                'confirm_delete': '確定刪除嗎？', // 卡片內刪除按鈕用
+                'load_fail': '讀取失敗',
 
+                // --- 頁首與個人設定 (Header & Profile) ---
                 'header_title': '蘑菇互助刊登區',
-                'online_prefix': '目前在線:',
                 'music_text': 'Music by Pikmin Bloom Official',
+                'online_prefix': '目前在線:',
+                'unit_person': '人',
                 'section_nickname': '設定您的暱稱',
                 'label_nickname': '遊戲暱稱',
                 'label_friend_code': '好友碼 (12位數字)',
                 'ph_nickname': '如何稱呼您?',
+                'btn_change_nick': '暱稱變更',
                 'btn_save_profile': '儲存後開始發布',
+                'quota_label': '同時發布上限',
+
+                // --- 頂部功能按鈕 (Top Actions) ---
                 'btn_fly_mushroom': '座標自飛蘑菇',
                 'btn_loudspeaker': '大聲公呼叫蘑菇',
-                'quota_label': '同時發布上限',
                 'hint_extra_help': '有多餘大聲公未使用嗎？歡迎幫助一菇難求的皮友！',
                 'hint_remote_coords': '有荒郊野外的蘑菇座標嗎？也歡迎分享給大家！',
+
+                // --- 列表與過濾 (List & Filters) ---
                 'list_title': '互助蘑菇列表',
                 'filter_all': '全部挑戰',
                 'filter_fly': '自飛菇',
                 'filter_normal': '大聲公',
                 'filter_full': '已額滿',
-                'txt_waitlist': '備取',
                 'filter_mine': '我的發布',
+                'filter_signed': '我的報名',
+                'no_challenges': '目前沒有任何挑戰',
+                'no_filter_match': '此分類下沒有蘑菇',
+                'loading_msg': '搜尋菇菇中...',
                 'warn_destroy': '蘑菇卡片逾時自動銷毀',
                 'warn_destroy_time': '(大聲公: 6小時 / 自飛: 1小時)',
-                'loading_msg': '搜尋菇菇中...',
+
+                // --- 訪客留言板 (Chat / Guestbook) ---
+                'chat_title': '訪客留言板',
+                'chat_limit_hint': '(保留最新300則)',
+                'chat_empty': '暫無留言，快來搶頭香！',
+                'chat_error': '發送失敗',
+                'prompt_edit_msg': '修改留言:',
+                'confirm_recall_msg': '確定要收回這則留言嗎？',
+                'toast_msg_edited': '留言已修改',
+                'toast_msg_deleted': '留言已收回',
+                'toast_op_failed': '操作失敗 (可能非本人或IP已變動)',
+
+                // --- 蘑菇卡片顯示 (Card Display) ---
+                'label_host': '發菇者',
+                'label_post_time': '發布時間',
+                'tag_fly': '自飛',
+                'status_open': '報名中',
+                'status_full': '已額滿',
+                'status_pending': '預計開放',
+                'label_wait_time': '等待時間',
+                'txt_waitlist': '備取',
+                'separator_waitlist': '備取區',
+                'rank_wait': '備',
+                'hint_click_copy': '點擊複製',
+                'hint_copy_nick': '點擊暱稱複製好友碼',
+                'hint_copy_code': '複製好友碼',
+                'btn_view_postcard': '📷 查看明信片',
+
+                // --- 卡片操作按鈕 (Card Actions) ---
+                'btn_join': '立即報名',
+                'btn_join_waitlist': '報名備取',
+                'btn_cancel_join': '取消報名',
+                'btn_not_open': '尚未開放',
+                'btn_cooldown': '冷卻中',
+                'btn_edit': '編輯',
+                'btn_delete': '刪除',
+                'btn_take_off': '我要起飛', // 自飛菇複製座標
+                'btn_add_comment': '留言',
+                'prompt_comment': '請輸入留言:',
+
+                // --- 發布/編輯 彈出視窗 (Modals) ---
                 'modal_post_title': '發布蘑菇挑戰',
+                'modal_edit_title': '編輯挑戰',
+                'modal_fly_title': '✈️ 發布自飛座標',
+                'online_modal_title': '線上訪客',
+                'comment_modal_title': '完整留言',
+                
                 'label_m_type': '蘑菇種類',
                 'label_slots': '呼叫名額',
+                'label_slots_rem': '剩餘名額',
                 'label_open_time': '開放報名時間',
                 'btn_now': '現在',
                 'label_remember': '記住時間 (下次自動帶入)',
                 'label_period': '大聲公呼叫時段',
                 'label_cooking': '火侯',
-                'btn_view_postcard': '📷 查看明信片', 
                 'label_postcard_image': '蘑菇美片 (選填)',
                 'label_notes': '備註（選填）',
                 'ph_notes': '發菇者留言...',
+                'ph_notes_fly': '補充說明...',
+                'label_coords': '座標',
+                'hint_coords_format': '支援座標格式化',
+                'btn_paste': '貼上',
                 'btn_cancel': '取消',
                 'btn_submit': '確認送出',
-                'modal_fly_title': '✈️ 發布自飛座標',
-                'label_slots_rem': '剩餘名額',
-                'label_coords': '座標',
-                'btn_paste': '貼上',
-                'hint_coords_format': '支援座標格式化',
-                'ph_notes_fly': '補充說明...',
-                'online_modal_title': '線上訪客',
-                'comment_modal_title': '完整留言',
-                
-                // 時段
+
+                // --- 選項：時段 (Time Periods) ---
                 'period_night': '宵夜 (21:00~01:00)',
                 'period_breakfast': '早餐 (06:00~11:00)',
                 'period_lunch': '午餐 (11:00~15:00)',
@@ -2454,9 +2535,12 @@
                 'period_dinner': '晚餐 (17:00~21:00)',
                 'period_full': '滿人開 (人滿後發)',
 
-                // --- 蘑菇選項 ---
-                'opt_giant': '巨菇', 'opt_event': '活動菇',
-                
+                // --- 選項：蘑菇類型 (Mushroom Types) ---
+                'opt_giant': '巨菇',
+                'opt_event': '活動菇',
+                'opt_test': '測試',
+                'btn_fly_mushroom_card': '自飛菇',
+
                 // 大型特殊
                 'opt_crystal_l': '大晶', 'opt_poison_l': '大毒', 'opt_fire_l': '大火',
                 'opt_elec_l': '大電', 'opt_water_l': '大水',
@@ -2464,7 +2548,6 @@
                 'opt_red_l': '大紅', 'opt_yellow_l': '大黃', 'opt_blue_l': '大藍',
                 'opt_white_l': '大白', 'opt_purple_l': '大紫', 'opt_gray_l': '大灰',
                 'opt_pink_l': '大粉', 'opt_ice_l': '大冰藍',
-                
                 // 一般特殊
                 'opt_crystal': '晶', 'opt_poison': '毒', 'opt_fire': '火',
                 'opt_elec': '電', 'opt_water': '水',
@@ -2472,310 +2555,493 @@
                 'opt_red': '紅', 'opt_yellow': '黃', 'opt_blue': '藍',
                 'opt_white': '白', 'opt_purple': '紫', 'opt_gray': '灰',
                 'opt_pink': '粉', 'opt_ice': '冰藍',
-
                 // 小型顏色
                 'opt_red_s': '小紅', 'opt_yellow_s': '小黃', 'opt_blue_s': '小藍',
                 'opt_white_s': '小白', 'opt_purple_s': '小紫', 'opt_gray_s': '小灰',
                 'opt_pink_s': '小粉', 'opt_ice_s': '小冰藍',
-                
-                'opt_test': '測試',
-                
-                'opt_cook_any': '隨便亂炒（不限戰力）', 'opt_cook_hard': '大火快炒（戰力全開）', 'opt_cook_slow': '細火慢燉（控制戰力）',
-                'btn_fly_mushroom_card': '自飛菇', // Fallback for fly mushroom type
 
-                'status_open': '報名中', 'status_full': '已額滿', 'status_pending': '預計開放',
-                'label_wait_time': '等待時間', 'separator_waitlist': '備取區', 'rank_wait': '備',
-                'hint_click_copy': '點擊複製', 'btn_add_comment': '留言', 'hint_copy_nick': '點擊暱稱複製好友碼',
-                'btn_edit': '編輯', 'btn_delete': '刪除', 'btn_cancel_join': '取消報名',
-
-                'btn_join_waitlist': '報名備取',
-                'btn_not_open': '尚未開放', 'btn_cooldown': '冷卻中', 'btn_join': '立即報名',
-                'label_host': '發菇者', 'modal_edit_title': '編輯挑戰', 'confirm_delete': '確定刪除嗎？',
-
-                'btn_not_open': '尚未開放', 'btn_cooldown': '冷卻中', 'btn_join': '立即報名',
-                'label_host': '發菇者', 'modal_edit_title': '編輯挑戰', 'confirm_delete': '確定刪除嗎？',
-                'toast_deleted': '已刪除', 'toast_copied': '已複製', 'toast_fill_all': '請完整填寫暱稱與好友碼',
-                'toast_code_fmt': '好友碼格式錯誤：必須為12位純數字', 'toast_profile_saved': '身分已暫存！您可以開始發菇了',
-                'toast_success': '成功！', 'toast_coords_fmt': '已自動轉換座標格式', 'toast_pasted': '已貼上座標',
-                'toast_coords_err': '座標格式錯誤！', 'btn_take_off': '我要起飛', 'unit_person': '人',
-                'label_post_time': '發布時間', 'hint_copy_code': '複製好友碼', 'tag_fly': '自飛',
-                'no_challenges': '目前沒有任何挑戰', 'load_fail': '讀取失敗', 'no_filter_match': '此分類下沒有蘑菇',
-                'prompt_comment': '請輸入留言:', 'toast_cancelled': '已取消報名'
+                // 選項：火侯
+                'opt_cook_any': '隨便亂炒（不限戰力）',
+                'opt_cook_hard': '大火快炒（戰力全開）',
+                'opt_cook_slow': '細火慢燉（控制戰力）'
             },
-            'en': {
-                'btn_change_nick': 'Change Name',
-                'chat_title': 'Guest Chat',
-                'chat_limit_hint': '(Last 300 msgs)',
-                'chat_empty': 'No messages yet.',
-                'chat_error': 'Failed to send',
 
+            'en': {
+                // --- Global / Toast ---
+                'toast_success': 'Success!',
+                'toast_copy_success': 'Copied!',
+                'toast_copy_fail': 'Copy failed',
+                'toast_join_success': 'Joined successfully!',
+                'toast_cancel_success': 'Canceled successfully',
+                'toast_post_success': 'Posted successfully!',
+                'toast_update_success': 'Updated successfully',
+                'toast_delete_success': 'Deleted successfully',
+                'toast_deleted': 'Deleted',
+                'toast_copied': 'Copied',
+                'toast_pasted': 'Coords pasted',
+                'toast_coords_fmt': 'Coords formatted',
+                'toast_coords_err': 'Invalid coordinates!',
+                'toast_profile_saved': 'Profile Saved!',
+                'toast_fill_all': 'Please fill nickname and friend code',
+                'toast_code_fmt': 'Code must be 12 digits',
+                'toast_cancelled': 'Cancelled',
+                'alert_fill_all': 'Please fill in all fields',
+                'confirm_delete_post': 'Delete this challenge?',
+                'confirm_cancel_join': 'Cancel your registration?',
+                'confirm_delete': 'Delete this?',
+                'load_fail': 'Load Failed',
+
+                // --- Header & Profile ---
                 'header_title': 'Mushroom Request Board',
-                'online_prefix': 'Online:',
                 'music_text': 'Music by Pikmin Bloom Official',
+                'online_prefix': 'Online:',
+                'unit_person': '',
                 'section_nickname': 'Set Your Profile',
                 'label_nickname': 'Game Nickname',
                 'label_friend_code': 'Friend Code (12 Digits)',
                 'ph_nickname': 'What should we call you?',
+                'btn_change_nick': 'Change Name',
                 'btn_save_profile': 'Save & Start',
+                'quota_label': 'Daily Limit',
+
+                // --- Top Actions ---
                 'btn_fly_mushroom': 'Share GPS Coords',
                 'btn_loudspeaker': 'Call for Help (Bullhorn)',
-                'quota_label': 'Daily Limit',
                 'hint_extra_help': 'Have extra bullhorns? Help others!',
                 'hint_remote_coords': 'Found a mushroom in nowhere? Share it!',
-                'list_title': 'Mushroom List',
-                'filter_all': 'All', 'filter_fly': 'Coords', 'filter_normal': 'Bullhorn',
-                 'filter_full': 'Full','txt_waitlist': 'Waitlist',
-                'filter_mine': 'Mine',
-                'warn_destroy': 'Cards Auto-Destroy on Timeout', 'warn_destroy_time': '(Bullhorn: 6h / Coords: 1h)',
-                'loading_msg': 'Searching for mushrooms...', 'modal_post_title': 'Post Mushroom Challenge',
-                'label_m_type': 'Type', 'label_slots': 'Slots Needed', 'label_open_time': 'Start Time',
-                'btn_now': 'Now', 'label_remember': 'Remember Time', 'label_period': 'Call Time Period',
-                'label_cooking': 'Power Level',
-                'btn_view_postcard': '📷 View Postcard',
-                'label_postcard_image': 'Postcard Image (Optional)',
-                'label_notes': 'Notes (Optional)', 'ph_notes': 'Leave a message...',
-                'btn_cancel': 'Cancel', 'btn_submit': 'Submit', 'modal_fly_title': '✈️ Share Coordinates',
-                'label_slots_rem': 'Slots Left', 'label_coords': 'Coordinates', 'btn_paste': 'Paste',
-                'hint_coords_format': 'Auto-format supported', 'ph_notes_fly': 'Extra info...',
-                'online_modal_title': 'Online Guests', 'comment_modal_title': 'Full Comment',
-                
-                'period_night': 'Late Night (21:00~01:00)', 'period_breakfast': 'Breakfast (06:00~11:00)',
-                'period_lunch': 'Lunch (11:00~15:00)', 'period_tea': 'Afternoon Tea (15:00~17:00)',
-                'period_dinner': 'Dinner (17:00~21:00)', 'period_full': 'When Full',
 
-                // --- Mushroom Options ---
-                'opt_giant': 'Giant', 'opt_event': 'Event',
-                
-                // Large Special
+                // --- List & Filters ---
+                'list_title': 'Mushroom List',
+                'filter_all': 'All',
+                'filter_fly': 'Coords',
+                'filter_normal': 'Bullhorn',
+                'filter_full': 'Full',
+                'filter_mine': 'Mine',
+                'filter_signed': 'Joined',
+                'no_challenges': 'No challenges found',
+                'no_filter_match': 'No mushrooms here',
+                'loading_msg': 'Searching for mushrooms...',
+                'warn_destroy': 'Cards Auto-Destroy on Timeout',
+                'warn_destroy_time': '(Bullhorn: 6h / Coords: 1h)',
+
+                // --- Chat ---
+                'chat_title': 'Guest Chat',
+                'chat_limit_hint': '(Last 300 msgs)',
+                'chat_empty': 'No messages yet.',
+                'chat_error': 'Failed to send',
+                'prompt_edit_msg': 'Edit message:',
+                'confirm_recall_msg': 'Are you sure you want to recall this message?',
+                'toast_msg_edited': 'Message updated',
+                'toast_msg_deleted': 'Message recalled',
+                'toast_op_failed': 'Operation failed (IP mismatch or not owner)',
+
+                // --- Card Display ---
+                'label_host': 'Host',
+                'label_post_time': 'Posted',
+                'tag_fly': 'GPS',
+                'status_open': 'Open',
+                'status_full': 'Full',
+                'status_pending': 'Pending',
+                'label_wait_time': 'Wait',
+                'txt_waitlist': 'Waitlist',
+                'separator_waitlist': 'Waitlist',
+                'rank_wait': 'W',
+                'hint_click_copy': 'Click to copy',
+                'hint_copy_nick': 'Click name to copy Friend Code',
+                'hint_copy_code': 'Copy Code',
+                'btn_view_postcard': '📷 View Postcard',
+
+                // --- Card Actions ---
+                'btn_join': 'Join Now',
+                'btn_join_waitlist': 'Join Waitlist',
+                'btn_cancel_join': 'Leave',
+                'btn_not_open': 'Not Open',
+                'btn_cooldown': 'Cooling',
+                'btn_edit': 'Edit',
+                'btn_delete': 'Delete',
+                'btn_take_off': 'Take Off',
+                'btn_add_comment': 'Msg',
+                'prompt_comment': 'Enter comment:',
+
+                // --- Modals ---
+                'modal_post_title': 'Post Mushroom Challenge',
+                'modal_edit_title': 'Edit Challenge',
+                'modal_fly_title': '✈️ Share Coordinates',
+                'online_modal_title': 'Online Guests',
+                'comment_modal_title': 'Full Comment',
+
+                'label_m_type': 'Type',
+                'label_slots': 'Slots Needed',
+                'label_slots_rem': 'Slots Left',
+                'label_open_time': 'Start Time',
+                'btn_now': 'Now',
+                'label_remember': 'Remember Time',
+                'label_period': 'Call Time Period',
+                'label_cooking': 'Power Level',
+                'label_postcard_image': 'Postcard Image (Optional)',
+                'label_notes': 'Notes (Optional)',
+                'ph_notes': 'Leave a message...',
+                'ph_notes_fly': 'Extra info...',
+                'label_coords': 'Coordinates',
+                'hint_coords_format': 'Auto-format supported',
+                'btn_paste': 'Paste',
+                'btn_cancel': 'Cancel',
+                'btn_submit': 'Submit',
+
+                // --- Periods ---
+                'period_night': 'Late Night (21:00~01:00)',
+                'period_breakfast': 'Breakfast (06:00~11:00)',
+                'period_lunch': 'Lunch (11:00~15:00)',
+                'period_tea': 'Afternoon Tea (15:00~17:00)',
+                'period_dinner': 'Dinner (17:00~21:00)',
+                'period_full': 'When Full',
+
+                // --- Types ---
+                'opt_giant': 'Giant',
+                'opt_event': 'Event',
+                'opt_test': 'Test',
+                'btn_fly_mushroom_card': 'Self-Fly',
+
+                // Large
                 'opt_crystal_l': 'L-Crystal', 'opt_poison_l': 'L-Poison', 'opt_fire_l': 'L-Fire',
                 'opt_elec_l': 'L-Elec', 'opt_water_l': 'L-Water',
-                
-                // Large Color
                 'opt_red_l': 'L-Red', 'opt_yellow_l': 'L-Yellow', 'opt_blue_l': 'L-Blue',
                 'opt_white_l': 'L-White', 'opt_purple_l': 'L-Purple', 'opt_gray_l': 'L-Gray',
                 'opt_pink_l': 'L-Pink', 'opt_ice_l': 'L-Ice',
-
-                // Normal Special
+                // Normal
                 'opt_crystal': 'Crystal', 'opt_poison': 'Poison', 'opt_fire': 'Fire',
                 'opt_elec': 'Elec', 'opt_water': 'Water',
-                
-                // Normal Color
                 'opt_red': 'Red', 'opt_yellow': 'Yellow', 'opt_blue': 'Blue',
                 'opt_white': 'White', 'opt_purple': 'Purple', 'opt_gray': 'Gray',
                 'opt_pink': 'Pink', 'opt_ice': 'Ice',
-
-                // Small Color
+                // Small
                 'opt_red_s': 'S-Red', 'opt_yellow_s': 'S-Yellow', 'opt_blue_s': 'S-Blue',
                 'opt_white_s': 'S-White', 'opt_purple_s': 'S-Purple', 'opt_gray_s': 'S-Gray',
                 'opt_pink_s': 'S-Pink', 'opt_ice_s': 'S-Ice',
 
-                'opt_test': 'Test',
-                'opt_cook_any': 'Any Power (Chill)', 'opt_cook_hard': 'Full Power (Speed)', 'opt_cook_slow': 'Controlled (Slow)',
-                'btn_fly_mushroom_card': 'Self-Fly', // Fallback
-                
-                'status_open': 'Open', 'status_full': 'Full', 'status_pending': 'Pending',
-                'label_wait_time': 'Wait', 'separator_waitlist': 'Waitlist', 'rank_wait': 'W',
-                'hint_click_copy': 'Click to copy', 'btn_add_comment': 'Msg', 'hint_copy_nick': 'Click name to copy Friend Code',
-                'btn_edit': 'Edit', 'btn_delete': 'Delete', 'btn_cancel_join': 'Leave',
-
-                'btn_join_waitlist': 'Join Waitlist',
-                'btn_not_open': 'Not Open', 'btn_cooldown': 'Cooling', 'btn_join': 'Join Now',
-                'label_host': 'Host', 'modal_edit_title': 'Edit Challenge', 'confirm_delete': 'Delete this?',
-
-                'btn_not_open': 'Not Open', 'btn_cooldown': 'Cooling', 'btn_join': 'Join Now',
-                'label_host': 'Host', 'modal_edit_title': 'Edit Challenge', 'confirm_delete': 'Delete this?',
-                'toast_deleted': 'Deleted', 'toast_copied': 'Copied', 'toast_fill_all': 'Please fill nickname and friend code',
-                'toast_code_fmt': 'Code must be 12 digits', 'toast_profile_saved': 'Profile Saved!',
-                'toast_success': 'Success!', 'toast_coords_fmt': 'Coords formatted', 'toast_pasted': 'Coords pasted',
-                'toast_coords_err': 'Invalid coordinates!', 'btn_take_off': 'Take Off', 'unit_person': '',
-                'label_post_time': 'Posted', 'hint_copy_code': 'Copy Code', 'tag_fly': 'GPS',
-                'no_challenges': 'No challenges found', 'load_fail': 'Load Failed', 'no_filter_match': 'No mushrooms here',
-                'prompt_comment': 'Enter comment:', 'toast_cancelled': 'Cancelled'
+                // Cooking
+                'opt_cook_any': 'Any Power (Chill)',
+                'opt_cook_hard': 'Full Power (Speed)',
+                'opt_cook_slow': 'Controlled (Slow)'
             },
-            'ja': {
-                'btn_change_nick': '名前変更',
-                'chat_title': 'ゲスト掲示板',
-                'chat_limit_hint': '(最新300件)',
-                'chat_empty': 'メッセージはまだありません',
-                'chat_error': '送信失敗',
 
+            'ja': {
+                // --- Global / Toast ---
+                'toast_success': '成功！',
+                'toast_copy_success': 'コピーしました',
+                'toast_copy_fail': 'コピーに失敗しました',
+                'toast_join_success': '参加しました！',
+                'toast_cancel_success': 'キャンセルしました',
+                'toast_post_success': '投稿しました！',
+                'toast_update_success': '更新しました',
+                'toast_delete_success': '削除しました',
+                'toast_deleted': '削除しました',
+                'toast_copied': 'コピーしました',
+                'toast_pasted': '貼り付けました',
+                'toast_coords_fmt': '座標を整形しました',
+                'toast_coords_err': '座標形式が不正です',
+                'toast_profile_saved': 'プロフィールを保存しました',
+                'toast_fill_all': 'ニックネームとコードを入力してください',
+                'toast_code_fmt': 'コードは12桁の数字です',
+                'toast_cancelled': 'キャンセルしました',
+                'alert_fill_all': 'すべての項目を入力してください',
+                'confirm_delete_post': 'この投稿を削除しますか？',
+                'confirm_cancel_join': '参加をキャンセルしますか？',
+                'confirm_delete': '削除しますか？',
+                'load_fail': '読み込み失敗',
+
+                // --- Header & Profile ---
                 'header_title': 'キノコ掲示板',
-                'online_prefix': 'オンライン:',
                 'music_text': 'Music by Pikmin Bloom Official',
+                'online_prefix': 'オンライン:',
+                'unit_person': '人',
                 'section_nickname': 'プロフィール設定',
                 'label_nickname': 'ユーザー名',
                 'label_friend_code': 'フレンドコード (12桁)',
                 'ph_nickname': 'ニックネーム',
+                'btn_change_nick': '名前変更',
                 'btn_save_profile': '保存して開始',
+                'quota_label': '1日の上限',
+
+                // --- Top Actions ---
                 'btn_fly_mushroom': '座標シェア',
                 'btn_loudspeaker': 'お助けメガホン募集',
-                'quota_label': '1日の上限',
                 'hint_extra_help': 'メガホンが余っていませんか？助け合いましょう！',
                 'hint_remote_coords': '遠隔地のキノコ座標もシェア大歓迎！',
-                'list_title': 'キノコリスト',
-                'filter_all': '全て', 'filter_fly': '座標', 'filter_normal': 'メガホン',
-                'filter_full': '満員', 'txt_waitlist': 'キャンセル待ち',
-                'filter_mine': '自分の投稿',
-                'warn_destroy': 'カードは自動削除されます', 'warn_destroy_time': '(メガホン: 6h / 座標: 1h)',
-                'loading_msg': '読み込み中...', 'modal_post_title': 'キノコを投稿',
-                'label_m_type': '種類', 'label_slots': '募集人数', 'label_open_time': '開始時間',
-                'btn_now': '現在', 'label_remember': '時間を記憶', 'label_period': '時間帯',
-                'label_cooking': '火力',
-                'btn_view_postcard': '📷 ポスカを見る',
-                'label_postcard_image': 'ポストカード (任意)',
-                'label_notes': 'メモ (任意)', 'ph_notes': 'メッセージ...',
-                'btn_cancel': 'キャンセル', 'btn_submit': '送信', 'modal_fly_title': '✈️ 座標をシェア',
-                'label_slots_rem': '残り枠', 'label_coords': '座標', 'btn_paste': '貼り付け',
-                'hint_coords_format': 'フォーマット自動変換', 'ph_notes_fly': '補足...',
-                'online_modal_title': 'オンラインゲスト', 'comment_modal_title': 'コメント全文',
-                
-                'period_night': '深夜 (21:00~01:00)', 'period_breakfast': '朝 (06:00~11:00)',
-                'period_lunch': '昼 (11:00~15:00)', 'period_tea': 'おやつ (15:00~17:00)',
-                'period_dinner': '夕方 (17:00~21:00)', 'period_full': '集まり次第',
 
-                // --- キノコ選択肢 ---
-                'opt_giant': '巨大な', 'opt_event': 'イベント',
-                
-                // 大型特殊
+                // --- List & Filters ---
+                'list_title': 'キノコリスト',
+                'filter_all': '全て',
+                'filter_fly': '座標',
+                'filter_normal': 'メガホン',
+                'filter_full': '満員',
+                'filter_mine': '自分の投稿',
+                'filter_signed': '参加済み',
+                'no_challenges': '投稿はありません',
+                'no_filter_match': '該当なし',
+                'loading_msg': '読み込み中...',
+                'warn_destroy': 'カードは自動削除されます',
+                'warn_destroy_time': '(メガホン: 6h / 座標: 1h)',
+
+                // --- Chat ---
+                'chat_title': 'ゲスト掲示板',
+                'chat_limit_hint': '(最新300件)',
+                'chat_empty': 'メッセージはまだありません',
+                'chat_error': '送信失敗',
+                'prompt_edit_msg': 'メッセージを編集:',
+                'confirm_recall_msg': 'このメッセージを取り消しますか？',
+                'toast_msg_edited': 'メッセージを更新しました',
+                'toast_msg_deleted': 'メッセージを取り消しました',
+                'toast_op_failed': '操作失敗 (IP不一致または本人ではありません)',
+
+                // --- Card Display ---
+                'label_host': 'ホスト',
+                'label_post_time': '投稿',
+                'tag_fly': '座標',
+                'status_open': '募集中',
+                'status_full': '満員',
+                'status_pending': '待機中',
+                'label_wait_time': '待機',
+                'txt_waitlist': 'キャンセル待ち',
+                'separator_waitlist': 'キャンセル待ち',
+                'rank_wait': '待',
+                'hint_click_copy': 'コピー',
+                'hint_copy_nick': '名前タップでコードをコピー',
+                'hint_copy_code': 'コードをコピー',
+                'btn_view_postcard': '📷 ポスカを見る',
+
+                // --- Card Actions ---
+                'btn_join': '参加する',
+                'btn_join_waitlist': 'キャンセル待ち',
+                'btn_cancel_join': '辞退',
+                'btn_not_open': '未開放',
+                'btn_cooldown': '待機',
+                'btn_edit': '編集',
+                'btn_delete': '削除',
+                'btn_take_off': '座標コピー',
+                'btn_add_comment': 'コメ',
+                'prompt_comment': 'コメントを入力:',
+
+                // --- Modals ---
+                'modal_post_title': 'キノコを投稿',
+                'modal_edit_title': '編集',
+                'modal_fly_title': '✈️ 座標をシェア',
+                'online_modal_title': 'オンラインゲスト',
+                'comment_modal_title': 'コメント全文',
+
+                'label_m_type': '種類',
+                'label_slots': '募集人数',
+                'label_slots_rem': '残り枠',
+                'label_open_time': '開始時間',
+                'btn_now': '現在',
+                'label_remember': '時間を記憶',
+                'label_period': '時間帯',
+                'label_cooking': '火力',
+                'label_postcard_image': 'ポストカード (任意)',
+                'label_notes': 'メモ (任意)',
+                'ph_notes': 'メッセージ...',
+                'ph_notes_fly': '補足...',
+                'label_coords': '座標',
+                'hint_coords_format': 'フォーマット自動変換',
+                'btn_paste': '貼り付け',
+                'btn_cancel': 'キャンセル',
+                'btn_submit': '送信',
+
+                // --- Periods ---
+                'period_night': '深夜 (21:00~01:00)',
+                'period_breakfast': '朝 (06:00~11:00)',
+                'period_lunch': '昼 (11:00~15:00)',
+                'period_tea': 'おやつ (15:00~17:00)',
+                'period_dinner': '夕方 (17:00~21:00)',
+                'period_full': '集まり次第',
+
+                // --- Types ---
+                'opt_giant': '巨大な',
+                'opt_event': 'イベント',
+                'opt_test': 'テスト',
+                'btn_fly_mushroom_card': '自力キノコ',
+
+                // Large
                 'opt_crystal_l': '大スイショウ', 'opt_poison_l': '大毒', 'opt_fire_l': '大火',
                 'opt_elec_l': '大電気', 'opt_water_l': '大水',
-                
-                // 大型色
                 'opt_red_l': '大赤', 'opt_yellow_l': '大黄', 'opt_blue_l': '大青',
                 'opt_white_l': '大白', 'opt_purple_l': '大紫', 'opt_gray_l': '大グレー',
                 'opt_pink_l': '大ピンク', 'opt_ice_l': '大アイス',
-
-                // 通常特殊
+                // Normal
                 'opt_crystal': 'スイショウ', 'opt_poison': '毒', 'opt_fire': '火',
                 'opt_elec': '電気', 'opt_water': '水',
-                
-                // 通常色
                 'opt_red': '赤', 'opt_yellow': '黄', 'opt_blue': '青',
                 'opt_white': '白', 'opt_purple': '紫', 'opt_gray': 'グレー',
                 'opt_pink': 'ピンク', 'opt_ice': 'アイス',
-
-                // 小型色
+                // Small
                 'opt_red_s': '小赤', 'opt_yellow_s': '小黄', 'opt_blue_s': '小青',
                 'opt_white_s': '小白', 'opt_purple_s': '小紫', 'opt_gray_s': '小グレー',
                 'opt_pink_s': '小ピンク', 'opt_ice_s': '小アイス',
 
-                'opt_test': 'テスト',
-                'opt_cook_any': 'おまかせ (火力不問)', 'opt_cook_hard': '高火力 (即割り)', 'opt_cook_slow': '調整 (長時間)',
-                'btn_fly_mushroom_card': '自力キノコ', // Fallback
-                
-                'status_open': '募集中', 'status_full': '満員', 'status_pending': '待機中',
-                'label_wait_time': '待機', 'separator_waitlist': 'キャンセル待ち', 'rank_wait': '待',
-                'hint_click_copy': 'コピー', 'btn_add_comment': 'コメ', 'hint_copy_nick': '名前タップでコードをコピー',
-                'btn_edit': '編集', 'btn_delete': '削除', 'btn_cancel_join': '辞退',
-
-                'btn_join_waitlist': 'キャンセル待ち',
-                'btn_not_open': '未開放', 'btn_cooldown': '待機', 'btn_join': '参加する',
-                'label_host': 'ホスト', 'modal_edit_title': '編集', 'confirm_delete': '削除しますか？',
-
-                'btn_not_open': '未開放', 'btn_cooldown': '待機', 'btn_join': '参加する',
-                'label_host': 'ホスト', 'modal_edit_title': '編集', 'confirm_delete': '削除しますか？',
-                'toast_deleted': '削除しました', 'toast_copied': 'コピーしました', 'toast_fill_all': 'ニックネームとコードを入力してください',
-                'toast_code_fmt': 'コードは12桁の数字です', 'toast_profile_saved': 'プロフィールを保存しました',
-                'toast_success': '成功！', 'toast_coords_fmt': '座標を整形しました', 'toast_pasted': '貼り付けました',
-                'toast_coords_err': '座標形式が不正です', 'btn_take_off': '座標コピー', 'unit_person': '人',
-                'label_post_time': '投稿', 'hint_copy_code': 'コードをコピー', 'tag_fly': '座標',
-                'no_challenges': '投稿はありません', 'load_fail': '読み込み失敗', 'no_filter_match': '該当なし',
-                'prompt_comment': 'コメントを入力:', 'toast_cancelled': 'キャンセルしました'
+                // Cooking
+                'opt_cook_any': 'おまかせ (火力不問)',
+                'opt_cook_hard': '高火力 (即割り)',
+                'opt_cook_slow': '調整 (長時間)'
             },
-            'ko': {
-                'btn_change_nick': '닉네임 변경',
-                'chat_title': '게스트 채팅',
-                'chat_limit_hint': '(최신 300개)',
-                'chat_empty': '메시지가 없습니다',
-                'chat_error': '전송 실패',
 
+            'ko': {
+                // --- Global / Toast ---
+                'toast_success': '성공!',
+                'toast_copy_success': '복사되었습니다',
+                'toast_copy_fail': '복사 실패',
+                'toast_join_success': '참여 완료!',
+                'toast_cancel_success': '취소되었습니다',
+                'toast_post_success': '게시되었습니다!',
+                'toast_update_success': '업데이트되었습니다',
+                'toast_delete_success': '삭제되었습니다',
+                'toast_deleted': '삭제되었습니다',
+                'toast_copied': '복사되었습니다',
+                'toast_pasted': '붙여넣기 완료',
+                'toast_coords_fmt': '좌표 형식 변환됨',
+                'toast_coords_err': '좌표 형식이 잘못되었습니다',
+                'toast_profile_saved': '저장되었습니다',
+                'toast_fill_all': '닉네임과 코드를 입력해주세요',
+                'toast_code_fmt': '코드는 12자리 숫자입니다',
+                'toast_cancelled': '취소되었습니다',
+                'alert_fill_all': '모든 항목을 입력해주세요',
+                'confirm_delete_post': '이 게시물을 삭제하시겠습니까?',
+                'confirm_cancel_join': '참여를 취소하시겠습니까?',
+                'confirm_delete': '삭제하시겠습니까?',
+                'load_fail': '로딩 실패',
+
+                // --- Header & Profile ---
                 'header_title': '버섯 협력 게시판',
-                'online_prefix': '접속:',
                 'music_text': 'Music by Pikmin Bloom Official',
+                'online_prefix': '접속:',
+                'unit_person': '명',
                 'section_nickname': '프로필 설정',
                 'label_nickname': '닉네임',
                 'label_friend_code': '친구 코드 (12자리)',
                 'ph_nickname': '닉네임 입력',
+                'btn_change_nick': '닉네임 변경',
                 'btn_save_profile': '저장 및 시작',
+                'quota_label': '일일 한도',
+
+                // --- Top Actions ---
                 'btn_fly_mushroom': '좌표 공유',
                 'btn_loudspeaker': '메가폰 모집',
-                'quota_label': '일일 한도',
                 'hint_extra_help': '남는 메가폰이 있나요? 친구들을 도와주세요!',
                 'hint_remote_coords': '외딴곳의 버섯 좌표를 공유해주세요!',
-                'list_title': '버섯 리스트',
-                'filter_all': '전체', 'filter_fly': '좌표', 'filter_normal': '메가폰',
-                'filter_full': '마감', 'txt_waitlist': '대기',
-                'filter_mine': '내 글',
-                'warn_destroy': '카드는 시간이 지나면 자동 삭제됩니다', 'warn_destroy_time': '(메가폰: 6h / 좌표: 1h)',
-                'loading_msg': '로딩 중...', 'modal_post_title': '버섯 모집 등록',
-                'label_m_type': '종류', 'label_slots': '모집 인원', 'label_open_time': '시작 시간',
-                'btn_now': '현재', 'label_remember': '시간 기억하기', 'label_period': '시간대',
-                'label_cooking': '화력',
-                'btn_view_postcard': '📷 엽서 보기',
-                'label_postcard_image': '엽서 이미지 (선택)',
-                'label_notes': '메모 (선택)', 'ph_notes': '메시지 남기기...',
-                'btn_cancel': '취소', 'btn_submit': '등록', 'modal_fly_title': '✈️ 좌표 공유',
-                'label_slots_rem': '남은 자리', 'label_coords': '좌표', 'btn_paste': '붙여넣기',
-                'hint_coords_format': '좌표 자동 변환', 'ph_notes_fly': '추가 정보...',
-                'online_modal_title': '접속 중인 게스트', 'comment_modal_title': '전체 댓글',
-                
-                'period_night': '야식 (21:00~01:00)', 'period_breakfast': '아침 (06:00~11:00)',
-                'period_lunch': '점심 (11:00~15:00)', 'period_tea': '티타임 (15:00~17:00)',
-                'period_dinner': '저녁 (17:00~21:00)', 'period_full': '풀파티 (인원 충족 시)',
 
-                // --- 버섯 옵션 ---
-                'opt_giant': '거대', 'opt_event': '이벤트',
-                
-                // 대형 특수
+                // --- List & Filters ---
+                'list_title': '버섯 리스트',
+                'filter_all': '전체',
+                'filter_fly': '좌표',
+                'filter_normal': '메가폰',
+                'filter_full': '마감',
+                'filter_mine': '내 글',
+                'filter_signed': '참여 중',
+                'no_challenges': '게시물이 없습니다',
+                'no_filter_match': '없음',
+                'loading_msg': '로딩 중...',
+                'warn_destroy': '카드는 시간이 지나면 자동 삭제됩니다',
+                'warn_destroy_time': '(메가폰: 6h / 좌표: 1h)',
+
+                // --- Chat ---
+                'chat_title': '게스트 채팅',
+                'chat_limit_hint': '(최신 300개)',
+                'chat_empty': '메시지가 없습니다',
+                'chat_error': '전송 실패',
+                'prompt_edit_msg': '메시지 수정:',
+                'confirm_recall_msg': '이 메시지를 삭제하시겠습니까?',
+                'toast_msg_edited': '메시지가 수정되었습니다',
+                'toast_msg_deleted': '메시지가 삭제되었습니다',
+                'toast_op_failed': '작업 실패 (IP 불일치 또는 본인이 아닙니다)',
+
+                // --- Card Display ---
+                'label_host': '방장',
+                'label_post_time': '게시',
+                'tag_fly': '좌표',
+                'status_open': '모집중',
+                'status_full': '마감',
+                'status_pending': '대기중',
+                'label_wait_time': '대기',
+                'txt_waitlist': '대기',
+                'separator_waitlist': '대기열',
+                'rank_wait': '대',
+                'hint_click_copy': '복사',
+                'hint_copy_nick': '닉네임을 눌러 코드 복사',
+                'hint_copy_code': '코드 복사',
+                'btn_view_postcard': '📷 엽서 보기',
+
+                // --- Card Actions ---
+                'btn_join': '참여하기',
+                'btn_join_waitlist': '대기열 참여',
+                'btn_cancel_join': '취소',
+                'btn_not_open': '미오픈',
+                'btn_cooldown': '대기',
+                'btn_edit': '수정',
+                'btn_delete': '삭제',
+                'btn_take_off': '좌표 복사',
+                'btn_add_comment': '댓글',
+                'prompt_comment': '댓글 입력:',
+
+                // --- Modals ---
+                'modal_post_title': '버섯 모집 등록',
+                'modal_edit_title': '수정하기',
+                'modal_fly_title': '✈️ 좌표 공유',
+                'online_modal_title': '접속 중인 게스트',
+                'comment_modal_title': '전체 댓글',
+
+                'label_m_type': '종류',
+                'label_slots': '모집 인원',
+                'label_slots_rem': '남은 자리',
+                'label_open_time': '시작 시간',
+                'btn_now': '현재',
+                'label_remember': '시간 기억하기',
+                'label_period': '시간대',
+                'label_cooking': '화력',
+                'label_postcard_image': '엽서 이미지 (선택)',
+                'label_notes': '메모 (선택)',
+                'ph_notes': '메시지 남기기...',
+                'ph_notes_fly': '추가 정보...',
+                'label_coords': '좌표',
+                'hint_coords_format': '좌표 자동 변환',
+                'btn_paste': '붙여넣기',
+                'btn_cancel': '취소',
+                'btn_submit': '등록',
+
+                // --- Periods ---
+                'period_night': '야식 (21:00~01:00)',
+                'period_breakfast': '아침 (06:00~11:00)',
+                'period_lunch': '점심 (11:00~15:00)',
+                'period_tea': '티타임 (15:00~17:00)',
+                'period_dinner': '저녁 (17:00~21:00)',
+                'period_full': '풀파티 (인원 충족 시)',
+
+                // --- Types ---
+                'opt_giant': '거대',
+                'opt_event': '이벤트',
+                'opt_test': '테스트',
+                'btn_fly_mushroom_card': '좌표 버섯',
+
+                // Large
                 'opt_crystal_l': '큰 수정', 'opt_poison_l': '큰 독', 'opt_fire_l': '큰 불꽃',
                 'opt_elec_l': '큰 전기', 'opt_water_l': '큰 물',
-                
-                // 대형 색깔
                 'opt_red_l': '큰 빨강', 'opt_yellow_l': '큰 노랑', 'opt_blue_l': '큰 파랑',
                 'opt_white_l': '큰 하양', 'opt_purple_l': '큰 보라', 'opt_gray_l': '큰 회색',
                 'opt_pink_l': '큰 분홍', 'opt_ice_l': '큰 얼음',
-
-                // 일반 특수
+                // Normal
                 'opt_crystal': '수정', 'opt_poison': '독', 'opt_fire': '불꽃',
                 'opt_elec': '전기', 'opt_water': '물',
-                
-                // 일반 색깔
                 'opt_red': '빨강', 'opt_yellow': '노랑', 'opt_blue': '파랑',
                 'opt_white': '하양', 'opt_purple': '보라', 'opt_gray': '회색',
                 'opt_pink': '분홍', 'opt_ice': '얼음',
-
-                // 소형 색깔
+                // Small
                 'opt_red_s': '작은 빨강', 'opt_yellow_s': '작은 노랑', 'opt_blue_s': '작은 파랑',
                 'opt_white_s': '작은 하양', 'opt_purple_s': '작은 보라', 'opt_gray_s': '작은 회색',
                 'opt_pink_s': '작은 분홍', 'opt_ice_s': '작은 얼음',
 
-                'opt_test': '테스트',
-                'opt_cook_any': '자유 (전투력 무관)', 'opt_cook_hard': '고화력 (빠르게)', 'opt_cook_slow': '저화력 (천천히)',
-                'btn_fly_mushroom_card': '좌표 버섯', // Fallback
-                
-                'status_open': '모집중', 'status_full': '마감', 'status_pending': '대기중',
-                'label_wait_time': '대기', 'separator_waitlist': '대기열', 'rank_wait': '대',
-                'hint_click_copy': '복사', 'btn_add_comment': '댓글', 'hint_copy_nick': '닉네임을 눌러 코드 복사',
-                'btn_edit': '수정', 'btn_delete': '삭제', 'btn_cancel_join': '취소',
-
-                'btn_join_waitlist': '대기열 참여',
-                'btn_not_open': '미오픈', 'btn_cooldown': '대기', 'btn_join': '참여하기',
-                'label_host': '방장', 'modal_edit_title': '수정하기', 'confirm_delete': '삭제하시겠습니까?',
-
-                'btn_not_open': '미오픈', 'btn_cooldown': '대기', 'btn_join': '참여하기',
-                'label_host': '방장', 'modal_edit_title': '수정하기', 'confirm_delete': '삭제하시겠습니까?',
-                'toast_deleted': '삭제되었습니다', 'toast_copied': '복사되었습니다', 'toast_fill_all': '닉네임과 코드를 입력해주세요',
-                'toast_code_fmt': '코드는 12자리 숫자입니다', 'toast_profile_saved': '저장되었습니다',
-                'toast_success': '성공!', 'toast_coords_fmt': '좌표 형식 변환됨', 'toast_pasted': '붙여넣기 완료',
-                'toast_coords_err': '좌표 형식이 잘못되었습니다', 'btn_take_off': '좌표 복사', 'unit_person': '명',
-                'label_post_time': '게시', 'hint_copy_code': '코드 복사', 'tag_fly': '좌표',
-                'no_challenges': '게시물이 없습니다', 'load_fail': '로딩 실패', 'no_filter_match': '없음',
-                'prompt_comment': '댓글 입력:', 'toast_cancelled': '취소되었습니다'
+                // Cooking
+                'opt_cook_any': '자유 (전투력 무관)',
+                'opt_cook_hard': '고화력 (빠르게)',
+                'opt_cook_slow': '저화력 (천천히)'
             }
-        };
-
-        const LANG_NAMES = {
-            'zh-TW': '繁體中文', 'en': 'English', 'ja': '日本語', 'ko': '한국어'
         };
 
         // 3. 樣式 (CSS)
@@ -3126,26 +3392,38 @@
                 const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
                 const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
                 
-                // ★ 修改：優先使用指紋判斷
+                // 指紋與綠燈邏輯
                 let isOnline = false;
                 if (msg.ip_fingerprint) {
                     isOnline = onlineFingerprints.has(msg.ip_fingerprint);
                 } else {
                     isOnline = onlineUserList.some(u => u.startsWith(msg.nickname + '👼'));
                 }
-                
                 const onlineDot = isOnline ? '<span class="online-dot text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
-
                 const fp = msg.ip_fingerprint ? `<span class="text-[10px] text-gray-500 font-mono ml-1" title="IP識別碼">#${msg.ip_fingerprint}</span>` : '';
 
-                // ★ 加入 data-fp 與 data-nick 供即時更新使用
+                // ★ 修改：如果是我的指紋，顯示編輯/收回按鈕 (移除 opacity-0，讓它持續顯示)
+                let controls = '';
+                if (myIpFingerprint && msg.ip_fingerprint === myIpFingerprint) {
+                    const safeMsg = msg.message.replace(/'/g, "\\'"); // 跳脫單引號
+                    // 這裡移除了 opacity-0 group-hover:opacity-100
+                    controls = `
+                        <span class="ml-auto pl-2 flex gap-1 flex-shrink-0">
+                            <button onclick="editMyMessage(${msg.id}, '${safeMsg}')" class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded hover:bg-indigo-600 hover:text-white transition" title="編輯">✎</button>
+                            <button onclick="deleteMyMessage(${msg.id})" class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded hover:bg-red-600 hover:text-white transition" title="收回">✕</button>
+                        </span>
+                    `;
+                }
+
                 return `
-                    <div id="msg-${msg.id}" data-fp="${msg.ip_fingerprint}" data-nick="${msg.nickname}" class="text-xs break-all transition-all duration-500 hover:bg-gray-800/50 p-0.5 rounded">
-                        <span class="text-gray-500 font-mono mr-1">[${time}]</span>
+                    <div id="msg-${msg.id}" data-fp="${msg.ip_fingerprint}" data-nick="${msg.nickname}" class="group text-xs break-all transition-all duration-500 hover:bg-gray-800/50 p-1 rounded flex items-center flex-wrap gap-1">
+                        <span class="text-gray-500 font-mono">[${time}]</span>
                         ${onlineDot}
                         <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${msg.nickname}')">${msg.nickname}</span>
-                        ${fp} <span class="text-gray-400 mx-1">:</span>
-                        <span class="text-gray-300">${escapeHtml(msg.message)}</span>
+                        ${fp}
+                        <span class="text-gray-400">:</span>
+                        <span class="text-gray-300 break-all">${escapeHtml(msg.message)}</span>
+                        ${controls}
                     </div>
                 `;
             }).join('');
@@ -3216,49 +3494,82 @@
 
         // ★★★ 聊天室即時監聽函式 (防重複訂閱版) ★★★
         function subscribeChat() {
-            // 1. 如果已經有訂閱，先移除舊的，防止重複監聽導致訊息多重顯示
             if (chatSubscription) {
                 supabaseClient.removeChannel(chatSubscription);
                 chatSubscription = null;
             }
 
-            // 2. 建立新訂閱並存入變數
             chatSubscription = supabaseClient.channel('public:guest_messages')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_messages' }, payload => {
                     
+                    // === 共用：產生單筆留言 HTML 的小工具 (確保格式統一) ===
+                    const generateMessageHTML = (msg) => {
+                        const myNick = localStorage.getItem('guest_nick');
+                        const isMe = msg.nickname === myNick;
+                        const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+                        const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
+                        
+                        let isOnline = false;
+                        if (msg.ip_fingerprint) isOnline = onlineFingerprints.has(msg.ip_fingerprint);
+                        else isOnline = onlineUserList.some(u => u.startsWith(msg.nickname + '👼'));
+                        const onlineDot = isOnline ? '<span class="online-dot text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
+                        const fp = msg.ip_fingerprint ? `<span class="text-[10px] text-gray-500 font-mono ml-1" title="IP識別碼">#${msg.ip_fingerprint}</span>` : '';
+
+                        let controls = '';
+                        if (myIpFingerprint && msg.ip_fingerprint === myIpFingerprint) {
+                            const safeMsg = msg.message.replace(/'/g, "\\'");
+                            controls = `
+                                <span class="ml-auto pl-2 flex gap-1 flex-shrink-0">
+                                    <button onclick="editMyMessage(${msg.id}, '${safeMsg}')" class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded hover:bg-indigo-600 hover:text-white transition" title="編輯">✎</button>
+                                    <button onclick="deleteMyMessage(${msg.id})" class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded hover:bg-red-600 hover:text-white transition" title="收回">✕</button>
+                                </span>`;
+                        }
+
+                        return `
+                            <div id="msg-${msg.id}" data-fp="${msg.ip_fingerprint}" data-nick="${msg.nickname}" class="group text-xs break-all animate-fade-in hover:bg-gray-800/50 p-1 rounded flex items-center flex-wrap gap-1">
+                                <span class="text-gray-500 font-mono">[${time}]</span>
+                                ${onlineDot}
+                                <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${msg.nickname}')">${msg.nickname}</span>
+                                ${fp}
+                                <span class="text-gray-400">:</span>
+                                <span class="text-gray-300 break-all">${escapeHtml(msg.message)}</span>
+                                ${controls}
+                            </div>
+                        `;
+                    };
+
                     // Case A: 有新留言 (INSERT)
                     if (payload.eventType === 'INSERT') {
-                        const newMsg = payload.new;
                         const emptyMsg = chatList.querySelector('p');
                         if(emptyMsg) emptyMsg.remove();
                         
-                        const myNick = localStorage.getItem('guest_nick');
-                        const isMe = newMsg.nickname === myNick;
-                        const time = new Date(newMsg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
-                        const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
-                        
-                        // 綠燈邏輯
-                        const isOnline = onlineUserList.some(u => u.startsWith(newMsg.nickname + '👼'));
-                        const onlineDot = isOnline ? '<span class="text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
-                        
-                        // 指紋邏輯
-                        const fp = newMsg.ip_fingerprint ? `<span class="text-[10px] text-gray-500 font-mono ml-1" title="IP識別碼">#${newMsg.ip_fingerprint}</span>` : '';
-
-                        const html = `
-                            <div id="msg-${newMsg.id}" class="text-xs break-all animate-fade-in hover:bg-gray-800/50 p-0.5 rounded">
-                                <span class="text-gray-500 font-mono mr-1">[${time}]</span>
-                                ${onlineDot}
-                                <span class="${colorClass} font-bold cursor-pointer hover:underline" onclick="insertNickToInput('${newMsg.nickname}')">${newMsg.nickname}</span>
-                                ${fp}
-                                <span class="text-gray-400 mx-1">:</span>
-                                <span class="text-gray-300">${escapeHtml(newMsg.message)}</span>
-                            </div>
-                        `;
+                        const newMsg = payload.new;
+                        const html = generateMessageHTML(newMsg);
                         chatList.insertAdjacentHTML('beforeend', html);
                         scrollToBottom();
                     }
 
-                    // Case B: 有人刪除留言 (DELETE)
+                    // ★ Case B: 有人修改留言 (UPDATE) - 這裡修正為「整塊替換」
+                    if (payload.eventType === 'UPDATE') {
+                        const updatedMsg = payload.new;
+                        const oldEl = document.getElementById(`msg-${updatedMsg.id}`);
+                        
+                        if (oldEl) {
+                            // 重新生成這則留言的 HTML
+                            const newHTML = generateMessageHTML(updatedMsg);
+                            // 直接替換整個 DOM 元素 (outerHTML)，這樣最穩
+                            oldEl.outerHTML = newHTML;
+                            
+                            // 稍微閃爍一下提示已更新
+                            const newEl = document.getElementById(`msg-${updatedMsg.id}`);
+                            if(newEl) {
+                                newEl.classList.add('bg-yellow-900/30');
+                                setTimeout(() => newEl.classList.remove('bg-yellow-900/30'), 500);
+                            }
+                        }
+                    }
+
+                    // Case C: 有人刪除留言 (DELETE)
                     if (payload.eventType === 'DELETE') {
                         const deletedId = payload.old.id;
                         const el = document.getElementById(`msg-${deletedId}`);
@@ -3269,12 +3580,49 @@
                         }
                     }
                 })
-                .subscribe((status) => {
-                    if (status === 'SUBSCRIBED') {
-                        // console.log('✅ 聊天室已連線'); // 測試用，可註解掉
-                    }
-                });
+                .subscribe();
         }
+
+        // 編輯留言
+        window.editMyMessage = async (id, oldText) => {
+            const newText = prompt(safeT('prompt_edit_msg', '修改留言:'), oldText);
+            if (newText === null || newText.trim() === '') return;
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ 
+                        action: 'guest-edit-message', 
+                        payload: { id: id, message: newText.trim() } 
+                    })
+                });
+
+                if (error || (data && data.error)) throw new Error(data?.error || error.message);
+                showToast(safeT('toast_msg_edited', '留言已修改'), false);
+            } catch (e) {
+                console.error(e);
+                showToast(safeT('toast_op_failed', '操作失敗 (可能非本人或IP已變動)'), true);
+            }
+        };
+
+        // 收回留言
+        window.deleteMyMessage = async (id) => {
+            if (!confirm(safeT('confirm_recall_msg', '確定要收回這則留言嗎？'))) return;
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ 
+                        action: 'guest-delete-message', 
+                        payload: { id: id } 
+                    })
+                });
+
+                if (error || (data && data.error)) throw new Error(data?.error || error.message);
+                showToast(safeT('toast_msg_deleted', '留言已收回'), false);
+            } catch (e) {
+                console.error(e);
+                showToast(safeT('toast_op_failed', '操作失敗 (可能非本人或IP已變動)'), true);
+            }
+        };
     </script>
 </body>
 </html>
