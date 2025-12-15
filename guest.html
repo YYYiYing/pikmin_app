@@ -586,18 +586,16 @@
             });
         }
 
-        // 讀取/儲存訪客資訊 (含自動登入檢查)
-        // 讀取/儲存訪客資訊 (修正版：優先使用本地暫存，不強制覆蓋)
+        /** * [修正版] 讀取/儲存訪客資訊 
+         * - 加入最後的強制 updateGuestQuota() 呼叫
+         */
         async function loadGuestInfo() {
-            // 1. 先嘗試讀取本地暫存
             let savedNick = localStorage.getItem('guest_nick') || '';
             let savedCode = localStorage.getItem('guest_code') || '';
 
-            // ★ 修改重點：只有當「本地完全沒資料」時，才嘗試去抓帳號資料來填補
             if (!savedNick && !savedCode) {
                 try {
                     const { data: { session } } = await supabaseClient.auth.getSession();
-                    
                     if (session && session.user) {
                         const { data: profile } = await supabaseClient
                             .from('profiles')
@@ -612,8 +610,6 @@
                             if (match) {
                                 savedCode = match[1];
                                 savedNick = rawName.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
-                                
-                                // 寫入暫存
                                 localStorage.setItem('guest_nick', savedNick);
                                 localStorage.setItem('guest_code', savedCode);
                             } else {
@@ -626,8 +622,6 @@
                     console.warn('Auth check failed', e);
                 }
             } else {
-                // 如果本地有資料，且使用者有登入，我們依然可以顯示「已連結」的提示，但不覆蓋暱稱
-                // 檢查是否登入純粹為了顯示 UI 提示 (可選)
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (session) {
                      const sectionTitle = document.querySelector('h2[data-i18n="section_nickname"]');
@@ -635,16 +629,17 @@
                 }
             }
 
-            // 3. 填入 UI
             nickInput.value = savedNick;
             codeInput.value = savedCode;
             
             checkInfoComplete();
 
-            // 如果有資料，自動隱藏輸入區塊
             if (savedNick && savedCode) {
                 toggleInfoSection(false);
             }
+
+            // 強制執行一次，讓沒填資料的訪客也能拿到 IP 指紋並連線
+            updateGuestQuota(); 
         }
 
         // 儲存按鈕事件
@@ -674,7 +669,6 @@
         function checkInfoComplete() {
             if(nickInput.value && codeInput.value) {
                 actionArea.classList.remove('hidden');
-                updateGuestQuota(); 
                 if (typeof initChat === 'function') initChat(); 
             }
         }
@@ -1788,28 +1782,43 @@
 
         let onlineUserList = []; 
 
+        /** * [修正版] 設定在線狀態 
+         * - 移除對 nick/code 的強制檢查，允許匿名連線
+         * - 產生隨機 Guest ID
+         */
         function setupOnlinePresence() {
-            // 1. 準備身分資料
+            // 1. 只要有 IP 指紋就可以連線 (不論有無暱稱)
+            if (!myIpFingerprint) return;
+
             const nick = localStorage.getItem('guest_nick');
             const code = localStorage.getItem('guest_code');
             
-            // ★ 新增：如果資料不全或還沒拿到 IP 指紋，先不連線 
-            // (等 updateGuestQuota 拿到指紋後會再呼叫一次此函式)
-            if (!nick || !code || !myIpFingerprint) return;
+            let myIdentity = '';
 
-            let myIdentity = `${nick}👼${code}`;
+            // 2. 判斷身分：有資料顯示暱稱，沒資料顯示 Guest_亂數
+            if (nick && code) {
+                myIdentity = `${nick}👼${code}`;
+            } else {
+                // 嘗試從暫存讀取隨機 ID，避免重整後數字一直變
+                let tempId = localStorage.getItem('guest_temp_id');
+                if (!tempId) {
+                    tempId = `Guest_${Math.floor(Math.random() * 1000)}`;
+                    localStorage.setItem('guest_temp_id', tempId);
+                }
+                myIdentity = tempId;
+            }
 
-            // ★ 新增：如果已經有連線，先移除 (這是為了換暱稱時能即時切斷舊身分)
+            // 3. 重置頻道：如果已經有連線，先移除 (確保身分切換時不會殘留)
             if (guestChannel) {
                 supabaseClient.removeChannel(guestChannel);
             }
 
-            // 3. 建立新連線 (並存入全域變數)
+            // 4. 建立連線
             guestChannel = supabaseClient.channel('guest-room', { 
                 config: { presence: { key: myIdentity } } 
             });
 
-            // ★ 修改：將 UI 更新邏輯獨立成一個全域函式
+            // 更新 UI 的函式
             window.refreshOnlineCountUI = () => {
                 const el = document.getElementById('online-count');
                 const prefix = window.t ? window.t('online_prefix') : '目前在線:';
@@ -1819,7 +1828,7 @@
                     el.textContent = `${prefix} ${onlineUserList.length} ${unit}`;
                 }
                 
-                // ★ 新增：嘗試觸發聊天室綠燈更新 (如果函式已定義)
+                // 嘗試觸發聊天室綠燈更新
                 if (typeof updateChatOnlineStatus === 'function') {
                     updateChatOnlineStatus();
                 }
@@ -1829,7 +1838,7 @@
                 const state = guestChannel.presenceState();
                 const rawList = Object.keys(state); 
                 
-                // ★ 新增：收集所有在線者的指紋到全域 Set
+                // 收集指紋
                 onlineFingerprints.clear();
                 Object.values(state).forEach(presences => {
                     presences.forEach(p => {
@@ -1837,20 +1846,19 @@
                     });
                 });
                 
+                // 分類：有暱稱的 vs 訪客
                 const namedUsers = rawList.filter(n => n.includes('👼'));
                 const guestUsers = rawList.filter(n => !n.includes('👼'));
                 
+                // 排序
                 namedUsers.sort((a, b) => {
                     const nameA = a.split('👼')[0] || a;
                     const nameB = b.split('👼')[0] || b;
                     return nameA.localeCompare(nameB, 'zh-Hant');
                 });
-
-                guestUsers.sort();
+                guestUsers.sort(); // Guest_1, Guest_2...
 
                 onlineUserList = [...namedUsers, ...guestUsers];
-                
-                // 呼叫 UI 更新
                 window.refreshOnlineCountUI();
             };
 
@@ -1860,7 +1868,6 @@
               .on('presence', { event: 'leave' }, updateState)
               .subscribe(status => { 
                   if(status === 'SUBSCRIBED') {
-                      // ★ 關鍵：追蹤時帶上 IP 指紋
                       guestChannel.track({ 
                           online_at: new Date().toISOString(),
                           fingerprint: myIpFingerprint 
@@ -1868,13 +1875,12 @@
                   }
               });
               
-            // Modal 事件綁定
+            // (Modal 事件綁定邏輯)
             const countEl = document.getElementById('online-count');
             const modal = document.getElementById('online-users-modal');
             const listEl = document.getElementById('online-users-list');
             const closeBtn = document.getElementById('close-online-modal');
 
-            // ★ 修改：加入 data-bound 檢查，避免因為多次呼叫此函式而重複綁定事件
             if(countEl && !countEl.dataset.bound) {
                 countEl.dataset.bound = "true";
                 countEl.onclick = () => {
@@ -1891,7 +1897,6 @@
                     modal.classList.remove('hidden');
                 };
             }
-
             if(closeBtn && !closeBtn.dataset.bound) {
                 closeBtn.dataset.bound = "true";
                 closeBtn.onclick = () => modal.classList.add('hidden');
