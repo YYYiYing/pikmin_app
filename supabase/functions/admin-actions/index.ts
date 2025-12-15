@@ -293,12 +293,12 @@ serve(async (req) => {
         const deletedLog = [];
 
         // A. 定義時間門檻
-        // 內部菇：已發車超過 10 小時 (使用者自訂)
+        // 內部菇：已發車超過 10 小時
         const internalCutoff = new Date(now - 10 * 60 * 60 * 1000).toISOString();
-        // 訪客菇：開放時間超過 6 小時 (預告單保護機制)
+        // 訪客菇：開放時間超過 6 小時
         const guestCutoff = new Date(now - 6 * 60 * 60 * 1000).toISOString();
 
-        // B1. 查詢逾時內部菇 (已發車 且 早於 10小時前)
+        // B1. 查詢逾時內部菇
         const { data: internalList, error: err1 } = await adminSupabaseClient
             .from('challenges')
             .select('id, image_url, mushroom_type, is_guest')
@@ -307,7 +307,7 @@ serve(async (req) => {
         
         if (err1) throw err1;
 
-        // B2. 查詢逾時訪客菇 (是訪客菇 且 開放時間早於 6小時前)
+        // B2. 查詢逾時訪客菇
         const { data: guestList, error: err2 } = await adminSupabaseClient
             .from('challenges')
             .select('id, image_url, mushroom_type, is_guest')
@@ -325,10 +325,10 @@ serve(async (req) => {
         // D. 執行刪除與圖片清理
         if (allToDelete.length > 0) {
             for (const challenge of allToDelete) {
-                // 1. 刪除圖片
+                // 1. 刪除圖片 (濾除 URL 參數)
                 if (challenge.image_url) {
                     try {
-                        const fileName = challenge.image_url.split('/').pop();
+                        const fileName = challenge.image_url.split('/').pop()?.split('?')[0];
                         if (fileName) {
                             await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
                         }
@@ -488,7 +488,7 @@ serve(async (req) => {
         
         const displayHostName = `${nickname}✈️${friendCode}`;
 
-        // ★ 1. 先查出舊資料 (為了拿舊圖 URL，供後續清理用)
+        // ★ 1. 先查出舊資料 (為了拿舊圖 URL)
         const { data: oldData } = await adminSupabaseClient
             .from('challenges')
             .select('image_url')
@@ -496,7 +496,7 @@ serve(async (req) => {
             .eq('is_guest', true)
             .single();
         
-        // ★ 2. 查詢目前報名人數，以決定正確狀態
+        // ★ 2. 查詢目前報名人數
         const { count: currentSignups, error: countErr } = await adminSupabaseClient
             .from('signups')
             .select('*', { count: 'exact', head: true })
@@ -506,17 +506,14 @@ serve(async (req) => {
 
         const now = new Date();
         const start = new Date(startTime);
-
         const slotNum = parseInt(slots);
         const signupNum = currentSignups || 0;
 
         let status = '開放報名中';
         if (start > now) {
             status = '預計開放';
-        } 
-        // ★ 修改：只要報名人數 >= 設定名額，就標記為「已額滿」(但仍允許備取報名)
-        else if (signupNum >= slotNum) {
-            status = '已額滿';
+        } else if (signupNum >= slotNum) {
+            status = '已額滿'; // 只要達到名額就標記額滿
         }
 
         // ★ 3. 準備更新物件
@@ -533,7 +530,7 @@ serve(async (req) => {
         // 只有當前端有傳 image_url (代表有換圖) 時才更新此欄位
         if (image_url) updatePayload.image_url = image_url;
 
-        // ★ 4. 執行更新 (同時比對 ID 與 is_guest=true)
+        // ★ 4. 執行更新
         const { error, count } = await adminSupabaseClient
             .from('challenges')
             .update(updatePayload, { count: 'exact' }) 
@@ -541,13 +538,12 @@ serve(async (req) => {
             .eq('is_guest', true); 
 
         if (error) throw new Error(`編輯失敗: ${error.message}`);
-        
         if (count === 0) throw new Error('操作無效：找不到該訪客貼文，或無權限修改此項目。');
 
-        // ★ 5. 垃圾清理：如果有上傳新圖，且原本有舊圖，且兩者不同 -> 刪除 Storage 中的舊圖
+        // ★ 5. 垃圾清理：有換圖且有舊圖 -> 刪除舊圖 (濾除 URL 參數)
         if (image_url && oldData?.image_url && oldData.image_url !== image_url) {
             try {
-                const oldFileName = oldData.image_url.split('/').pop();
+                const oldFileName = oldData.image_url.split('/').pop()?.split('?')[0];
                 if (oldFileName) await adminSupabaseClient.storage.from('challenge-images').remove([oldFileName]);
             } catch (e) { console.error('舊圖清理失敗', e); }
         }
@@ -774,7 +770,7 @@ serve(async (req) => {
 
     // 讀取自飛列表 (含清理)
     if (action === 'list-guest-fly') {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const oneHourAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
       await adminSupabaseClient
         .from('guest_fly_posts')
         .delete()
@@ -861,10 +857,10 @@ serve(async (req) => {
         
       if (error) throw error;
 
-      // ★ 3. 清理舊圖
+      // ★ 3. 清理舊圖 (濾除 URL 參數)
       if (image_url && oldData?.image_url && oldData.image_url !== image_url) {
           try {
-              const oldFileName = oldData.image_url.split('/').pop();
+              const oldFileName = oldData.image_url.split('/').pop()?.split('?')[0];
               if (oldFileName) await adminSupabaseClient.storage.from('challenge-images').remove([oldFileName]);
           } catch (e) { console.error('舊圖清理失敗', e); }
       }
@@ -887,10 +883,10 @@ serve(async (req) => {
 
       if (error) throw error;
 
-      // ★ 3. 刪檔案
+      // ★ 3. 刪檔案 (濾除 URL 參數)
       if (oldData?.image_url) {
           try {
-              const fileName = oldData.image_url.split('/').pop();
+              const fileName = oldData.image_url.split('/').pop()?.split('?')[0];
               if (fileName) await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
           } catch (e) { console.error('圖片刪除失敗', e); }
       }
@@ -989,9 +985,6 @@ serve(async (req) => {
 
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
-
-
-
 
     // ============================================================
     // 區塊 B：使用者驗證 (需要 Authorization Header)
@@ -1168,10 +1161,10 @@ serve(async (req) => {
             throw new Error('權限不足，您不是發現者也不是管理員');
         }
 
-        // A. 刪除圖片 (Storage)
+        // A. 刪除圖片 (Storage)(濾除 URL 參數)
         if (card.image_url) {
             try {
-                const fileName = card.image_url.split('/').pop();
+                const fileName = card.image_url.split('/').pop()?.split('?')[0];
                 if (fileName) await adminSupabaseClient.storage.from('postcard-images').remove([fileName]);
             } catch (e) { console.error('圖片刪除失敗', e); }
         }
@@ -1219,9 +1212,8 @@ serve(async (req) => {
         // 4. ★ 關鍵：如果有換圖 (imageUrl 存在)，且更新成功，就刪除舊圖
         if (imageUrl && oldCard.image_url) {
             try {
-                const oldFileName = oldCard.image_url.split('/').pop();
-                // 簡單防呆：確保新舊檔名不同才刪 (雖然檔名有時間戳記通常不同，但以防萬一)
-                const newFileName = imageUrl.split('/').pop();
+                const oldFileName = oldCard.image_url.split('/').pop()?.split('?')[0];
+                const newFileName = imageUrl.split('/').pop()?.split('?')[0];
                 
                 if (oldFileName && oldFileName !== newFileName) {
                     await adminSupabaseClient.storage.from('postcard-images').remove([oldFileName]);
@@ -1429,9 +1421,10 @@ serve(async (req) => {
                 .eq('id', payload.challengeId)
                 .single();
 
+            // 濾除 URL 參數
             if (challengeData && challengeData.image_url) {
                 try {
-                    const fileName = challengeData.image_url.split('/').pop();
+                    const fileName = challengeData.image_url.split('/').pop()?.split('?')[0];
                     if (fileName) {
                         await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
                     }

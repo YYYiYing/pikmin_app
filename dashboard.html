@@ -1651,6 +1651,22 @@
             ? `onclick="copyHostFriendCode('${displayString}')" title="點擊複製好友碼"` 
             : "";
 
+        // 主帳號後綴顯示 (僅當分身名稱與主帳號不同時才顯示)
+        let mainAccountSuffix = '';
+        if (challenge.host && challenge.host.nickname) {
+            // 1. 取得主帳號純名稱 (去除符號後)
+            const rawMainName = challenge.host.nickname.split(/[✈️💪]/)[0].trim();
+            
+            // 2. 取得目前卡片顯示的名稱 (去除符號後)
+            // displayString 是上面計算出來的變數
+            const currentName = displayString.split(/[✈️💪]/)[0].trim();
+
+            // 3. 比對：只有當兩者「不相同」時，才顯示主帳號提示
+            if (rawMainName && rawMainName !== currentName) {
+                mainAccountSuffix = ` <span class="text-gray-500 text-xs font-normal ml-1">(${rawMainName})</span>`;
+            }
+        }
+
         // --- 4. 備註顯示 ---
         let notesHtml = '';
         if (challenge.notes && challenge.notes.trim() !== '') {
@@ -1899,8 +1915,8 @@
                     ${harvestHtmlBlock}
                 </div>
                 <div class="text-gray-400 space-y-2 mb-4">
-                    <p><strong>發菇者:</strong> <span class="${hostNameClass}" ${hostClickEvent}>${displayString}</span></p>
-                    
+                    <p><strong>發菇者:</strong> <span class="${hostNameClass}" ${hostClickEvent}>${displayString}</span>${mainAccountSuffix}</p>
+
                     <p><strong>呼叫時段: 📣</strong> ${displayDetails}</p>
                     
                     <p><strong>名額:</strong> ${slotsDisplayHtml}</p>
