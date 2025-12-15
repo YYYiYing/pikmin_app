@@ -534,7 +534,7 @@
         let myGuestPostIds = JSON.parse(localStorage.getItem('my_guest_post_ids') || '[]');
         let myFlyPostIds = JSON.parse(localStorage.getItem('my_fly_post_ids') || '[]');
 
-        // ★ 新增：目前使用者的 IP 指紋與線上指紋清單
+        // 目前使用者的 IP 指紋與線上指紋清單
         let myIpFingerprint = null;
         let onlineFingerprints = new Set();
         let guestChannel = null; // 用來存放在線頻道的變數
@@ -759,7 +759,7 @@
                 // 其他
                 '測試': 'opt_test', '自飛菇': 'btn_fly_mushroom_card'
             };
-            // 2. 新增：時段對照表 (DB中文 -> i18n Key)
+            // 2. 時段對照表 (DB中文 -> i18n Key)
             const detailsToKeyMap = {
                 '宵夜': 'period_night',
                 '早餐': 'period_breakfast',
@@ -782,7 +782,7 @@
                 return (key && window.t) ? window.t(key) : dbType;
             };
 
-            // 新增輔助函式：取得翻譯後的火侯
+            // 輔助函式：取得翻譯後的火侯
             const getTranslatedCooking = (dbCook) => {
                 const key = cookingToKeyMap[dbCook];
                 return (key && window.t) ? window.t(key) : dbCook;
@@ -827,7 +827,7 @@
 
                 // 計算紅點邏輯
                 let countAll = 0; let countFly = 0; let countNormal = 0; let countFull = 0; let countMine = 0; 
-                let countSigned = 0; // ★ 新增
+                let countSigned = 0;
 
                 allData.forEach(c => {
                     const isFly = c.dataType === 'fly';
@@ -837,7 +837,7 @@
                     if(isFly) isMine = myFlyPostIds.includes(c.id);
                     else isMine = myGuestPostIds.some(id => String(id) === String(c.id));
 
-                    // ★ 新增：判斷是否已報名
+                    // 判斷是否已報名
                     let isSigned = false;
                     if (!isFly) { // 只有一般菇才有報名機制
                         isSigned = myGuestSignups.some(s => String(s.challengeId) === String(c.id));
@@ -1010,7 +1010,7 @@
             `;
         }
 
-            // ★ 新增：計算訪客目前的備取數量
+            // 計算訪客目前的備取數量
         function calculateGuestWaitlistCount() {
             let count = 0;
             // 從全域變數 window.currentAllData 讀取所有挑戰資料
@@ -1489,8 +1489,10 @@
                 myGuestPostIds = myGuestPostIds.filter(pid => pid !== id);
                 localStorage.setItem('my_guest_post_ids', JSON.stringify(myGuestPostIds));
                 showToast(safeT('toast_deleted', '已刪除'), false);
+                
                 loadChallenges();
                 
+                // ★★★ 確保這行存在：刪除後立即更新額度 ★★★
                 updateGuestQuota(); 
 
             } catch(e) { showToast(`刪除失敗: ${e.message}`, true); }
@@ -1545,41 +1547,47 @@
                 const count = data.data.count;
                 const limit = data.data.limit;
                 
-                // ★★★ 接收指紋並啟動連線 ★★★
-                // 1. 更新全域變數 myIpFingerprint
+                // IP 指紋邏輯 (保持不變)
                 myIpFingerprint = data.data.ip_fingerprint;
-                
-                
-                // 2. 如果成功拿到指紋，就執行(或重啟)在線狀態連線
                 if (myIpFingerprint) {
-                    // A. 啟動在線狀態連線
                     setupOnlinePresence();
-
-                    // 關鍵修復：指紋拿到後，重新載入留言板 (解決按鈕消失問題)
-                    // 判斷聊天室是否開啟中，若是，則重整以顯示編輯按鈕
                     const chatSection = document.getElementById('guest-chat-section');
                     if (chatSection && !chatSection.classList.contains('hidden')) {
-                        // 這裡呼叫 loadChatMessages 會用最新的 myIpFingerprint 重新渲染列表
                         loadChatMessages(); 
                     }
                 }
 
                 quotaEl.textContent = count;
                 
-                const btn = document.getElementById('open-post-modal');
-                // const btnText = document.getElementById('btn-loudspeaker-text');
+                // ★★★ 修改這裡：同時控制兩個按鈕 ★★★
+                const postBtn = document.getElementById('open-post-modal'); // 大聲公
+                const flyBtn = document.getElementById('open-fly-modal');   // 自飛
                 
                 if (count >= limit) {
                     quotaEl.classList.add('text-red-500');
-                    if(btn) {
-                        btn.disabled = true;
-                        btn.classList.add('opacity-50', 'cursor-not-allowed');
+                    
+                    // 鎖定大聲公
+                    if(postBtn) {
+                        postBtn.disabled = true;
+                        postBtn.classList.add('opacity-50', 'cursor-not-allowed', 'grayscale'); // 加上 grayscale 確保變灰
+                    }
+                    // 鎖定自飛
+                    if(flyBtn) {
+                        flyBtn.disabled = true;
+                        flyBtn.classList.add('opacity-50', 'cursor-not-allowed', 'grayscale');
                     }
                 } else {
                     quotaEl.classList.remove('text-red-500');
-                    if(btn) {
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    
+                    // 解鎖大聲公
+                    if(postBtn) {
+                        postBtn.disabled = false;
+                        postBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'grayscale');
+                    }
+                    // 解鎖自飛
+                    if(flyBtn) {
+                        flyBtn.disabled = false;
+                        flyBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'grayscale');
                     }
                 }
             } catch (e) {
@@ -1629,7 +1637,7 @@
                 } else if (activeFilter === 'mine') {
                     if (isMine) show = true;
                 } 
-                // ★ 新增：我的報名 (signed)
+                // 我的報名 (signed)
                 else if (activeFilter === 'signed') {
                     if (isSigned) show = true;
                 }
@@ -2241,7 +2249,8 @@
                 // ★ 3. 清空圖片輸入框
                 document.getElementById('f-image').value = '';
                 
-                loadChallenges(); 
+                loadChallenges();
+                updateGuestQuota(); 
 
             } catch (err) {
                 console.error(err);
@@ -2277,7 +2286,12 @@
                 myFlyPostIds = myFlyPostIds.filter(pid => pid !== id);
                 localStorage.setItem('my_fly_post_ids', JSON.stringify(myFlyPostIds));
                 showToast(safeT('toast_deleted', '已刪除'), false);
+                
                 loadChallenges();
+
+                // 刪除自飛後，立即刷新額度與按鈕狀態
+                updateGuestQuota();
+
             } catch(e) { showToast(`Error: ${e.message}`, true); }
         };
 
@@ -3156,7 +3170,7 @@
                 setTimeout(() => window.loadChallenges(), 50);
             }
 
-            // ★ 新增：觸發「線上人數」重新渲染
+            // 觸發「線上人數」重新渲染
             if (typeof window.refreshOnlineCountUI === 'function') {
                 window.refreshOnlineCountUI();
             }
@@ -3350,7 +3364,7 @@
             scrollToBottom();
         }
 
-        // ★ 新增：即時更新聊天室綠燈 (不重繪整個列表)
+        // 即時更新聊天室綠燈 (不重繪整個列表)
         function updateChatOnlineStatus() {
             const msgs = document.querySelectorAll('[id^="msg-"]');
             msgs.forEach(el => {
@@ -3492,12 +3506,12 @@
             setTimeout(() => btn.disabled = false, 1000); 
         });
 
-        // ★★★ 聊天室即時監聽函式 (最重要的部分) ★★★
+        // 聊天室即時監聽函式 (最重要的部分)
         // 即時監聽函式 (整合版：綠燈 + IP指紋 + 即時刪除)
-        // ★ 新增：宣告一個全域變數來存放訂閱頻道
+        // 宣告一個全域變數來存放訂閱頻道
         let chatSubscription = null;
 
-        // ★★★ 聊天室即時監聽函式 (防重複訂閱版) ★★★
+        // 聊天室即時監聽函式 (防重複訂閱版)
         function subscribeChat() {
             if (chatSubscription) {
                 supabaseClient.removeChannel(chatSubscription);

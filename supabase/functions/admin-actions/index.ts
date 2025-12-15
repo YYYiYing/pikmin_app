@@ -370,7 +370,6 @@ serve(async (req) => {
 
     // 安全性核心：所有 Update/Delete 操作都必須強制加上 .eq('is_guest', true)
     
-    // 查詢訪客今日已發布數量 (用於前端顯示額度) + 回傳 IP 指紋
     if (action === 'get-guest-daily-count') {
         // 1. 獲取訪客 IP
         const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
@@ -389,20 +388,31 @@ serve(async (req) => {
         // 2. 設定時間範圍 (過去 24 小時)
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-        // 3. 查詢數量
-        const { count, error } = await adminSupabaseClient
+        // 3. 查詢大聲公數量 (Challenges)
+        const { count: challengeCount, error: err1 } = await adminSupabaseClient
             .from('challenges')
             .select('*', { count: 'exact', head: true })
             .eq('is_guest', true)
             .eq('guest_ip', clientIp)
             .gte('created_at', oneDayAgo);
 
-        if (error) throw new Error(error.message);
+        // 4. 查詢自飛數量 (Guest Fly Posts)
+        const { count: flyCount, error: err2 } = await adminSupabaseClient
+            .from('guest_fly_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('guest_ip', clientIp)
+            .gte('created_at', oneDayAgo);
 
-        // ★ 修改：回傳資料中加入 ip_fingerprint
+        if (err1) throw new Error(err1.message);
+        if (err2) throw new Error(err2.message);
+
+        // ★ 合併計算總數
+        const totalCount = (challengeCount || 0) + (flyCount || 0);
+
+        // ★ 回傳合併後的 count
         return new Response(JSON.stringify({ 
             success: true, 
-            data: { count: count || 0, limit: 6, ip_fingerprint: fingerprint } 
+            data: { count: totalCount, limit: 6, ip_fingerprint: fingerprint } 
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
@@ -446,19 +456,28 @@ serve(async (req) => {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
         // ★ 3. 查詢該 IP 在「一般蘑菇」的發文量
-        const { count: dailyCount, error: countErr } = await adminSupabaseClient
+        const { count: challengeCount, error: err1 } = await adminSupabaseClient
             .from('challenges')
             .select('*', { count: 'exact', head: true })
             .eq('is_guest', true)
             .eq('guest_ip', clientIp)
             .gte('created_at', oneDayAgo);
 
-        if (countErr) throw new Error('系統忙碌中，請稍後再試');
+        // ★ 4. 查詢該 IP 在「自飛蘑菇」的發文量
+        const { count: flyCount, error: err2 } = await adminSupabaseClient
+            .from('guest_fly_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('guest_ip', clientIp)
+            .gte('created_at', oneDayAgo);
 
-        // ★ 4. 執行限制 (例如每日最多 6 則)
-        const IP_DAILY_LIMIT = 6; 
-        if ((dailyCount || 0) >= IP_DAILY_LIMIT) {
-            throw new Error(`您今日(${clientIp})已達一般蘑菇發佈上限 (${IP_DAILY_LIMIT}則)，請明天再來！`);
+        if (err1 || err2) throw new Error('系統忙碌中，請稍後再試');
+
+        // ★ 5. 執行合併限制 (每日最多 6 則)
+        const COMBINED_LIMIT = 6; 
+        const currentTotal = (challengeCount || 0) + (flyCount || 0);
+
+        if (currentTotal >= COMBINED_LIMIT) {
+            throw new Error(`您今日(${clientIp})已達發布上限 (大聲公+自飛共 ${COMBINED_LIMIT} 則)，請明天再來！`);
         }
 
         const displayHostName = `${nickname}✈️${friendCode}`;
@@ -795,19 +814,29 @@ serve(async (req) => {
       // ★ 2. 設定限制：過去 24 小時內
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-      // ★ 3. 查詢該 IP 在「自飛蘑菇」的發文量
-      const { count: dailyFlyCount, error: countErr } = await adminSupabaseClient
+      // ★ 3. 查詢該 IP 在「一般蘑菇」的發文量
+      const { count: challengeCount, error: err1 } = await adminSupabaseClient
+          .from('challenges')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_guest', true)
+          .eq('guest_ip', clientIp)
+          .gte('created_at', oneDayAgo);
+
+      // ★ 4. 查詢該 IP 在「自飛蘑菇」的發文量
+      const { count: flyCount, error: err2 } = await adminSupabaseClient
           .from('guest_fly_posts')
           .select('*', { count: 'exact', head: true })
           .eq('guest_ip', clientIp)
           .gte('created_at', oneDayAgo);
 
-      if (countErr) throw new Error('系統忙碌中，請稍後再試');
+      if (err1 || err2) throw new Error('系統忙碌中，請稍後再試');
 
-      // ★ 4. 執行限制 (自飛菇限制 10 則)
-      const FLY_DAILY_LIMIT = 10;
-      if ((dailyFlyCount || 0) >= FLY_DAILY_LIMIT) {
-          throw new Error(`您今日(${clientIp})已達自飛蘑菇發佈上限 (${FLY_DAILY_LIMIT}則)，請明天再來！`);
+      // ★ 5. 執行合併限制 (改為 6 則)
+      const COMBINED_LIMIT = 6;
+      const currentTotal = (challengeCount || 0) + (flyCount || 0);
+
+      if (currentTotal >= COMBINED_LIMIT) {
+          throw new Error(`您今日(${clientIp})已達發布上限 (大聲公+自飛共 ${COMBINED_LIMIT} 則)，請明天再來！`);
       }
 
       // 寫入資料
