@@ -593,10 +593,10 @@ serve(async (req) => {
         
         if (count === 0) throw new Error('操作無效：找不到該訪客貼文，或無權限刪除此項目。');
 
-        // ★ 3. 刪除 Storage 中的圖片檔案
+        // ★ 3. 刪除 Storage 中的圖片檔案 (修正：濾除 URL 參數)
         if (oldData?.image_url) {
             try {
-                const fileName = oldData.image_url.split('/').pop();
+                const fileName = oldData.image_url.split('/').pop()?.split('?')[0];
                 if (fileName) await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
             } catch (e) { console.error('圖片刪除失敗', e); }
         }
@@ -787,21 +787,45 @@ serve(async (req) => {
     // ▼▼▼ 自飛蘑菇 (Self-Fly) 相關功能 (移至此處) ▼▼▼
     // ==========================================
 
-    // 讀取自飛列表 (含清理)
+    // 讀取自飛列表 (含清理與圖片刪除)
     if (action === 'list-guest-fly') {
-      const oneHourAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-      await adminSupabaseClient
-        .from('guest_fly_posts')
-        .delete()
-        .lt('created_at', oneHourAgo);
+        // 設定過期時間 (3小時前)
+        const oneHourAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+        
+        // ★ 1. 先查詢有哪些過期資料 (為了拿 image_url)
+        const { data: expiredFly, error: fetchErr } = await adminSupabaseClient
+            .from('guest_fly_posts')
+            .select('id, image_url')
+            .lt('created_at', oneHourAgo);
 
-      const { data, error } = await adminSupabaseClient
-        .from('guest_fly_posts')
-        .select('*')
-        .order('created_at', { ascending: false });
+        if (!fetchErr && expiredFly && expiredFly.length > 0) {
+            // ★ 2. 刪除圖片
+            for (const item of expiredFly) {
+                if (item.image_url) {
+                    try {
+                        const fileName = item.image_url.split('/').pop()?.split('?')[0];
+                        if (fileName) {
+                            await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
+                        }
+                    } catch (e) { console.error('自飛圖片清理失敗', e); }
+                }
+            }
 
-      if (error) throw error;
-      return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            // ★ 3. 刪除資料庫紀錄
+            await adminSupabaseClient
+                .from('guest_fly_posts')
+                .delete()
+                .in('id', expiredFly.map(x => x.id));
+        }
+
+        // 4. 回傳最新的列表
+        const { data, error } = await adminSupabaseClient
+            .from('guest_fly_posts')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true, data: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // 發布自飛 (Create) - [IP 限制 + 圖片寫入]
