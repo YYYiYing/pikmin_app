@@ -2,185 +2,1023 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPX 路徑生成器 - 菇菇宅配網</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GPX 路徑生成器 Pro - 菇菇宅配網</title>
     <link rel="icon" href="./mashroom_s.png" type="image/png">
-    <link rel="apple-touch-icon" href="./mashroom_s.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
-        .main-container { background-color: #1f2937; border: 1px solid #374151; }
-        .dark-input { background-color: #374151; border-color: #4b5563; color: #d1d5db; }
-        .dark-input:focus { --tw-ring-color: #22c55e; border-color: #22c55e; }
-        .primary-button { background-color: #22c55e; transition: background-color 0.2s; }
-        .primary-button:hover:not(:disabled) { background-color: #16a34a; }
-        .router-button { background-color: #3b82f6; transition: background-color: 0.2s; }
-        .router-button:hover:not(:disabled) { background-color: #2563eb; }
-        .secondary-button { background-color: #4b5563; transition: background-color 0.2s; }
-        .secondary-button:hover { background-color: #6b7280; }
-        .row-number { width: 2rem; text-align: right; color: #6b7280; font-size: 0.875rem; flex-shrink: 0; }
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; overflow: hidden; touch-action: none; /* 禁止預設觸控行為 */ }
         
-        /* ★ 安全性：預設隱藏內容，直到權限檢查通過 */
+        /* 自定義捲軸 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+        /* 地圖控制按鈕 (膠囊狀) */
+        .map-control-group {
+            position: absolute; top: 20px; right: 20px;
+            display: flex; flex-direction: column;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 9999px; /* Pill shape */
+            padding: 4px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            z-index: 100; /* 提高層級，確保在遮罩之上 */
+            pointer-events: auto; /* 確保可以點擊 */
+        }
+        .map-btn {
+            width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; font-weight: bold; color: #374151;
+            transition: all 0.2s; border-radius: 9999px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent; /* 移除手機點擊高亮 */
+        }
+        .map-btn:hover { background-color: #e5e7eb; }
+        .map-btn:active { background-color: #d1d5db; transform: scale(0.95); }
+        .divider { height: 1px; background-color: #e5e7eb; margin: 2px 8px; }
+
+        /* Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: #22c55e; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #22c55e; }
+        
+        /* Canvas 座標顯示 */
+        #coords-display {
+            position: absolute; bottom: 10px; left: 10px;
+            background: rgba(255, 255, 255, 0.9); color: #374151; /* 配合淺底色改深字 */
+            padding: 4px 8px; font-size: 12px; border-radius: 4px;
+            pointer-events: none; z-index: 50; backdrop-filter: blur(2px);
+            border: 1px solid #e5e7eb;
+        }
+
+        /* 側邊欄過渡 */
+        #sidebar { transition: transform 0.3s ease-in-out; }
+        .sidebar-overlay { backdrop-filter: blur(2px); }
+        
+        /* 隱藏未驗證內容 */
         #app-content { display: none; }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="flex h-screen w-screen">
 
-    <div id="app-content" class="max-w-4xl mx-auto main-container rounded-2xl shadow-lg p-6 md:p-8">
-        <header class="mb-8 flex justify-between items-center">
-            <h1 class="text-2xl md:text-3xl font-bold text-white">GPX 路徑生成器</h1>
-            <a href="./dashboard.html" class="text-indigo-400 hover:text-indigo-300 font-bold transition">返回主頁</a>
-        </header>
-
-        <div class="space-y-6">
-            <div>
-                <label for="route-name" class="block text-sm font-medium text-gray-400 mb-1">路徑名稱</label>
-                <input type="text" id="route-name" class="dark-input w-full md:w-1/2 rounded-md" value="我的路徑">
-            </div>
-
-            <div>
-                <div class="flex items-center gap-4 mb-2">
-                    <label class="block text-sm font-medium text-gray-400">座標點 (格式：緯度, 經度)</label>
-                    <button id="paste-all-button" class="secondary-button text-xs font-bold py-1 px-3 rounded-full">從剪貼簿貼上多行</button>
-                </div>
-                <div id="coords-container" class="space-y-2 max-h-[50vh] overflow-y-auto pr-2"></div>
-                <button id="add-row-button" class="mt-4 secondary-button font-bold py-2 px-4 rounded-lg text-sm">增加欄位</button>
-            </div>
-
-            <div class="border-t border-gray-600 pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button id="generate-router-button" class="w-full router-button font-bold py-3 px-6 rounded-lg shadow-lg hover:scale-105 transition transform">生成 Router 路徑</button>
-                <button id="generate-joystick-button" class="w-full primary-button font-bold py-3 px-6 rounded-lg shadow-lg hover:scale-105 transition transform">生成 Joystick 路徑</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- Supabase Auth Logic -->
     <script>
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
+        const SUPABASE_ANON_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ'; // 使用您提供的公開 Key
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // ★ 安全性檢查：若無登入，直接踢回首頁
         async function checkAuth() {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) {
-                alert('請先登入才能使用此功能！');
-                window.location.replace('./index.html');
-            } else {
-                // 通過驗證，顯示內容
-                document.getElementById('app-content').style.display = 'block';
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) {
+                    alert('請先登入才能使用此功能！');
+                    try {
+                        window.location.replace('./index.html');
+                    } catch (e) {
+                        console.warn("Redirect failed (likely in preview environment):", e);
+                        // 在預覽環境無法跳轉時，顯示替代訊息
+                        document.body.innerHTML = '<div class="flex items-center justify-center h-screen w-screen bg-gray-900 text-white text-xl">請先登入 (Redirect not available in preview)</div>';
+                    }
+                } else {
+                    document.getElementById('app-content').style.display = 'flex';
+                    // 驗證通過後觸發一次 resize 確保 canvas 正確
+                    setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+                }
+            } catch (error) {
+                console.error("Auth check error:", error);
+                document.body.innerHTML = '<div class="flex items-center justify-center h-screen w-screen bg-gray-900 text-red-400">驗證發生錯誤，請重新整理頁面。</div>';
             }
         }
         checkAuth();
+    </script>
 
-        // --- 以下為原有邏輯 ---
-        const coordsContainer = document.getElementById('coords-container');
-        const addRowButton = document.getElementById('add-row-button');
-        const pasteAllButton = document.getElementById('paste-all-button');
-        const routeNameInput = document.getElementById('route-name');
-        const generateRouterButton = document.getElementById('generate-router-button');
-        const generateJoystickButton = document.getElementById('generate-joystick-button');
+    <div id="app-content" class="w-full h-full flex">
+        
+        <!-- Mobile Hamburger -->
+        <button id="hamburger-btn" class="md:hidden absolute top-4 left-4 z-[60] bg-white text-gray-800 p-2 rounded shadow-lg" onclick="toggleSidebar()">
+            ☰
+        </button>
+        <div id="sidebar-overlay" class="sidebar-overlay fixed inset-0 bg-black/50 z-[55] hidden md:hidden" onclick="toggleSidebar()"></div>
 
-        function updateRowNumbers() {
-            const rows = coordsContainer.querySelectorAll('.coord-row');
-            rows.forEach((row, index) => {
-                row.querySelector('.row-number').textContent = `${index + 1}.`;
+        <!-- 左側邊欄 -->
+        <aside id="sidebar" class="fixed md:relative w-[85%] md:w-96 h-full bg-gray-800 border-r border-gray-700 flex flex-col z-[70] transform -translate-x-full md:translate-x-0 shadow-2xl md:shadow-none">
+            
+            <!-- Header -->
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900">
+                <div>
+                    <h1 class="text-xl font-bold text-white">路徑生成器 Pro</h1>
+                    <div class="text-xs text-green-400 mt-1">● 權限驗證通過</div>
+                </div>
+                <button class="md:hidden text-gray-400 text-2xl px-2" onclick="toggleSidebar()">&times;</button>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                
+                <!-- 1. 巨大花點輸入 -->
+                <div class="space-y-3">
+                    <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider border-b border-gray-700 pb-1">1. 巨大花點與排序</h2>
+                    
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">路徑名稱</label>
+                        <input type="text" id="route-name" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-500 placeholder-opacity-50 focus:border-green-500 focus:outline-none" placeholder="例如：大安森林公園">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">巨大花座標 (緯度, 經度)</label>
+                        <textarea id="rawInputData" class="w-full h-24 bg-gray-900 border border-gray-600 rounded p-2 text-xs font-mono text-green-300 placeholder-gray-500 placeholder-opacity-50 focus:border-green-500 focus:outline-none resize-y" placeholder="請貼上座標，格式範例：
+-0.5715520, 117.2818990
+-0.5711250, 117.2815350"></textarea>
+                    </div>
+
+                    <button onclick="optimizeRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded text-sm transition shadow">
+                        ✨ AI 分析繪製 (過濾+排序)
+                    </button>
+                    <div id="sort-stats" class="text-xs text-gray-500 text-center hidden"></div>
+                </div>
+
+                <!-- 2. 路徑編輯 -->
+                <div class="space-y-4">
+                    <div class="flex justify-between items-end border-b border-gray-700 pb-1">
+                        <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider">2. 路徑編輯</h2>
+                        
+                        <!-- Toggle Switch -->
+                        <div class="flex items-center">
+                            <label for="path-toggle" class="flex items-center cursor-pointer">
+                                <div class="relative">
+                                    <input type="checkbox" id="path-toggle" class="sr-only" onchange="onModeToggle()">
+                                    <div class="block bg-gray-600 w-10 h-6 rounded-full"></div>
+                                    <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform peer-checked:translate-x-full"></div>
+                                </div>
+                                <span id="mode-label" class="ml-2 text-xs font-bold text-gray-300">直連模式</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 模式指示器 -->
+                    <div id="mode-indicator" class="hidden text-xs text-center p-2 rounded bg-indigo-900/50 text-indigo-200 border border-indigo-700/50">
+                        全域設定模式
+                    </div>
+
+                    <!-- 單點操作按鈕 -->
+                    <div id="local-edit-btns" class="hidden grid grid-cols-2 gap-2">
+                        <button onclick="resetCurrentFlower()" class="bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded text-xs">重置全域</button>
+                        <button onclick="mirrorCurrentFlower()" class="bg-yellow-600 hover:bg-yellow-700 text-white py-1 px-2 rounded text-xs">鏡像 ⇄</button>
+                    </div>
+
+                    <!-- 參數滑桿區 (預設隱藏，種花模式才顯示) -->
+                    <div id="flower-params" class="space-y-3 opacity-50 pointer-events-none transition-opacity duration-300">
+                        <!-- Entry -->
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">入口偏角</span>
+                                <span id="val-entryAng" class="text-blue-400 font-bold">300°</span>
+                            </div>
+                            <input type="range" id="entryAngle" min="0" max="360" value="300" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="onParamChange('entryAng', this.value)">
+                        </div>
+                        <!-- Apex -->
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">穿心偏角</span>
+                                <span id="val-apexAng" class="text-blue-400 font-bold">300°</span>
+                            </div>
+                            <input type="range" id="apexAngle" min="0" max="360" value="300" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="onParamChange('apexAng', this.value)">
+                        </div>
+                        <!-- Side -->
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">側點偏角</span>
+                                <span id="val-sideAng" class="text-blue-400 font-bold">120°</span>
+                            </div>
+                            <input type="range" id="sideAngle" min="0" max="360" value="120" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="onParamChange('sideAng', this.value)">
+                        </div>
+                        <!-- Exit -->
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">出口偏角</span>
+                                <span id="val-exitAng" class="text-blue-400 font-bold">20°</span>
+                            </div>
+                            <input type="range" id="exitAngle" min="0" max="360" value="20" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="onParamChange('exitAng', this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 種花路徑生成 -->
+                <div class="space-y-3 pb-8">
+                    <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider border-b border-gray-700 pb-1">3. 種花路徑生成</h2>
+                    
+                    <div class="grid grid-cols-1 gap-3">
+                        <button onclick="generateGPX('Router')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow-lg transform transition hover:scale-[1.02]">
+                            生成 Router 路徑
+                        </button>
+                        <button onclick="generateGPX('Joystick')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded shadow-lg transform transition hover:scale-[1.02]">
+                            生成 Joystick 路徑
+                        </button>
+                    </div>
+                    
+                    <div id="statsBox" class="bg-gray-700/50 p-3 rounded text-xs text-gray-400 border border-gray-600 leading-relaxed">
+                        等待路徑生成...
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- 右側地圖區 -->
+        <main class="flex-1 relative bg-gray-900 cursor-grab active:cursor-grabbing overflow-hidden" id="mainView">
+            <canvas id="mapCanvas" class="block w-full h-full"></canvas>
+            
+            <!-- 地圖控制項 -->
+            <div class="map-control-group">
+                <button onclick="fitToScreen()" class="map-btn text-[10px] font-black" title="適應視窗">All</button>
+                <div class="divider"></div>
+                <button onclick="zoomStep(1.2)" class="map-btn" title="放大">＋</button>
+                <div class="divider"></div>
+                <button onclick="zoomStep(0.833)" class="map-btn" title="縮小">－</button>
+            </div>
+
+            <!-- 座標顯示 -->
+            <div id="coords-display">Lat: -, Lon: -</div>
+        </main>
+
+    </div>
+
+    <script>
+        // --- 核心變數 ---
+        let centers = []; // 排序後的巨大花中心點
+        let pathPoints = []; // 最終生成的路徑點 (可能是種花路徑，也可能是直連路徑)
+        let canvas, ctx;
+        
+        // 參數設定 (固定值) - 全部改為 1.2
+        const FIXED_ALGO_DIST = 30;
+        const FIXED_ENTRY_DIST = 1.2;
+        const FIXED_CROSS_FACTOR = 1.2;
+        const FIXED_SIDE_DIST = 1.2;
+        const METERS_PER_DEGREE = 111320; 
+
+        // 編輯狀態
+        let isFlowerPathMode = false; // Toggle 狀態
+        let selectedIndex = -1; // -1 = Global, >=0 = Local Flower Index
+        
+        // 角度參數 (更新預設值: 300, 300, 120, 20)
+        let globalParams = {
+            entryAngle: 300,
+            apexAngle: 300,
+            sideAngle: 120, 
+            exitAngle: 20
+        };
+        let flowerOverrides = {}; // 存儲單點設定
+
+        // 視圖控制
+        let scale = 10000;
+        let offsetX = 0, offsetY = 0;
+        let isDragging = false;
+        let isDraggingNode = false;
+        let draggingNodeIndex = -1;
+        let lastMouseX, lastMouseY;
+        let clickStartX, clickStartY;
+
+        // --- 初始化 ---
+        window.onload = function() {
+            canvas = document.getElementById('mapCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // 綁定事件
+            const view = document.getElementById('mainView');
+            
+            // Mouse Events
+            view.addEventListener('mousedown', onMouseDown);
+            view.addEventListener('mousemove', onMouseMove);
+            view.addEventListener('mouseup', onMouseUp);
+            view.addEventListener('wheel', onWheel);
+            view.addEventListener('click', onCanvasClick);
+            
+            // Touch Events (Mobile Dragging)
+            // 確保被動監聽器為 false，以便可以使用 preventDefault
+            view.addEventListener('touchstart', onTouchStart, { passive: false });
+            view.addEventListener('touchmove', onTouchMove, { passive: false });
+            view.addEventListener('touchend', onTouchEnd);
+
+            window.addEventListener('resize', resizeCanvas);
+
+            // Toggle UI 初始化
+            const toggle = document.getElementById('path-toggle');
+            toggle.addEventListener('change', function() {
+                isFlowerPathMode = this.checked;
+                onModeToggle();
             });
+
+            resizeCanvas();
+            // 初始狀態不繪製路徑，只顯示網格
+            centerMap();
+
+            // 行動版預設開啟側邊欄
+            if (window.innerWidth <= 768) {
+                const sb = document.getElementById('sidebar');
+                const overlay = document.getElementById('sidebar-overlay');
+                if (!sb.classList.contains('open')) {
+                    // 根據 CSS class 邏輯: 預設 -translate-x-full (hidden)
+                    // 要顯示需移除 -translate-x-full
+                    sb.classList.remove('-translate-x-full');
+                    overlay.classList.remove('hidden');
+                }
+            }
+        };
+
+        function resizeCanvas() {
+            const view = document.getElementById('mainView');
+            canvas.width = view.clientWidth;
+            canvas.height = view.clientHeight;
+            draw();
         }
-        function addCoordRow(coordText = '') {
-            const row = document.createElement('div');
-            row.className = 'flex items-center gap-2 coord-row';
-            row.innerHTML = `
-                <span class="row-number"></span>
-                <button class="p-1 secondary-button rounded-md paste-button" title="貼上單筆座標">📋</button>
-                <input type="text" placeholder="緯度, 經度" value="${coordText}" class="dark-input w-full rounded-md coord-input">
-                <button class="text-red-500 hover:text-red-400 text-xl font-bold delete-button" title="刪除此行">&times;</button>
+
+        // --- 模式切換 ---
+        function onModeToggle() {
+            const label = document.getElementById('mode-label');
+            const paramDiv = document.getElementById('flower-params');
+            const indicator = document.getElementById('mode-indicator');
+            const toggleDot = document.querySelector('.dot');
+            
+            if (isFlowerPathMode) {
+                label.innerText = "種花模式";
+                label.classList.replace('text-gray-300', 'text-green-400');
+                paramDiv.classList.remove('opacity-50', 'pointer-events-none');
+                indicator.classList.remove('hidden');
+                toggleDot.style.transform = 'translateX(100%)';
+            } else {
+                label.innerText = "直連模式";
+                label.classList.replace('text-green-400', 'text-gray-300');
+                paramDiv.classList.add('opacity-50', 'pointer-events-none');
+                indicator.classList.add('hidden');
+                document.getElementById('local-edit-btns').classList.add('hidden');
+                selectedIndex = -1; // 強制取消選取
+                toggleDot.style.transform = 'translateX(0)';
+            }
+            
+            // 重新計算路徑並繪圖
+            updatePathData(); 
+            draw();
+        }
+
+        // --- 路徑分析與排序 (Auto TSP) ---
+        function optimizeRoute() {
+            const rawText = document.getElementById('rawInputData').value;
+            let points = parseTextToPoints(rawText);
+            
+            if (points.length < 2) { 
+                if (rawText.trim() === '') {
+                    alert("請貼上座標資料");
+                } else {
+                    alert("請至少輸入 2 個有效的座標點"); 
+                }
+                return; 
+            }
+
+            // 去重
+            const uniquePoints = [];
+            points.forEach(p => {
+                let isDuplicate = false;
+                for (const existing of uniquePoints) {
+                    if (getDistanceMeters(p, existing) < 0.5) { isDuplicate = true; break; }
+                }
+                if (!isDuplicate) uniquePoints.push(p);
+            });
+            
+            const originalCount = points.length;
+            points = uniquePoints;
+
+            // 找起點 (重心最遠)
+            let sumLat = 0, sumLon = 0;
+            points.forEach(p => { sumLat += p.lat; sumLon += p.lon; });
+            const center = { lat: sumLat/points.length, lon: sumLon/points.length };
+            let maxDist = -1, startIndex = 0;
+            points.forEach((p, idx) => {
+                const d = getDistanceMeters(p, center);
+                if (d > maxDist) { maxDist = d; startIndex = idx; }
+            });
+
+            // 貪婪排序
+            const sorted = [];
+            const visited = new Set();
+            let currIdx = startIndex;
+            sorted.push(points[currIdx]);
+            visited.add(currIdx);
+
+            while (sorted.length < points.length) {
+                let nearestIdx = -1;
+                let minDist = Infinity;
+                const currPoint = points[currIdx];
+                for (let i = 0; i < points.length; i++) {
+                    if (visited.has(i)) continue;
+                    const d = getDistanceMeters(currPoint, points[i]);
+                    if (d < minDist) { minDist = d; nearestIdx = i; }
+                }
+                if (nearestIdx !== -1) {
+                    visited.add(nearestIdx);
+                    sorted.push(points[nearestIdx]);
+                    currIdx = nearestIdx;
+                } else break;
+            }
+
+            centers = sorted;
+            flowerOverrides = {}; // 重置個別設定
+            selectedIndex = -1;
+            
+            document.getElementById('sort-stats').innerText = `去除重複 ${originalCount - points.length} 點，共 ${points.length} 點。`;
+            document.getElementById('sort-stats').classList.remove('hidden');
+
+            // 自動修正邏輯: 檢查是否需要鏡像
+            // 先試算預設參數
+            pathPoints = generatePathAlgorithm(centers);
+            // 檢查每一個三角形是否過於狹窄 (內縮)
+            checkAndFixGeometry(centers);
+
+            updatePathData();
+            
+            // 強制確保 Canvas 尺寸正確並重繪
+            resizeCanvas();
+            // 使用 setTimeout 確保 UI 渲染完成後才執行置中
+            setTimeout(() => {
+                fitToScreen();
+                // 手機版自動收起側邊欄以查看結果
+                if (window.innerWidth <= 768) {
+                    closeSidebar();
+                }
+            }, 100);
+            
+            updateUIForMode(); // 確保全域模式
+        }
+
+        // --- 自動鏡像檢測邏輯 (幾何判斷) ---
+        function checkAndFixGeometry(sortedCenters) {
+            // 這個函式會掃描每一朵花生成的 4 個點 (P1-P4)
+            // 判斷側點 P3 是否位於 P1->P4 連線的 "內側" (靠近圓心那側，或導致多邊形面積過小)
+            // 如果是，就自動加入 mirror 設定
+            
+            for (let i = 0; i < sortedCenters.length; i++) {
+                const curr = sortedCenters[i];
+                // 暫時用全域參數生成點位
+                const prev = (i === 0) ? sortedCenters[sortedCenters.length-1] : sortedCenters[i-1];
+                const next = (i === sortedCenters.length - 1) ? sortedCenters[0] : sortedCenters[i+1];
+                
+                const angleFromPrev = getBearing(prev, curr);
+                const angleToNext = getBearing(curr, next);
+                
+                // 計算轉彎方向 (-180 左, 180 右)
+                let turnAngle = (angleToNext - angleFromPrev + 540) % 360 - 180;
+                
+                // 計算側點的偏向 (將 0-360 轉為 -180~180)
+                let sideBias = (globalParams.sideAngle > 180) ? globalParams.sideAngle - 360 : globalParams.sideAngle;
+
+                // 判斷：若轉彎方向與側點偏向同號 (例如都 > 0 表示右轉且側點在右)，則側點在內側 -> 需鏡像
+                if ((turnAngle > 0 && sideBias > 0) || (turnAngle < 0 && sideBias < 0)) {
+                    if (!flowerOverrides[i]) flowerOverrides[i] = { ...globalParams };
+                    const p = flowerOverrides[i];
+                    // 執行鏡像 (360-x)
+                    p.entryAngle = (360 - p.entryAngle) % 360;
+                    p.apexAngle = (360 - p.apexAngle) % 360;
+                    p.sideAngle = (360 - p.sideAngle) % 360;
+                    p.exitAngle = (360 - p.exitAngle) % 360;
+                }
+            }
+        }
+
+        // --- 更新路徑數據 ---
+        function updatePathData() {
+            if (centers.length < 2) return;
+
+            if (isFlowerPathMode) {
+                // 種花模式：使用演算法生成複雜路徑
+                pathPoints = generatePathAlgorithm(centers);
+            } else {
+                // 直連模式：路徑就是中心點的連線
+                // 但為了配合繪圖邏輯，我們 copy 一份
+                pathPoints = [...centers];
+            }
+
+            const totalDist = calcTotalDistance(pathPoints).toFixed(0);
+            document.getElementById('statsBox').innerHTML = `
+                <span class="text-indigo-300">模式：${isFlowerPathMode ? '種花 (4點繞行)' : '收果 (直連)'}</span><br>
+                花朵數: ${centers.length} | 節點數: ${pathPoints.length}<br>
+                總長度: ${totalDist} m
             `;
-            coordsContainer.appendChild(row);
         }
-        coordsContainer.addEventListener('click', async (event) => {
-            const target = event.target;
-            if (target.classList.contains('delete-button')) {
-                target.closest('.coord-row').remove();
-                updateRowNumbers();
+
+        // --- 核心演算法 (4點模式) ---
+        function generatePathAlgorithm(centersList) {
+            const path = [];
+            for (let i = 0; i < centersList.length; i++) {
+                const curr = centersList[i];
+                let params = { ...globalParams };
+                if (flowerOverrides[i]) params = { ...params, ...flowerOverrides[i] };
+
+                const prev = (i === 0) ? centersList[centersList.length-1] : centersList[i-1];
+                const next = (i === centersList.length - 1) ? centersList[0] : centersList[i+1];
+
+                const angleFromPrev = getBearing(prev, curr);
+                const angleToNext = getBearing(curr, next);
+
+                // P1: Entry
+                const entryAngle = angleFromPrev - 180 + params.entryAngle;
+                const p1 = getOffsetPoint(curr, FIXED_ALGO_DIST * FIXED_ENTRY_DIST, entryAngle);
+
+                // P2: Apex
+                const apexAngle = angleToNext + params.apexAngle; 
+                const p2 = getOffsetPoint(curr, FIXED_ALGO_DIST * FIXED_CROSS_FACTOR, apexAngle);
+
+                // P3: Side
+                const sideAngleCalc = angleToNext + params.sideAngle; 
+                const p3 = getOffsetPoint(curr, FIXED_ALGO_DIST * FIXED_SIDE_DIST, sideAngleCalc);
+
+                // P4: Exit
+                const exitAngleCalc = angleToNext + params.exitAngle;
+                const p4 = getOffsetPoint(curr, FIXED_ALGO_DIST, exitAngleCalc);
+
+                path.push(p1, p2, p3, p4);
             }
-            if (target.classList.contains('paste-button')) {
-                try {
-                    const text = await navigator.clipboard.readText();
-                    target.nextElementSibling.value = text.trim();
-                } catch (err) {
-                    alert('讀取剪貼簿失敗');
-                }
+            return path;
+        }
+
+        // --- 參數調整邏輯 ---
+        function onParamChange(id, val) {
+            const numVal = parseFloat(val);
+            document.getElementById('val-' + id).innerText = numVal + '°';
+
+            if (selectedIndex === -1) {
+                if (id === 'entryAng') globalParams.entryAngle = numVal;
+                if (id === 'apexAng') globalParams.apexAngle = numVal;
+                if (id === 'sideAng') globalParams.sideAngle = numVal;
+                if (id === 'exitAng') globalParams.exitAngle = numVal;
+            } else {
+                if (!flowerOverrides[selectedIndex]) flowerOverrides[selectedIndex] = { ...globalParams };
+                if (id === 'entryAng') flowerOverrides[selectedIndex].entryAngle = numVal;
+                if (id === 'apexAng') flowerOverrides[selectedIndex].apexAngle = numVal;
+                if (id === 'sideAng') flowerOverrides[selectedIndex].sideAngle = numVal;
+                if (id === 'exitAng') flowerOverrides[selectedIndex].exitAngle = numVal;
             }
-        });
-        async function pasteAllFromClipboard() {
-            try {
-                const text = await navigator.clipboard.readText();
-                const lines = text.trim().split('\n');
-                if (lines.length > 0 && lines[0] !== '') {
-                    coordsContainer.innerHTML = '';
-                    lines.forEach(line => addCoordRow(line.trim()));
-                    updateRowNumbers();
-                }
-            } catch (err) {
-                alert('讀取剪貼簿失敗');
+            updatePathData();
+            draw();
+        }
+
+        function updateUIForMode() {
+            if (!isFlowerPathMode) return;
+
+            const indicator = document.getElementById('mode-indicator');
+            const localBtns = document.getElementById('local-edit-btns');
+            
+            let currentVals = { ...globalParams };
+            if (selectedIndex !== -1 && flowerOverrides[selectedIndex]) {
+                currentVals = { ...currentVals, ...flowerOverrides[selectedIndex] };
+            }
+
+            // 正規化顯示 0-360
+            const normalize = (ang) => (ang % 360 + 360) % 360;
+
+            document.getElementById('entryAngle').value = normalize(currentVals.entryAngle);
+            document.getElementById('val-entryAng').innerText = Math.round(normalize(currentVals.entryAngle)) + '°';
+            
+            document.getElementById('apexAngle').value = normalize(currentVals.apexAngle);
+            document.getElementById('val-apexAng').innerText = Math.round(normalize(currentVals.apexAngle)) + '°';
+            
+            document.getElementById('sideAngle').value = normalize(currentVals.sideAngle);
+            document.getElementById('val-sideAng').innerText = Math.round(normalize(currentVals.sideAngle)) + '°';
+            
+            document.getElementById('exitAngle').value = normalize(currentVals.exitAngle);
+            document.getElementById('val-exitAng').innerText = Math.round(normalize(currentVals.exitAngle)) + '°';
+
+            if (selectedIndex === -1) {
+                indicator.innerText = "全域設定模式 (Global)";
+                indicator.className = "text-xs text-center p-2 rounded bg-indigo-900/50 text-indigo-200 border border-indigo-700/50";
+                localBtns.classList.add('hidden');
+            } else {
+                indicator.innerText = `編輯花朵 #${selectedIndex + 1}`;
+                indicator.className = "text-xs text-center p-2 rounded bg-purple-900/50 text-purple-200 border border-purple-700/50";
+                localBtns.classList.remove('hidden');
             }
         }
-        function getCoordinates() {
-            const allCoordInputs = coordsContainer.querySelectorAll('.coord-input');
-            const coords = [];
-            allCoordInputs.forEach(input => {
-                const value = input.value.trim();
-                if (!value) return;
-                const parts = value.split(/[,\s\t]+/);
-                if (parts.length >= 2) {
-                    const lat = parseFloat(parts[0]);
-                    const lon = parseFloat(parts[1]);
-                    if (!isNaN(lat) && !isNaN(lon)) {
-                        coords.push({ lat, lon });
+
+        function resetCurrentFlower() {
+            if (selectedIndex !== -1) {
+                delete flowerOverrides[selectedIndex];
+                updateUIForMode();
+                updatePathData();
+                draw();
+            }
+        }
+
+        function mirrorCurrentFlower() {
+            if (selectedIndex !== -1) {
+                if (!flowerOverrides[selectedIndex]) flowerOverrides[selectedIndex] = { ...globalParams };
+                const p = flowerOverrides[selectedIndex];
+                // 簡易鏡像：360-x
+                p.entryAngle = (360 - p.entryAngle) % 360;
+                p.apexAngle = (360 - p.apexAngle) % 360;
+                p.sideAngle = (360 - p.sideAngle) % 360;
+                p.exitAngle = (360 - p.exitAngle) % 360;
+                
+                updateUIForMode();
+                updatePathData();
+                draw();
+            }
+        }
+
+        // --- 繪圖邏輯 ---
+        function draw() {
+            // 改為淺灰色背景 10%
+            ctx.fillStyle = '#F3F4F6'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 若無花點，只畫網格示意
+            if (centers.length === 0) {
+                drawGrid();
+                return;
+            }
+
+            const flowerR_m = 40;
+            const brushD_m = 25;
+            const brushR_m = brushD_m / 2;
+
+            drawGrid();
+
+            // 2. 巨大花範圍
+            centers.forEach((p, idx) => {
+                const sc = toScreen(p);
+                const rPx = meterToPx(flowerR_m);
+                const isSelected = (idx === selectedIndex && isFlowerPathMode);
+
+                ctx.beginPath();
+                ctx.arc(sc.x, sc.y, rPx, 0, 2 * Math.PI);
+                
+                if (isSelected) {
+                    ctx.fillStyle = 'rgba(139, 92, 246, 0.2)'; // 選中紫
+                    ctx.fill();
+                    ctx.strokeStyle = '#8b5cf6';
+                    ctx.lineWidth = 3;
+                } else {
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.1)'; // 綠色
+                    ctx.fill();
+                    ctx.strokeStyle = '#059669';
+                    ctx.lineWidth = 2;
+                }
+                ctx.stroke();
+            });
+
+            // 3. 筆刷痕跡 (僅種花模式)
+            if (isFlowerPathMode && pathPoints.length > 1) {
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; // 紅色痕跡
+                const brushPx = meterToPx(brushR_m);
+                for (let i = 0; i < pathPoints.length - 1; i++) {
+                    const p1 = toScreen(pathPoints[i]);
+                    const p2 = toScreen(pathPoints[i+1]);
+                    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    const steps = Math.ceil(dist / (brushPx * 0.5)); 
+                    for (let j = 0; j <= steps; j++) {
+                        const t = j / steps;
+                        const lx = p1.x + (p2.x - p1.x) * t;
+                        const ly = p1.y + (p2.y - p1.y) * t;
+                        ctx.beginPath(); ctx.arc(lx, ly, brushPx, 0, 2 * Math.PI); ctx.fill();
                     }
                 }
+            }
+
+            // 4. 路徑線
+            ctx.strokeStyle = '#ef4444'; // Red
+            ctx.lineWidth = 2; ctx.lineJoin = 'round';
+            ctx.beginPath();
+            pathPoints.forEach((p, i) => {
+                const sc = toScreen(p);
+                if (i === 0) ctx.moveTo(sc.x, sc.y); else ctx.lineTo(sc.x, sc.y);
             });
-            return coords;
+            ctx.stroke();
+
+            // 5. 節點 (僅種花模式顯示小藍點)
+            if (isFlowerPathMode) {
+                pathPoints.forEach((p, i) => {
+                    const sc = toScreen(p);
+                    const flowerIdx = Math.floor(i / 4);
+                    const isSelectedFlower = (flowerIdx === selectedIndex);
+                    
+                    if (isSelectedFlower) {
+                        ctx.fillStyle = '#3b82f6'; // Bright Blue
+                        ctx.beginPath(); ctx.arc(sc.x, sc.y, 5, 0, 2 * Math.PI); ctx.fill();
+                        ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
+                    }
+                });
+            } else {
+                // 直連模式畫簡單的點
+                centers.forEach(p => {
+                    const sc = toScreen(p);
+                    ctx.fillStyle = '#ef4444'; 
+                    ctx.beginPath(); ctx.arc(sc.x, sc.y, 4, 0, 2 * Math.PI); ctx.fill();
+                });
+            }
+
+            // 6. 編號 (置頂)
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 12px Inter';
+            centers.forEach((p, idx) => {
+                const sc = toScreen(p);
+                const isSelected = (idx === selectedIndex && isFlowerPathMode);
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // Dark BG for text
+                ctx.beginPath(); ctx.arc(sc.x - 8, sc.y - 8, 10, 0, 2 * Math.PI); ctx.fill();
+
+                ctx.fillStyle = isSelected ? '#a78bfa' : '#34d399';
+                ctx.fillText(idx+1, sc.x - 8, sc.y - 8);
+                // 中心點標記
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(sc.x-2, sc.y-2, 4, 4);
+            });
         }
-        function generateRouterGpxFile() {
-            const coords = getCoordinates();
-            const routeName = routeNameInput.value.trim().replace(/[<>:"/\\|?*]/g, '') || '未命名路徑';
-            if (coords.length === 0) { alert('請至少輸入一組有效的座標！'); return; }
-            const waypoints = coords.map(c => `  <wpt lat="${c.lat}" lon="${c.lon}"></wpt>`).join('\n');
-            const trackpoints = coords.map(c => `    <trkpt lat="${c.lat}" lon="${c.lon}"></trkpt>`).join('\n');
-            const gpxContent = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<gpx version="1.1" creator="Gemini GPX Generator" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+
+        function drawGrid() {
+            const gridPx = meterToPx(5);
+            if (gridPx > 3) {
+                const origin = centers.length > 0 ? toScreen(centers[0]) : {x: canvas.width/2 + offsetX, y: canvas.height/2 + offsetY};
+                ctx.beginPath(); ctx.strokeStyle = 'rgba(156, 163, 175, 0.5)'; // 加深的淺灰線條
+                ctx.lineWidth = 1;
+                // 優化：只畫螢幕範圍內
+                // 為避免浮點數誤差，取整數計算
+                const startX = (origin.x % gridPx + gridPx) % gridPx;
+                const startY = (origin.y % gridPx + gridPx) % gridPx;
+                
+                for (let x = startX; x < canvas.width; x += gridPx) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
+                for (let y = startY; y < canvas.height; y += gridPx) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
+                ctx.stroke();
+            }
+        }
+
+        // --- GPX 生成與下載 ---
+        function generateGPX(type) {
+            const routeName = document.getElementById('route-name').value.trim() || "未命名";
+            const count = centers.length;
+            const modeName = isFlowerPathMode ? "種花" : "收果";
+            const typeSuffix = type === 'Router' ? 'R' : 'J';
+            const fileName = `${routeName}${modeName}${typeSuffix}(${count})`;
+            
+            const pointsToExport = isFlowerPathMode ? pathPoints : centers;
+            
+            if (pointsToExport.length === 0) { alert("沒有路徑資料！"); return; }
+
+            let content = "";
+            if (type === 'Router') {
+                const waypoints = pointsToExport.map(c => `  <wpt lat="${c.lat}" lon="${c.lon}"></wpt>`).join('\n');
+                const trackpoints = pointsToExport.map(c => `    <trkpt lat="${c.lat}" lon="${c.lon}"></trkpt>`).join('\n');
+                content = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<gpx version="1.1" creator="Mushroom Lab" xmlns="http://www.topografix.com/GPX/1/1">
 ${waypoints}
-<trk><name>${routeName}</name><trkseg>${trackpoints}</trkseg></trk></gpx>`;
-            downloadGpxFile(gpxContent, routeName);
-        }
-        function generateJoystickGpxFile() {
-            const coords = getCoordinates();
-            const routeName = routeNameInput.value.trim().replace(/[<>:"/\\|?*]/g, '') || '未命名路徑';
-            if (coords.length === 0) { alert('請至少輸入一組有效的座標！'); return; }
-            const routepoints = coords.map(c => `<rtept lat="${c.lat}" lon="${c.lon}"/>`).join('');
-            const gpxContent = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="GPS JoyStick"><rte><name>${routeName}</name><number>0</number>${routepoints}</rte></gpx>`;
-            downloadGpxFile(gpxContent, routeName);
-        }
-        function downloadGpxFile(content, fileName) {
+<trk><name>${fileName}</name><trkseg>${trackpoints}</trkseg></trk></gpx>`;
+            } else {
+                // Joystick
+                const routepoints = pointsToExport.map(c => `<rtept lat="${c.lat}" lon="${c.lon}"/>`).join('');
+                content = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?><gpx version="1.1" creator="Mushroom Lab"><rte><name>${fileName}</name><number>0</number>${routepoints}</rte></gpx>`;
+            }
+
             const blob = new Blob([content], { type: 'application/gpx+xml;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url; a.download = `${fileName}.gpx`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         }
-        function initializePage() {
-            coordsContainer.innerHTML = '';
-            for (let i = 0; i < 20; i++) { addCoordRow(); }
-            updateRowNumbers();
+
+        // --- 互動與數學運算 ---
+        function onCanvasClick(e) {
+            if (!isFlowerPathMode) return; 
+            
+            const dx = e.clientX - clickStartX;
+            const dy = e.clientY - clickStartY;
+            if (Math.hypot(dx, dy) > 5) return; 
+
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            let clickedIndex = -1;
+            const hitRadius = meterToPx(40); 
+
+            for (let i = centers.length - 1; i >= 0; i--) {
+                const sc = toScreen(centers[i]);
+                if (Math.hypot(mx - sc.x, my - sc.y) <= hitRadius) {
+                    clickedIndex = i;
+                    break;
+                }
+            }
+
+            selectedIndex = clickedIndex;
+            updateUIForMode();
+            draw(); 
         }
-        addRowButton.addEventListener('click', () => { addCoordRow(); updateRowNumbers(); });
-        pasteAllButton.addEventListener('click', pasteAllFromClipboard);
-        generateRouterButton.addEventListener('click', generateRouterGpxFile);
-        generateJoystickButton.addEventListener('click', generateJoystickGpxFile);
-        initializePage();
+
+        function onMouseDown(e) {
+            clickStartX = e.clientX;
+            clickStartY = e.clientY;
+            handleStart(e.clientX, e.clientY);
+        }
+
+        function onMouseMove(e) {
+            handleMove(e.clientX, e.clientY);
+        }
+
+        function onMouseUp() { 
+            handleEnd();
+        }
+
+        // Touch Handlers
+        function onTouchStart(e) {
+            if (e.touches.length === 1) {
+                // e.preventDefault(); // 已在 CSS 中設置 touch-action: none，此處不強制阻止，以保留其他手勢可能
+                const touch = e.touches[0];
+                clickStartX = touch.clientX;
+                clickStartY = touch.clientY;
+                handleStart(touch.clientX, touch.clientY);
+            }
+        }
+
+        function onTouchMove(e) {
+            // Modify condition to include isDraggingNode
+            if (e.touches.length === 1 && (isDragging || isDraggingNode)) {
+                e.preventDefault(); // 阻止滾動，確保拖曳順暢
+                const touch = e.touches[0];
+                handleMove(touch.clientX, touch.clientY);
+            }
+        }
+
+        function onTouchEnd(e) {
+            handleEnd();
+        }
+
+        // Common Logic
+        function handleStart(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const mx = clientX - rect.left;
+            const my = clientY - rect.top;
+
+            // 1. 檢查節點拖曳 (僅單點模式)
+            if (isFlowerPathMode && selectedIndex !== -1) {
+                const startNodeIdx = selectedIndex * 4;
+                const nodeHitRadius = 20; // 加大觸控判定範圍
+                for (let i = 0; i < 4; i++) {
+                    const nodeIdx = startNodeIdx + i;
+                    if (nodeIdx < pathPoints.length) {
+                        const p = pathPoints[nodeIdx];
+                        const sc = toScreen(p);
+                        if (Math.hypot(mx - sc.x, my - sc.y) <= nodeHitRadius) {
+                            isDraggingNode = true;
+                            draggingNodeIndex = i;
+                            isDragging = false;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            isDragging = true;
+            lastMouseX = clientX;
+            lastMouseY = clientY;
+        }
+
+        function handleMove(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const mx = clientX - rect.left;
+            const my = clientY - rect.top;
+
+            if (isDraggingNode && selectedIndex !== -1) {
+                const center = centers[selectedIndex];
+                const centerSc = toScreen(center);
+                const dy = centerSc.y - my; // Canvas Y inverted
+                const dx = mx - centerSc.x;
+                let mouseAngle = Math.atan2(dx, dy) * (180 / Math.PI);
+                
+                const prev = (selectedIndex === 0) ? centers[centers.length-1] : centers[selectedIndex-1];
+                const next = (selectedIndex === centers.length - 1) ? centers[0] : centers[selectedIndex+1];
+                const angleFromPrev = getBearing(prev, center);
+                const angleToNext = getBearing(center, next);
+
+                let newVal;
+                const normalize = (ang) => (ang % 360 + 360) % 360;
+
+                if (draggingNodeIndex === 0) { // Entry
+                    newVal = normalize(mouseAngle - (angleFromPrev - 180));
+                    onParamChange('entryAng', newVal);
+                } else if (draggingNodeIndex === 1) { // Apex
+                    newVal = normalize(mouseAngle - angleToNext);
+                    onParamChange('apexAng', newVal);
+                } else if (draggingNodeIndex === 2) { // Side
+                    newVal = normalize(mouseAngle - angleToNext);
+                    onParamChange('sideAng', newVal);
+                } else if (draggingNodeIndex === 3) { // Exit
+                    newVal = normalize(mouseAngle - angleToNext);
+                    onParamChange('exitAng', newVal);
+                }
+                return;
+            }
+
+            if (isDragging) {
+                const dx = clientX - lastMouseX;
+                const dy = clientY - lastMouseY;
+                offsetX += dx;
+                offsetY += dy;
+                lastMouseX = clientX;
+                lastMouseY = clientY;
+                draw();
+            }
+        }
+
+        function handleEnd() {
+            isDragging = false; 
+            isDraggingNode = false; 
+            draggingNodeIndex = -1;
+        }
+
+        function onWheel(e) { e.preventDefault(); const factor = e.deltaY > 0 ? 0.9 : 1.1; scale *= factor; draw(); }
+
+        // --- Utils ---
+        function parseTextToPoints(text) {
+            if (!text) return [];
+            return text.trim().split('\n').map(line => {
+                // 支援更多格式，例如 "緯度,經度" 或 "緯度 經度"
+                const parts = line.replace(/[^\d\.\-\,\s]/g, '').trim().split(/[,\s]+/);
+                if (parts.length >= 2) {
+                    const lat = parseFloat(parts[0]);
+                    const lon = parseFloat(parts[1]);
+                    // 簡單驗證範圍
+                    if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90) {
+                        return { lat, lon };
+                    }
+                }
+                return null;
+            }).filter(p => p !== null);
+        }
+        function getDistanceMeters(p1, p2) {
+            const dy = (p1.lat - p2.lat) * METERS_PER_DEGREE;
+            const dx = (p1.lon - p2.lon) * METERS_PER_DEGREE;
+            return Math.sqrt(dx*dx + dy*dy);
+        }
+        function getBearing(p1, p2) {
+            const dLon = p2.lon - p1.lon; const dLat = p2.lat - p1.lat;
+            return (Math.atan2(dLon, dLat) * 180 / Math.PI + 360) % 360;
+        }
+        function getOffsetPoint(p, distMeters, bearingDeg) {
+            const distDeg = distMeters / METERS_PER_DEGREE;
+            const rad = bearingDeg * (Math.PI / 180);
+            return { lat: p.lat + distDeg * Math.cos(rad), lon: p.lon + distDeg * Math.sin(rad) };
+        }
+        function toScreen(p) {
+            const base = centers.length > 0 ? centers[0] : {lat:0, lon:0}; // fallback
+            const dx = (p.lon - base.lon) * METERS_PER_DEGREE;
+            const dy = (p.lat - base.lat) * METERS_PER_DEGREE;
+            const cx = canvas.width / 2; const cy = canvas.height / 2;
+            return { x: cx + dx * (scale / 100) + offsetX, y: cy - dy * (scale / 100) + offsetY };
+        }
+        function meterToPx(m) { return m * (scale / 100); }
+        function centerMap() { offsetX = 0; offsetY = 0; scale = 300; draw(); }
+        function resetView() { centerMap(); }
+        function zoomStep(factor) { scale *= factor; draw(); }
+        function fitToScreen() {
+            if (centers.length === 0) { centerMap(); return; }
+            let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+            centers.forEach(p => {
+                if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat;
+                if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon;
+            });
+            const padding = 50 / METERS_PER_DEGREE;
+            minLat -= padding; maxLat += padding; minLon -= padding; maxLon += padding;
+            const latRange = maxLat - minLat; const lonRange = maxLon - minLon;
+            const scaleY = (canvas.height) / (latRange * METERS_PER_DEGREE) * 100;
+            const scaleX = (canvas.width) / (lonRange * METERS_PER_DEGREE) * 100;
+            scale = Math.min(scaleX, scaleY);
+            offsetX = 0; offsetY = 0;
+            const mapCenterLat = (minLat + maxLat) / 2; const mapCenterLon = (minLon + maxLon) / 2;
+            const currentCenterScreen = toScreen({lat: mapCenterLat, lon: mapCenterLon});
+            offsetX = (canvas.width / 2) - currentCenterScreen.x;
+            offsetY = (canvas.height / 2) - currentCenterScreen.y;
+            draw();
+        }
+        function calcTotalDistance(pts) {
+            let d = 0;
+            for(let i=0; i<pts.length-1; i++) {
+                const dy = (pts[i+1].lat - pts[i].lat) * METERS_PER_DEGREE;
+                const dx = (pts[i+1].lon - pts[i].lon) * METERS_PER_DEGREE;
+                d += Math.sqrt(dx*dx + dy*dy);
+            }
+            return d;
+        }
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (sb.classList.contains('-translate-x-full')) {
+                sb.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sb.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+            document.getElementById('sidebar-overlay').classList.add('hidden');
+        }
     </script>
 </body>
 </html>
