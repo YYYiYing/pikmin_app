@@ -8,64 +8,100 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; overflow: hidden; touch-action: none; /* 禁止預設觸控行為 */ }
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; overflow: hidden; touch-action: none; }
         
-        /* 自定義捲軸 */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
 
-        /* 地圖控制按鈕 (膠囊狀) */
         .map-control-group {
             position: absolute; top: 20px; right: 20px;
             display: flex; flex-direction: column;
             background: rgba(255, 255, 255, 0.9);
-            border-radius: 9999px; /* Pill shape */
+            border-radius: 9999px;
             padding: 4px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-            z-index: 100; /* 提高層級，確保在遮罩之上 */
-            pointer-events: auto; /* 確保可以點擊 */
+            z-index: 100; pointer-events: auto;
         }
         .map-btn {
             width: 40px; height: 40px;
             display: flex; align-items: center; justify-content: center;
             font-size: 20px; font-weight: bold; color: #374151;
             transition: all 0.2s; border-radius: 9999px;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent; /* 移除手機點擊高亮 */
+            cursor: pointer; -webkit-tap-highlight-color: transparent;
         }
         .map-btn:hover { background-color: #e5e7eb; }
         .map-btn:active { background-color: #d1d5db; transform: scale(0.95); }
         .divider { height: 1px; background-color: #e5e7eb; margin: 2px 8px; }
 
-        /* Toggle Switch */
+        /* 浮動操作區 (FAB) - 置中置頂 */
+        .quick-actions {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px;
+            background: rgba(31, 41, 55, 0.9);
+            padding: 8px 12px; border-radius: 9999px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            z-index: 90; opacity: 0; pointer-events: none;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(4px); border: 1px solid #4b5563;
+        }
+        .quick-actions.show { opacity: 1; pointer-events: auto; }
+        .fab-btn {
+            background-color: #2563eb; color: white;
+            font-size: 12px; font-weight: bold;
+            padding: 6px 12px; border-radius: 20px;
+            border: none; cursor: pointer; white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: background 0.2s; display: block;
+        }
+        .fab-btn:active { transform: scale(0.95); }
+        .fab-btn.hidden { display: none; }
+        
         .toggle-checkbox:checked { right: 0; border-color: #22c55e; }
         .toggle-checkbox:checked + .toggle-label { background-color: #22c55e; }
         
-        /* Canvas 座標顯示 */
-        #coords-display {
-            position: absolute; bottom: 10px; left: 10px;
-            background: rgba(255, 255, 255, 0.9); color: #374151; /* 配合淺底色改深字 */
-            padding: 4px 8px; font-size: 12px; border-radius: 4px;
-            pointer-events: none; z-index: 50; backdrop-filter: blur(2px);
-            border: 1px solid #e5e7eb;
+        #toast-message {
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(245, 158, 11, 0.95); color: white;
+            padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); z-index: 200;
+            pointer-events: none; opacity: 0; transition: opacity 0.3s;
         }
+        #toast-message.show { opacity: 1; }
 
-        /* 側邊欄過渡 */
         #sidebar { transition: transform 0.3s ease-in-out; }
         .sidebar-overlay { backdrop-filter: blur(2px); }
-        
-        /* 隱藏未驗證內容 */
         #app-content { display: none; }
+
+        .top-left-actions {
+            position: absolute; top: 1rem; left: 1rem; z-index: 60;
+            display: flex; gap: 10px;
+        }
+        .action-btn {
+            background: white; color: #1f2937;
+            padding: 8px 12px; border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            font-size: 20px; font-weight: bold;
+            cursor: pointer; transition: transform 0.1s;
+            display: flex; align-items: center; justify-content: center;
+            width: 44px; height: 44px;
+        }
+        .action-btn:active { transform: scale(0.95); }
+        .action-btn.blue { background-color: #3b82f6; color: white; }
+        .action-btn.purple { background-color: #8b5cf6; color: white; } /* 紫色給模式切換 */
+
+        @media (max-width: 768px) {
+            /* 手機版 FAB 稍微往下，避開漢堡選單 */
+            .quick-actions { top: 80px; }
+        }
     </style>
 </head>
 <body class="flex h-screen w-screen">
 
-    <!-- Supabase Auth Logic -->
     <script>
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ'; // 使用您提供的公開 Key
+        const SUPABASE_ANON_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -74,38 +110,32 @@
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (!session) {
                     alert('請先登入才能使用此功能！');
-                    try {
-                        window.location.replace('./index.html');
-                    } catch (e) {
-                        console.warn("Redirect failed (likely in preview environment):", e);
-                        // 在預覽環境無法跳轉時，顯示替代訊息
-                        document.body.innerHTML = '<div class="flex items-center justify-center h-screen w-screen bg-gray-900 text-white text-xl">請先登入 (Redirect not available in preview)</div>';
-                    }
+                    try { window.location.replace('./index.html'); } 
+                    catch (e) { document.body.innerHTML = '<div class="flex items-center justify-center h-screen w-screen bg-gray-900 text-white text-xl">請先登入</div>'; }
                 } else {
                     document.getElementById('app-content').style.display = 'flex';
-                    // 驗證通過後觸發一次 resize 確保 canvas 正確
                     setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
                 }
-            } catch (error) {
-                console.error("Auth check error:", error);
-                document.body.innerHTML = '<div class="flex items-center justify-center h-screen w-screen bg-gray-900 text-red-400">驗證發生錯誤，請重新整理頁面。</div>';
-            }
+            } catch (error) { document.body.innerHTML = '<div class="flex items-center justify-center h-screen w-screen bg-gray-900 text-red-400">驗證發生錯誤。</div>'; }
         }
         checkAuth();
     </script>
 
+    <!-- 浮動提示 -->
+    <div id="toast-message">請點擊另一朵花進行交換</div>
+
     <div id="app-content" class="w-full h-full flex">
         
-        <!-- Mobile Hamburger -->
-        <button id="hamburger-btn" class="md:hidden absolute top-4 left-4 z-[60] bg-white text-gray-800 p-2 rounded shadow-lg" onclick="toggleSidebar()">
-            ☰
-        </button>
+        <!-- 左上角按鈕群組 -->
+        <div class="top-left-actions">
+            <button id="hamburger-btn" class="action-btn md:hidden" onclick="toggleSidebar()">☰</button>
+            <button id="quick-redraw-btn" class="action-btn blue hidden" onclick="optimizeRoute()" title="快速重繪 (AI分析)">↻</button>
+            <button id="quick-mode-btn" class="action-btn purple hidden" onclick="quickToggleMode()" title="切換 收果/種花 模式">📏</button>
+        </div>
+
         <div id="sidebar-overlay" class="sidebar-overlay fixed inset-0 bg-black/50 z-[55] hidden md:hidden" onclick="toggleSidebar()"></div>
 
-        <!-- 左側邊欄 -->
         <aside id="sidebar" class="fixed md:relative w-[85%] md:w-96 h-full bg-gray-800 border-r border-gray-700 flex flex-col z-[70] transform -translate-x-full md:translate-x-0 shadow-2xl md:shadow-none">
-            
-            <!-- Header -->
             <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900">
                 <div>
                     <h1 class="text-xl font-bold text-white">路徑生成器 Pro</h1>
@@ -114,37 +144,32 @@
                 <button class="md:hidden text-gray-400 text-2xl px-2" onclick="toggleSidebar()">&times;</button>
             </div>
 
-            <!-- Scrollable Content -->
             <div class="flex-1 overflow-y-auto p-4 space-y-6">
-                
-                <!-- 1. 巨大花點輸入 -->
                 <div class="space-y-3">
-                    <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider border-b border-gray-700 pb-1">1. 巨大花點與排序</h2>
-                    
+                    <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider border-b border-gray-700 pb-1">1. 登錄資訊</h2>
                     <div>
                         <label class="block text-xs font-medium text-gray-400 mb-1">路徑名稱</label>
                         <input type="text" id="route-name" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-500 placeholder-opacity-50 focus:border-green-500 focus:outline-none" placeholder="例如：大安森林公園">
                     </div>
-
                     <div>
                         <label class="block text-xs font-medium text-gray-400 mb-1">巨大花座標 (緯度, 經度)</label>
-                        <textarea id="rawInputData" class="w-full h-24 bg-gray-900 border border-gray-600 rounded p-2 text-xs font-mono text-green-300 placeholder-gray-500 placeholder-opacity-50 focus:border-green-500 focus:outline-none resize-y" placeholder="請貼上座標，格式範例：
--0.5715520, 117.2818990
--0.5711250, 117.2815350"></textarea>
+                        <textarea id="rawInputData" class="w-full h-24 bg-gray-900 border border-gray-600 rounded p-2 text-xs font-mono text-green-300 placeholder-gray-500 placeholder-opacity-50 focus:border-green-500 focus:outline-none resize-y" placeholder="請貼上座標，格式範例：&#10;-0.5715520, 117.2818990&#10;-0.5711250, 117.2815350"></textarea>
                     </div>
-
-                    <button onclick="optimizeRoute()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded text-sm transition shadow">
-                        ✨ AI 分析繪製 (過濾+排序)
-                    </button>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="drawDirectRoute()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded text-sm transition shadow hover:scale-[1.02]">
+                            繪製 (依序)
+                        </button>
+                        <button onclick="optimizeRoute()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded text-sm transition shadow hover:scale-[1.02]">
+                            AI 繪製 ↻
+                        </button>
+                    </div>
                     <div id="sort-stats" class="text-xs text-gray-500 text-center hidden"></div>
                 </div>
 
-                <!-- 2. 路徑編輯 -->
                 <div class="space-y-4">
                     <div class="flex justify-between items-end border-b border-gray-700 pb-1">
                         <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider">2. 路徑編輯</h2>
-                        
-                        <!-- Toggle Switch -->
                         <div class="flex items-center">
                             <label for="path-toggle" class="flex items-center cursor-pointer">
                                 <div class="relative">
@@ -157,121 +182,88 @@
                         </div>
                     </div>
 
-                    <!-- 模式指示器 -->
-                    <div id="mode-indicator" class="hidden text-xs text-center p-2 rounded bg-indigo-900/50 text-indigo-200 border border-indigo-700/50">
-                        全域設定模式
+                    <div id="mode-indicator" class="hidden text-xs text-center p-2 rounded bg-indigo-900/50 text-indigo-200 border border-indigo-700/50">全域設定模式</div>
+                    
+                    <div id="local-edit-btns" class="hidden grid grid-cols-3 gap-2">
+                        <button onclick="resetCurrentFlower()" class="bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded text-xs font-bold shadow transition hover:scale-105">重置</button>
+                        <button onclick="mirrorCurrentFlower()" class="bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded text-xs font-bold shadow transition hover:scale-105">鏡像 ⇄</button>
+                        <button onclick="initiateSwap()" class="bg-orange-500 hover:bg-orange-600 text-white py-1 px-2 rounded text-xs font-bold shadow transition hover:scale-105">交換 ⇅</button>
+                    </div>
+                    
+                    <div id="swap-hint" class="hidden text-xs text-center p-2 rounded bg-orange-900/50 text-orange-200 border border-orange-700/50 animate-pulse">
+                        請點擊另一朵花進行交換
                     </div>
 
-                    <!-- 單點操作按鈕 -->
-                    <div id="local-edit-btns" class="hidden grid grid-cols-2 gap-2">
-                        <button onclick="resetCurrentFlower()" class="bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded text-xs">重置全域</button>
-                        <button onclick="mirrorCurrentFlower()" class="bg-yellow-600 hover:bg-yellow-700 text-white py-1 px-2 rounded text-xs">鏡像 ⇄</button>
-                    </div>
-
-                    <!-- 參數滑桿區 (預設隱藏，種花模式才顯示) -->
                     <div id="flower-params" class="space-y-3 opacity-50 pointer-events-none transition-opacity duration-300">
-                        <!-- Entry -->
                         <div>
-                            <div class="flex justify-between text-xs mb-1">
-                                <span class="text-gray-400">入口偏角</span>
-                                <span id="val-entryAng" class="text-blue-400 font-bold">300°</span>
-                            </div>
+                            <div class="flex justify-between text-xs mb-1"><span class="text-gray-400">入口偏角</span><span id="val-entryAng" class="text-blue-400 font-bold">300°</span></div>
                             <input type="range" id="entryAngle" min="0" max="360" value="300" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="onParamChange('entryAng', this.value)">
                         </div>
-                        <!-- Apex -->
                         <div>
-                            <div class="flex justify-between text-xs mb-1">
-                                <span class="text-gray-400">穿心偏角</span>
-                                <span id="val-apexAng" class="text-blue-400 font-bold">300°</span>
-                            </div>
+                            <div class="flex justify-between text-xs mb-1"><span class="text-gray-400">穿心偏角</span><span id="val-apexAng" class="text-blue-400 font-bold">300°</span></div>
                             <input type="range" id="apexAngle" min="0" max="360" value="300" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="onParamChange('apexAng', this.value)">
                         </div>
-                        <!-- Side -->
                         <div>
-                            <div class="flex justify-between text-xs mb-1">
-                                <span class="text-gray-400">側點偏角</span>
-                                <span id="val-sideAng" class="text-blue-400 font-bold">120°</span>
-                            </div>
+                            <div class="flex justify-between text-xs mb-1"><span class="text-gray-400">側點偏角</span><span id="val-sideAng" class="text-blue-400 font-bold">120°</span></div>
                             <input type="range" id="sideAngle" min="0" max="360" value="120" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="onParamChange('sideAng', this.value)">
                         </div>
-                        <!-- Exit -->
                         <div>
-                            <div class="flex justify-between text-xs mb-1">
-                                <span class="text-gray-400">出口偏角</span>
-                                <span id="val-exitAng" class="text-blue-400 font-bold">20°</span>
-                            </div>
+                            <div class="flex justify-between text-xs mb-1"><span class="text-gray-400">出口偏角</span><span id="val-exitAng" class="text-blue-400 font-bold">20°</span></div>
                             <input type="range" id="exitAngle" min="0" max="360" value="20" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="onParamChange('exitAng', this.value)">
                         </div>
                     </div>
                 </div>
 
-                <!-- 3. 種花路徑生成 -->
                 <div class="space-y-3 pb-8">
                     <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider border-b border-gray-700 pb-1">3. 種花路徑生成</h2>
-                    
                     <div class="grid grid-cols-1 gap-3">
-                        <button onclick="generateGPX('Router')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow-lg transform transition hover:scale-[1.02]">
-                            生成 Router 路徑
-                        </button>
-                        <button onclick="generateGPX('Joystick')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded shadow-lg transform transition hover:scale-[1.02]">
-                            生成 Joystick 路徑
-                        </button>
+                        <button onclick="generateGPX('Router')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow-lg transform transition hover:scale-[1.02]">生成 Router 路徑</button>
+                        <button onclick="generateGPX('Joystick')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded shadow-lg transform transition hover:scale-[1.02]">生成 Joystick 路徑</button>
                     </div>
-                    
-                    <div id="statsBox" class="bg-gray-700/50 p-3 rounded text-xs text-gray-400 border border-gray-600 leading-relaxed">
-                        等待路徑生成...
-                    </div>
+                    <div id="statsBox" class="bg-gray-700/50 p-3 rounded text-xs text-gray-400 border border-gray-600 leading-relaxed">等待路徑生成...</div>
                 </div>
-
             </div>
         </aside>
 
-        <!-- 右側地圖區 -->
         <main class="flex-1 relative bg-gray-900 cursor-grab active:cursor-grabbing overflow-hidden" id="mainView">
             <canvas id="mapCanvas" class="block w-full h-full"></canvas>
             
-            <!-- 地圖控制項 -->
             <div class="map-control-group">
-                <button onclick="fitToScreen()" class="map-btn text-[10px] font-black" title="適應視窗">All</button>
+                <button onclick="fitToScreen()" class="map-btn text-[10px] font-black" title="適應視窗">⛶</button>
                 <div class="divider"></div>
                 <button onclick="zoomStep(1.2)" class="map-btn" title="放大">＋</button>
                 <div class="divider"></div>
                 <button onclick="zoomStep(0.833)" class="map-btn" title="縮小">－</button>
             </div>
 
-            <!-- 座標顯示 -->
-            <div id="coords-display">Lat: -, Lon: -</div>
+            <!-- 浮動操作區 (FAB) -->
+            <div id="floating-actions" class="quick-actions">
+                <button id="fab-reset" onclick="resetCurrentFlower()" class="fab-btn bg-red-600 hover:bg-red-500">重置</button>
+                <button id="fab-mirror" onclick="mirrorCurrentFlower()" class="fab-btn bg-blue-600 hover:bg-blue-500">鏡像</button>
+                <button id="fab-swap" onclick="initiateSwap()" class="fab-btn bg-orange-500 hover:bg-orange-400">交換</button>
+            </div>
         </main>
-
     </div>
 
     <script>
-        // --- 核心變數 ---
-        let centers = []; // 排序後的巨大花中心點
-        let pathPoints = []; // 最終生成的路徑點 (可能是種花路徑，也可能是直連路徑)
+        let centers = [];
+        let pathPoints = [];
         let canvas, ctx;
         
-        // 參數設定 (固定值) - 全部改為 1.2
         const FIXED_ALGO_DIST = 30;
         const FIXED_ENTRY_DIST = 1.2;
         const FIXED_CROSS_FACTOR = 1.2;
         const FIXED_SIDE_DIST = 1.2;
         const METERS_PER_DEGREE = 111320; 
 
-        // 編輯狀態
-        let isFlowerPathMode = false; // Toggle 狀態
-        let selectedIndex = -1; // -1 = Global, >=0 = Local Flower Index
+        let isFlowerPathMode = false;
+        let selectedIndex = -1;
+        let swapSourceIndex = -1; 
+        let optimizationIteration = 0; 
         
-        // 角度參數 (更新預設值: 300, 300, 120, 20)
-        let globalParams = {
-            entryAngle: 300,
-            apexAngle: 300,
-            sideAngle: 120, 
-            exitAngle: 20
-        };
-        let flowerOverrides = {}; // 存儲單點設定
+        let globalParams = { entryAngle: 300, apexAngle: 300, sideAngle: 120, exitAngle: 20 };
+        let flowerOverrides = {}; 
 
-        // 視圖控制
         let scale = 10000;
         let offsetX = 0, offsetY = 0;
         let isDragging = false;
@@ -280,30 +272,26 @@
         let lastMouseX, lastMouseY;
         let clickStartX, clickStartY;
 
-        // --- 初始化 ---
         window.onload = function() {
             canvas = document.getElementById('mapCanvas');
             ctx = canvas.getContext('2d');
             
-            // 綁定事件
-            const view = document.getElementById('mainView');
+            // 自動淨化輸入框
+            const rawInput = document.getElementById('rawInputData');
+            rawInput.addEventListener('change', () => cleanInputData());
             
-            // Mouse Events
+            const view = document.getElementById('mainView');
             view.addEventListener('mousedown', onMouseDown);
             view.addEventListener('mousemove', onMouseMove);
             view.addEventListener('mouseup', onMouseUp);
             view.addEventListener('wheel', onWheel);
             view.addEventListener('click', onCanvasClick);
-            
-            // Touch Events (Mobile Dragging)
-            // 確保被動監聽器為 false，以便可以使用 preventDefault
             view.addEventListener('touchstart', onTouchStart, { passive: false });
             view.addEventListener('touchmove', onTouchMove, { passive: false });
             view.addEventListener('touchend', onTouchEnd);
 
             window.addEventListener('resize', resizeCanvas);
 
-            // Toggle UI 初始化
             const toggle = document.getElementById('path-toggle');
             toggle.addEventListener('change', function() {
                 isFlowerPathMode = this.checked;
@@ -311,21 +299,30 @@
             });
 
             resizeCanvas();
-            // 初始狀態不繪製路徑，只顯示網格
             centerMap();
 
-            // 行動版預設開啟側邊欄
             if (window.innerWidth <= 768) {
                 const sb = document.getElementById('sidebar');
                 const overlay = document.getElementById('sidebar-overlay');
                 if (!sb.classList.contains('open')) {
-                    // 根據 CSS class 邏輯: 預設 -translate-x-full (hidden)
-                    // 要顯示需移除 -translate-x-full
                     sb.classList.remove('-translate-x-full');
                     overlay.classList.remove('hidden');
                 }
             }
         };
+
+        function cleanInputData() {
+            const raw = document.getElementById('rawInputData').value;
+            if (!raw) return;
+            const matches = raw.matchAll(/(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)/g);
+            let cleaned = "";
+            for (const match of matches) {
+                cleaned += `${match[1]}, ${match[3]}\n`;
+            }
+            if (cleaned) {
+                document.getElementById('rawInputData').value = cleaned.trim();
+            }
+        }
 
         function resizeCanvas() {
             const view = document.getElementById('mainView');
@@ -334,12 +331,12 @@
             draw();
         }
 
-        // --- 模式切換 ---
         function onModeToggle() {
             const label = document.getElementById('mode-label');
             const paramDiv = document.getElementById('flower-params');
             const indicator = document.getElementById('mode-indicator');
             const toggleDot = document.querySelector('.dot');
+            const quickBtn = document.getElementById('quick-mode-btn');
             
             if (isFlowerPathMode) {
                 label.innerText = "種花模式";
@@ -347,36 +344,53 @@
                 paramDiv.classList.remove('opacity-50', 'pointer-events-none');
                 indicator.classList.remove('hidden');
                 toggleDot.style.transform = 'translateX(100%)';
+                
+                // Update Quick Button
+                quickBtn.innerText = '🌸';
+                quickBtn.classList.remove('bg-gray-600');
+                quickBtn.classList.add('purple');
             } else {
                 label.innerText = "直連模式";
                 label.classList.replace('text-green-400', 'text-gray-300');
                 paramDiv.classList.add('opacity-50', 'pointer-events-none');
                 indicator.classList.add('hidden');
                 document.getElementById('local-edit-btns').classList.add('hidden');
-                selectedIndex = -1; // 強制取消選取
+                document.getElementById('swap-hint').classList.add('hidden');
+                selectedIndex = -1; 
+                swapSourceIndex = -1;
                 toggleDot.style.transform = 'translateX(0)';
+                
+                // Update Quick Button
+                quickBtn.innerText = '📏';
+                quickBtn.classList.remove('purple');
+                quickBtn.classList.add('bg-gray-600');
             }
             
-            // 重新計算路徑並繪圖
+            // Sync checkbox if called from quick button
+            document.getElementById('path-toggle').checked = isFlowerPathMode;
+            
             updatePathData(); 
+            updateUIForMode(); 
             draw();
         }
 
-        // --- 路徑分析與排序 (Auto TSP) ---
-        function optimizeRoute() {
+        // New function for Quick Toggle
+        function quickToggleMode() {
+            isFlowerPathMode = !isFlowerPathMode;
+            onModeToggle();
+        }
+
+        function drawDirectRoute() {
+            cleanInputData();
             const rawText = document.getElementById('rawInputData').value;
             let points = parseTextToPoints(rawText);
             
             if (points.length < 2) { 
-                if (rawText.trim() === '') {
-                    alert("請貼上座標資料");
-                } else {
-                    alert("請至少輸入 2 個有效的座標點"); 
-                }
+                if (rawText.trim() === '') alert("請貼上座標資料");
+                else alert("請至少輸入 2 個有效的座標點"); 
                 return; 
             }
 
-            // 去重
             const uniquePoints = [];
             points.forEach(p => {
                 let isDuplicate = false;
@@ -386,23 +400,57 @@
                 if (!isDuplicate) uniquePoints.push(p);
             });
             
+            centers = uniquePoints;
+            flowerOverrides = {}; 
+            selectedIndex = -1;
+            swapSourceIndex = -1;
+            
+            document.getElementById('sort-stats').innerText = `已載入 ${uniquePoints.length} 點 (依照原始順序)。`;
+            document.getElementById('sort-stats').classList.remove('hidden');
+
+            checkAndFixGeometry(centers);
+            updatePathData();
+            resizeCanvas();
+            setTimeout(() => {
+                fitToScreen();
+                if (window.innerWidth <= 768) closeSidebar();
+            }, 100);
+            updateUIForMode(); 
+        }
+
+        function optimizeRoute() {
+            cleanInputData();
+            const rawText = document.getElementById('rawInputData').value;
+            let points = parseTextToPoints(rawText);
+            
+            if (points.length < 2) { 
+                if (rawText.trim() === '') alert("請貼上座標資料");
+                else alert("請至少輸入 2 個有效的座標點"); 
+                return; 
+            }
+
+            const uniquePoints = [];
+            points.forEach(p => {
+                let isDuplicate = false;
+                for (const existing of uniquePoints) {
+                    if (getDistanceMeters(p, existing) < 0.5) { isDuplicate = true; break; }
+                }
+                if (!isDuplicate) uniquePoints.push(p);
+            });
             const originalCount = points.length;
             points = uniquePoints;
 
-            // 找起點 (重心最遠)
             let sumLat = 0, sumLon = 0;
             points.forEach(p => { sumLat += p.lat; sumLon += p.lon; });
             const center = { lat: sumLat/points.length, lon: sumLon/points.length };
-            let maxDist = -1, startIndex = 0;
-            points.forEach((p, idx) => {
-                const d = getDistanceMeters(p, center);
-                if (d > maxDist) { maxDist = d; startIndex = idx; }
-            });
+            let candidates = points.map((p, idx) => ({ index: idx, dist: getDistanceMeters(p, center) })).sort((a, b) => b.dist - a.dist);
+            let candidateLimit = Math.min(5, candidates.length);
+            let startOriginalIndex = candidates[optimizationIteration % candidateLimit].index;
+            optimizationIteration++;
 
-            // 貪婪排序
             const sorted = [];
             const visited = new Set();
-            let currIdx = startIndex;
+            let currIdx = startOriginalIndex;
             sorted.push(points[currIdx]);
             visited.add(currIdx);
 
@@ -422,61 +470,61 @@
                 } else break;
             }
 
-            centers = sorted;
-            flowerOverrides = {}; // 重置個別設定
+            centers = applyTwoOpt(sorted);
+            flowerOverrides = {}; 
             selectedIndex = -1;
+            swapSourceIndex = -1;
             
             document.getElementById('sort-stats').innerText = `去除重複 ${originalCount - points.length} 點，共 ${points.length} 點。`;
             document.getElementById('sort-stats').classList.remove('hidden');
 
-            // 自動修正邏輯: 檢查是否需要鏡像
-            // 先試算預設參數
-            pathPoints = generatePathAlgorithm(centers);
-            // 檢查每一個三角形是否過於狹窄 (內縮)
             checkAndFixGeometry(centers);
-
             updatePathData();
-            
-            // 強制確保 Canvas 尺寸正確並重繪
             resizeCanvas();
-            // 使用 setTimeout 確保 UI 渲染完成後才執行置中
             setTimeout(() => {
                 fitToScreen();
-                // 手機版自動收起側邊欄以查看結果
-                if (window.innerWidth <= 768) {
-                    closeSidebar();
-                }
+                if (window.innerWidth <= 768) closeSidebar();
             }, 100);
-            
-            updateUIForMode(); // 確保全域模式
+            updateUIForMode(); 
         }
 
-        // --- 自動鏡像檢測邏輯 (幾何判斷) ---
+        function applyTwoOpt(route) {
+            let newRoute = [...route];
+            let improved = true;
+            let iterations = 0;
+            const maxIterations = 50; 
+            while (improved && iterations < maxIterations) {
+                improved = false;
+                iterations++;
+                for (let i = 0; i < newRoute.length - 2; i++) {
+                    for (let j = i + 2; j < newRoute.length - 1; j++) {
+                        const d1 = getDistanceMeters(newRoute[i], newRoute[i+1]);
+                        const d2 = getDistanceMeters(newRoute[j], newRoute[j+1]);
+                        const d3 = getDistanceMeters(newRoute[i], newRoute[j]);
+                        const d4 = getDistanceMeters(newRoute[i+1], newRoute[j+1]);
+                        if (d1 + d2 > d3 + d4 + 0.001) {
+                            const reversedSegment = newRoute.slice(i + 1, j + 1).reverse();
+                            newRoute.splice(i + 1, reversedSegment.length, ...reversedSegment);
+                            improved = true;
+                        }
+                    }
+                }
+            }
+            return newRoute;
+        }
+
         function checkAndFixGeometry(sortedCenters) {
-            // 這個函式會掃描每一朵花生成的 4 個點 (P1-P4)
-            // 判斷側點 P3 是否位於 P1->P4 連線的 "內側" (靠近圓心那側，或導致多邊形面積過小)
-            // 如果是，就自動加入 mirror 設定
-            
             for (let i = 0; i < sortedCenters.length; i++) {
                 const curr = sortedCenters[i];
-                // 暫時用全域參數生成點位
                 const prev = (i === 0) ? sortedCenters[sortedCenters.length-1] : sortedCenters[i-1];
                 const next = (i === sortedCenters.length - 1) ? sortedCenters[0] : sortedCenters[i+1];
-                
                 const angleFromPrev = getBearing(prev, curr);
                 const angleToNext = getBearing(curr, next);
-                
-                // 計算轉彎方向 (-180 左, 180 右)
                 let turnAngle = (angleToNext - angleFromPrev + 540) % 360 - 180;
-                
-                // 計算側點的偏向 (將 0-360 轉為 -180~180)
                 let sideBias = (globalParams.sideAngle > 180) ? globalParams.sideAngle - 360 : globalParams.sideAngle;
-
-                // 判斷：若轉彎方向與側點偏向同號 (例如都 > 0 表示右轉且側點在右)，則側點在內側 -> 需鏡像
                 if ((turnAngle > 0 && sideBias > 0) || (turnAngle < 0 && sideBias < 0)) {
                     if (!flowerOverrides[i]) flowerOverrides[i] = { ...globalParams };
                     const p = flowerOverrides[i];
-                    // 執行鏡像 (360-x)
                     p.entryAngle = (360 - p.entryAngle) % 360;
                     p.apexAngle = (360 - p.apexAngle) % 360;
                     p.sideAngle = (360 - p.sideAngle) % 360;
@@ -485,28 +533,33 @@
             }
         }
 
-        // --- 更新路徑數據 ---
         function updatePathData() {
             if (centers.length < 2) return;
-
-            if (isFlowerPathMode) {
-                // 種花模式：使用演算法生成複雜路徑
-                pathPoints = generatePathAlgorithm(centers);
-            } else {
-                // 直連模式：路徑就是中心點的連線
-                // 但為了配合繪圖邏輯，我們 copy 一份
-                pathPoints = [...centers];
-            }
+            if (isFlowerPathMode) pathPoints = generatePathAlgorithm(centers);
+            else pathPoints = [...centers];
 
             const totalDist = calcTotalDistance(pathPoints).toFixed(0);
+            
+            const speedMpm = 300; 
+            const totalMinutes = totalDist / speedMpm;
+            let timeStr = "";
+            
+            if (totalMinutes < 60) {
+                timeStr = `約 ${Math.round(totalMinutes)} 分鐘`;
+            } else {
+                const h = Math.floor(totalMinutes / 60);
+                const m = Math.round(totalMinutes % 60);
+                timeStr = `約 ${h} 小時 ${m} 分鐘`;
+            }
+
             document.getElementById('statsBox').innerHTML = `
                 <span class="text-indigo-300">模式：${isFlowerPathMode ? '種花 (4點繞行)' : '收果 (直連)'}</span><br>
                 花朵數: ${centers.length} | 節點數: ${pathPoints.length}<br>
-                總長度: ${totalDist} m
+                總長度: ${totalDist} m<br>
+                <span class="text-green-400 font-bold">${timeStr}</span> (以 18km/h 估算)
             `;
         }
 
-        // --- 核心演算法 (4點模式) ---
         function generatePathAlgorithm(centersList) {
             const path = [];
             for (let i = 0; i < centersList.length; i++) {
@@ -520,19 +573,15 @@
                 const angleFromPrev = getBearing(prev, curr);
                 const angleToNext = getBearing(curr, next);
 
-                // P1: Entry
                 const entryAngle = angleFromPrev - 180 + params.entryAngle;
                 const p1 = getOffsetPoint(curr, FIXED_ALGO_DIST * FIXED_ENTRY_DIST, entryAngle);
 
-                // P2: Apex
                 const apexAngle = angleToNext + params.apexAngle; 
                 const p2 = getOffsetPoint(curr, FIXED_ALGO_DIST * FIXED_CROSS_FACTOR, apexAngle);
 
-                // P3: Side
                 const sideAngleCalc = angleToNext + params.sideAngle; 
                 const p3 = getOffsetPoint(curr, FIXED_ALGO_DIST * FIXED_SIDE_DIST, sideAngleCalc);
 
-                // P4: Exit
                 const exitAngleCalc = angleToNext + params.exitAngle;
                 const p4 = getOffsetPoint(curr, FIXED_ALGO_DIST, exitAngleCalc);
 
@@ -541,11 +590,9 @@
             return path;
         }
 
-        // --- 參數調整邏輯 ---
         function onParamChange(id, val) {
             const numVal = parseFloat(val);
             document.getElementById('val-' + id).innerText = numVal + '°';
-
             if (selectedIndex === -1) {
                 if (id === 'entryAng') globalParams.entryAngle = numVal;
                 if (id === 'apexAng') globalParams.apexAngle = numVal;
@@ -563,28 +610,58 @@
         }
 
         function updateUIForMode() {
-            if (!isFlowerPathMode) return;
+            const fab = document.getElementById('floating-actions');
+            const fabReset = document.getElementById('fab-reset');
+            const fabMirror = document.getElementById('fab-mirror');
+            const redrawBtn = document.getElementById('quick-redraw-btn');
+            const modeBtn = document.getElementById('quick-mode-btn');
+            
+            // Check sidebar visibility to toggle quick buttons
+            if (document.getElementById('sidebar').classList.contains('-translate-x-full')) {
+                redrawBtn.classList.remove('hidden');
+                modeBtn.classList.remove('hidden');
+            } else {
+                redrawBtn.classList.add('hidden');
+                modeBtn.classList.add('hidden');
+            }
+
+            if (!isFlowerPathMode) {
+                const indicator = document.getElementById('mode-indicator');
+                const localBtns = document.getElementById('local-edit-btns');
+                const swapHint = document.getElementById('swap-hint');
+                
+                indicator.innerText = "直連模式";
+                indicator.className = "text-xs text-center p-2 rounded bg-indigo-900/50 text-indigo-200 border border-indigo-700/50";
+                localBtns.classList.add('hidden');
+                swapHint.classList.add('hidden');
+                document.getElementById('toast-message').classList.remove('show');
+                
+                if (selectedIndex !== -1) {
+                    fab.classList.add('show');
+                    fabReset.classList.add('hidden');
+                    fabMirror.classList.add('hidden');
+                } else {
+                    fab.classList.remove('show');
+                }
+                return;
+            }
 
             const indicator = document.getElementById('mode-indicator');
             const localBtns = document.getElementById('local-edit-btns');
+            const swapHint = document.getElementById('swap-hint');
             
             let currentVals = { ...globalParams };
             if (selectedIndex !== -1 && flowerOverrides[selectedIndex]) {
                 currentVals = { ...currentVals, ...flowerOverrides[selectedIndex] };
             }
-
-            // 正規化顯示 0-360
             const normalize = (ang) => (ang % 360 + 360) % 360;
 
             document.getElementById('entryAngle').value = normalize(currentVals.entryAngle);
             document.getElementById('val-entryAng').innerText = Math.round(normalize(currentVals.entryAngle)) + '°';
-            
             document.getElementById('apexAngle').value = normalize(currentVals.apexAngle);
             document.getElementById('val-apexAng').innerText = Math.round(normalize(currentVals.apexAngle)) + '°';
-            
             document.getElementById('sideAngle').value = normalize(currentVals.sideAngle);
             document.getElementById('val-sideAng').innerText = Math.round(normalize(currentVals.sideAngle)) + '°';
-            
             document.getElementById('exitAngle').value = normalize(currentVals.exitAngle);
             document.getElementById('val-exitAng').innerText = Math.round(normalize(currentVals.exitAngle)) + '°';
 
@@ -592,16 +669,32 @@
                 indicator.innerText = "全域設定模式 (Global)";
                 indicator.className = "text-xs text-center p-2 rounded bg-indigo-900/50 text-indigo-200 border border-indigo-700/50";
                 localBtns.classList.add('hidden');
+                swapHint.classList.add('hidden');
+                document.getElementById('toast-message').classList.remove('show');
+                fab.classList.remove('show'); 
             } else {
                 indicator.innerText = `編輯花朵 #${selectedIndex + 1}`;
                 indicator.className = "text-xs text-center p-2 rounded bg-purple-900/50 text-purple-200 border border-purple-700/50";
                 localBtns.classList.remove('hidden');
+                
+                fab.classList.add('show');
+                fabReset.classList.remove('hidden');
+                fabMirror.classList.remove('hidden');
+                
+                if (swapSourceIndex !== -1) {
+                    swapHint.classList.remove('hidden');
+                    document.getElementById('toast-message').classList.add('show'); 
+                } else {
+                    swapHint.classList.add('hidden');
+                    document.getElementById('toast-message').classList.remove('show');
+                }
             }
         }
 
         function resetCurrentFlower() {
             if (selectedIndex !== -1) {
                 delete flowerOverrides[selectedIndex];
+                swapSourceIndex = -1; 
                 updateUIForMode();
                 updatePathData();
                 draw();
@@ -612,29 +705,32 @@
             if (selectedIndex !== -1) {
                 if (!flowerOverrides[selectedIndex]) flowerOverrides[selectedIndex] = { ...globalParams };
                 const p = flowerOverrides[selectedIndex];
-                // 簡易鏡像：360-x
                 p.entryAngle = (360 - p.entryAngle) % 360;
                 p.apexAngle = (360 - p.apexAngle) % 360;
                 p.sideAngle = (360 - p.sideAngle) % 360;
                 p.exitAngle = (360 - p.exitAngle) % 360;
-                
                 updateUIForMode();
                 updatePathData();
                 draw();
             }
         }
 
-        // --- 繪圖邏輯 ---
+        function initiateSwap() {
+            if (selectedIndex !== -1) {
+                swapSourceIndex = selectedIndex;
+                updateUIForMode(); 
+                draw(); 
+                
+                if (window.innerWidth <= 768) {
+                    closeSidebar();
+                }
+            }
+        }
+
         function draw() {
-            // 改為淺灰色背景 10%
             ctx.fillStyle = '#F3F4F6'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // 若無花點，只畫網格示意
-            if (centers.length === 0) {
-                drawGrid();
-                return;
-            }
+            if (centers.length === 0) { drawGrid(); return; }
 
             const flowerR_m = 40;
             const brushD_m = 25;
@@ -642,22 +738,27 @@
 
             drawGrid();
 
-            // 2. 巨大花範圍
             centers.forEach((p, idx) => {
                 const sc = toScreen(p);
                 const rPx = meterToPx(flowerR_m);
-                const isSelected = (idx === selectedIndex && isFlowerPathMode);
+                const isSelected = (idx === selectedIndex);
+                const isSwapSource = (idx === swapSourceIndex);
 
                 ctx.beginPath();
                 ctx.arc(sc.x, sc.y, rPx, 0, 2 * Math.PI);
                 
-                if (isSelected) {
-                    ctx.fillStyle = 'rgba(139, 92, 246, 0.2)'; // 選中紫
+                if (isSwapSource) {
+                    ctx.fillStyle = 'rgba(245, 158, 11, 0.4)'; 
+                    ctx.fill();
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 3;
+                } else if (isSelected) { 
+                    ctx.fillStyle = 'rgba(139, 92, 246, 0.2)'; 
                     ctx.fill();
                     ctx.strokeStyle = '#8b5cf6';
                     ctx.lineWidth = 3;
                 } else {
-                    ctx.fillStyle = 'rgba(16, 185, 129, 0.1)'; // 綠色
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.1)'; 
                     ctx.fill();
                     ctx.strokeStyle = '#059669';
                     ctx.lineWidth = 2;
@@ -665,9 +766,8 @@
                 ctx.stroke();
             });
 
-            // 3. 筆刷痕跡 (僅種花模式)
             if (isFlowerPathMode && pathPoints.length > 1) {
-                ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; // 紅色痕跡
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; 
                 const brushPx = meterToPx(brushR_m);
                 for (let i = 0; i < pathPoints.length - 1; i++) {
                     const p1 = toScreen(pathPoints[i]);
@@ -683,9 +783,7 @@
                 }
             }
 
-            // 4. 路徑線
-            ctx.strokeStyle = '#ef4444'; // Red
-            ctx.lineWidth = 2; ctx.lineJoin = 'round';
+            ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
             ctx.beginPath();
             pathPoints.forEach((p, i) => {
                 const sc = toScreen(p);
@@ -693,21 +791,17 @@
             });
             ctx.stroke();
 
-            // 5. 節點 (僅種花模式顯示小藍點)
             if (isFlowerPathMode) {
                 pathPoints.forEach((p, i) => {
                     const sc = toScreen(p);
                     const flowerIdx = Math.floor(i / 4);
-                    const isSelectedFlower = (flowerIdx === selectedIndex);
-                    
-                    if (isSelectedFlower) {
-                        ctx.fillStyle = '#3b82f6'; // Bright Blue
+                    if (flowerIdx === selectedIndex) {
+                        ctx.fillStyle = '#3b82f6'; 
                         ctx.beginPath(); ctx.arc(sc.x, sc.y, 5, 0, 2 * Math.PI); ctx.fill();
                         ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
                     }
                 });
             } else {
-                // 直連模式畫簡單的點
                 centers.forEach(p => {
                     const sc = toScreen(p);
                     ctx.fillStyle = '#ef4444'; 
@@ -715,20 +809,21 @@
                 });
             }
 
-            // 6. 編號 (置頂)
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 12px Inter';
             centers.forEach((p, idx) => {
                 const sc = toScreen(p);
-                const isSelected = (idx === selectedIndex && isFlowerPathMode);
+                const isSelected = (idx === selectedIndex);
+                const isSwapSource = (idx === swapSourceIndex);
                 
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // Dark BG for text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
                 ctx.beginPath(); ctx.arc(sc.x - 8, sc.y - 8, 10, 0, 2 * Math.PI); ctx.fill();
 
-                ctx.fillStyle = isSelected ? '#a78bfa' : '#34d399';
+                if (isSwapSource) ctx.fillStyle = '#f59e0b';
+                else if (isSelected) ctx.fillStyle = '#a78bfa';
+                else ctx.fillStyle = '#34d399';
+                
                 ctx.fillText(idx+1, sc.x - 8, sc.y - 8);
-                // 中心點標記
-                ctx.fillStyle = '#ef4444';
-                ctx.fillRect(sc.x-2, sc.y-2, 4, 4);
+                ctx.fillStyle = '#ef4444'; ctx.fillRect(sc.x-2, sc.y-2, 4, 4);
             });
         }
 
@@ -736,41 +831,30 @@
             const gridPx = meterToPx(5);
             if (gridPx > 3) {
                 const origin = centers.length > 0 ? toScreen(centers[0]) : {x: canvas.width/2 + offsetX, y: canvas.height/2 + offsetY};
-                ctx.beginPath(); ctx.strokeStyle = 'rgba(156, 163, 175, 0.5)'; // 加深的淺灰線條
-                ctx.lineWidth = 1;
-                // 優化：只畫螢幕範圍內
-                // 為避免浮點數誤差，取整數計算
+                ctx.beginPath(); ctx.strokeStyle = 'rgba(156, 163, 175, 0.5)'; ctx.lineWidth = 1;
                 const startX = (origin.x % gridPx + gridPx) % gridPx;
                 const startY = (origin.y % gridPx + gridPx) % gridPx;
-                
                 for (let x = startX; x < canvas.width; x += gridPx) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
                 for (let y = startY; y < canvas.height; y += gridPx) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
                 ctx.stroke();
             }
         }
 
-        // --- GPX 生成與下載 ---
         function generateGPX(type) {
             const routeName = document.getElementById('route-name').value.trim() || "未命名";
             const count = centers.length;
             const modeName = isFlowerPathMode ? "種花" : "收果";
             const typeSuffix = type === 'Router' ? 'R' : 'J';
             const fileName = `${routeName}${modeName}${typeSuffix}(${count})`;
-            
             const pointsToExport = isFlowerPathMode ? pathPoints : centers;
-            
             if (pointsToExport.length === 0) { alert("沒有路徑資料！"); return; }
 
             let content = "";
             if (type === 'Router') {
                 const waypoints = pointsToExport.map(c => `  <wpt lat="${c.lat}" lon="${c.lon}"></wpt>`).join('\n');
                 const trackpoints = pointsToExport.map(c => `    <trkpt lat="${c.lat}" lon="${c.lon}"></trkpt>`).join('\n');
-                content = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<gpx version="1.1" creator="Mushroom Lab" xmlns="http://www.topografix.com/GPX/1/1">
-${waypoints}
-<trk><name>${fileName}</name><trkseg>${trackpoints}</trkseg></trk></gpx>`;
+                content = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n<gpx version="1.1" creator="Mushroom Lab" xmlns="http://www.topografix.com/GPX/1/1">\n${waypoints}\n<trk><name>${fileName}</name><trkseg>${trackpoints}</trkseg></trk></gpx>`;
             } else {
-                // Joystick
                 const routepoints = pointsToExport.map(c => `<rtept lat="${c.lat}" lon="${c.lon}"/>`).join('');
                 content = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?><gpx version="1.1" creator="Mushroom Lab"><rte><name>${fileName}</name><number>0</number>${routepoints}</rte></gpx>`;
             }
@@ -782,26 +866,42 @@ ${waypoints}
             document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         }
 
-        // --- 互動與數學運算 ---
         function onCanvasClick(e) {
-            if (!isFlowerPathMode) return; 
-            
             const dx = e.clientX - clickStartX;
             const dy = e.clientY - clickStartY;
             if (Math.hypot(dx, dy) > 5) return; 
-
             const rect = canvas.getBoundingClientRect();
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
-
             let clickedIndex = -1;
             const hitRadius = meterToPx(40); 
-
             for (let i = centers.length - 1; i >= 0; i--) {
                 const sc = toScreen(centers[i]);
                 if (Math.hypot(mx - sc.x, my - sc.y) <= hitRadius) {
-                    clickedIndex = i;
-                    break;
+                    clickedIndex = i; break;
+                }
+            }
+
+            if (swapSourceIndex !== -1) {
+                if (clickedIndex !== -1 && clickedIndex !== swapSourceIndex) {
+                    const temp = centers[swapSourceIndex];
+                    centers[swapSourceIndex] = centers[clickedIndex];
+                    centers[clickedIndex] = temp;
+                    const tempOverride = flowerOverrides[swapSourceIndex];
+                    flowerOverrides[swapSourceIndex] = flowerOverrides[clickedIndex];
+                    flowerOverrides[clickedIndex] = tempOverride;
+                    swapSourceIndex = -1;
+                    selectedIndex = -1; 
+                    checkAndFixGeometry(centers);
+                    updatePathData();
+                    updateUIForMode();
+                    draw();
+                    return;
+                } else if (clickedIndex === -1) {
+                    swapSourceIndex = -1;
+                    updateUIForMode();
+                    draw();
+                    return;
                 }
             }
 
@@ -815,137 +915,97 @@ ${waypoints}
             clickStartY = e.clientY;
             handleStart(e.clientX, e.clientY);
         }
-
-        function onMouseMove(e) {
-            handleMove(e.clientX, e.clientY);
-        }
-
-        function onMouseUp() { 
-            handleEnd();
-        }
-
-        // Touch Handlers
+        function onMouseMove(e) { handleMove(e.clientX, e.clientY); }
+        function onMouseUp() { handleEnd(); }
         function onTouchStart(e) {
             if (e.touches.length === 1) {
-                // e.preventDefault(); // 已在 CSS 中設置 touch-action: none，此處不強制阻止，以保留其他手勢可能
                 const touch = e.touches[0];
                 clickStartX = touch.clientX;
                 clickStartY = touch.clientY;
                 handleStart(touch.clientX, touch.clientY);
             }
         }
-
         function onTouchMove(e) {
-            // Modify condition to include isDraggingNode
             if (e.touches.length === 1 && (isDragging || isDraggingNode)) {
-                e.preventDefault(); // 阻止滾動，確保拖曳順暢
+                e.preventDefault(); 
                 const touch = e.touches[0];
                 handleMove(touch.clientX, touch.clientY);
             }
         }
+        function onTouchEnd(e) { handleEnd(); }
 
-        function onTouchEnd(e) {
-            handleEnd();
-        }
-
-        // Common Logic
         function handleStart(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
             const mx = clientX - rect.left;
             const my = clientY - rect.top;
-
-            // 1. 檢查節點拖曳 (僅單點模式)
             if (isFlowerPathMode && selectedIndex !== -1) {
                 const startNodeIdx = selectedIndex * 4;
-                const nodeHitRadius = 20; // 加大觸控判定範圍
+                const nodeHitRadius = 20; 
                 for (let i = 0; i < 4; i++) {
                     const nodeIdx = startNodeIdx + i;
                     if (nodeIdx < pathPoints.length) {
                         const p = pathPoints[nodeIdx];
                         const sc = toScreen(p);
                         if (Math.hypot(mx - sc.x, my - sc.y) <= nodeHitRadius) {
-                            isDraggingNode = true;
-                            draggingNodeIndex = i;
-                            isDragging = false;
-                            return;
+                            isDraggingNode = true; draggingNodeIndex = i; isDragging = false; return;
                         }
                     }
                 }
             }
-
-            isDragging = true;
-            lastMouseX = clientX;
-            lastMouseY = clientY;
+            isDragging = true; lastMouseX = clientX; lastMouseY = clientY;
         }
 
         function handleMove(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
             const mx = clientX - rect.left;
             const my = clientY - rect.top;
-
             if (isDraggingNode && selectedIndex !== -1) {
                 const center = centers[selectedIndex];
                 const centerSc = toScreen(center);
-                const dy = centerSc.y - my; // Canvas Y inverted
+                const dy = centerSc.y - my; 
                 const dx = mx - centerSc.x;
                 let mouseAngle = Math.atan2(dx, dy) * (180 / Math.PI);
-                
                 const prev = (selectedIndex === 0) ? centers[centers.length-1] : centers[selectedIndex-1];
                 const next = (selectedIndex === centers.length - 1) ? centers[0] : centers[selectedIndex+1];
                 const angleFromPrev = getBearing(prev, center);
                 const angleToNext = getBearing(center, next);
-
                 let newVal;
                 const normalize = (ang) => (ang % 360 + 360) % 360;
-
-                if (draggingNodeIndex === 0) { // Entry
+                if (draggingNodeIndex === 0) { 
                     newVal = normalize(mouseAngle - (angleFromPrev - 180));
                     onParamChange('entryAng', newVal);
-                } else if (draggingNodeIndex === 1) { // Apex
+                } else if (draggingNodeIndex === 1) { 
                     newVal = normalize(mouseAngle - angleToNext);
                     onParamChange('apexAng', newVal);
-                } else if (draggingNodeIndex === 2) { // Side
+                } else if (draggingNodeIndex === 2) { 
                     newVal = normalize(mouseAngle - angleToNext);
                     onParamChange('sideAng', newVal);
-                } else if (draggingNodeIndex === 3) { // Exit
+                } else if (draggingNodeIndex === 3) { 
                     newVal = normalize(mouseAngle - angleToNext);
                     onParamChange('exitAng', newVal);
                 }
                 return;
             }
-
             if (isDragging) {
                 const dx = clientX - lastMouseX;
                 const dy = clientY - lastMouseY;
-                offsetX += dx;
-                offsetY += dy;
-                lastMouseX = clientX;
-                lastMouseY = clientY;
+                offsetX += dx; offsetY += dy;
+                lastMouseX = clientX; lastMouseY = clientY;
                 draw();
             }
         }
 
-        function handleEnd() {
-            isDragging = false; 
-            isDraggingNode = false; 
-            draggingNodeIndex = -1;
-        }
-
+        function handleEnd() { isDragging = false; isDraggingNode = false; draggingNodeIndex = -1; }
         function onWheel(e) { e.preventDefault(); const factor = e.deltaY > 0 ? 0.9 : 1.1; scale *= factor; draw(); }
 
-        // --- Utils ---
         function parseTextToPoints(text) {
             if (!text) return [];
             return text.trim().split('\n').map(line => {
-                // 支援更多格式，例如 "緯度,經度" 或 "緯度 經度"
                 const parts = line.replace(/[^\d\.\-\,\s]/g, '').trim().split(/[,\s]+/);
                 if (parts.length >= 2) {
                     const lat = parseFloat(parts[0]);
                     const lon = parseFloat(parts[1]);
-                    // 簡單驗證範圍
-                    if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90) {
-                        return { lat, lon };
-                    }
+                    if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90) return { lat, lon };
                 }
                 return null;
             }).filter(p => p !== null);
@@ -965,7 +1025,7 @@ ${waypoints}
             return { lat: p.lat + distDeg * Math.cos(rad), lon: p.lon + distDeg * Math.sin(rad) };
         }
         function toScreen(p) {
-            const base = centers.length > 0 ? centers[0] : {lat:0, lon:0}; // fallback
+            const base = centers.length > 0 ? centers[0] : {lat:0, lon:0}; 
             const dx = (p.lon - base.lon) * METERS_PER_DEGREE;
             const dy = (p.lat - base.lat) * METERS_PER_DEGREE;
             const cx = canvas.width / 2; const cy = canvas.height / 2;
@@ -1010,14 +1070,20 @@ ${waypoints}
             if (sb.classList.contains('-translate-x-full')) {
                 sb.classList.remove('-translate-x-full');
                 overlay.classList.remove('hidden');
+                document.getElementById('quick-redraw-btn').classList.add('hidden'); // sidebar open -> hide redraw
+                document.getElementById('quick-mode-btn').classList.add('hidden'); // sidebar open -> hide mode toggle
             } else {
                 sb.classList.add('-translate-x-full');
                 overlay.classList.add('hidden');
+                document.getElementById('quick-redraw-btn').classList.remove('hidden'); // sidebar closed -> show redraw
+                document.getElementById('quick-mode-btn').classList.remove('hidden'); // sidebar closed -> show mode toggle
             }
         }
         function closeSidebar() {
             document.getElementById('sidebar').classList.add('-translate-x-full');
             document.getElementById('sidebar-overlay').classList.add('hidden');
+            document.getElementById('quick-redraw-btn').classList.remove('hidden'); // sidebar closed -> show redraw
+            document.getElementById('quick-mode-btn').classList.remove('hidden'); // sidebar closed -> show mode toggle
         }
     </script>
 </body>
