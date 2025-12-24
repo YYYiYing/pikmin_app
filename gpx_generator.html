@@ -8,7 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; overflow: hidden; touch-action: none; }
+        /* 修正 1: 移除 body 的 touch-action: none */
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; overflow: hidden; }
         
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
@@ -35,7 +36,7 @@
         .map-btn:active { background-color: #d1d5db; transform: scale(0.95); }
         .divider { height: 1px; background-color: #e5e7eb; margin: 2px 8px; }
 
-        /* 浮動操作區 (FAB) - 置中置頂 */
+        /* 浮動操作區 (FAB) */
         .quick-actions {
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
             display: flex; gap: 8px;
@@ -48,21 +49,25 @@
         }
         .quick-actions.show { opacity: 1; pointer-events: auto; }
         .fab-btn {
-            background-color: #2563eb; color: white;
-            font-size: 12px; font-weight: bold;
-            padding: 6px 12px; border-radius: 20px;
-            border: none; cursor: pointer; white-space: nowrap;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            transition: background 0.2s; display: block;
+            color: white; font-size: 12px; font-weight: bold;
+            padding: 6px 12px; border-radius: 20px; border: none; cursor: pointer; white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: background 0.2s; display: block;
+            -webkit-tap-highlight-color: transparent;
         }
         .fab-btn:active { transform: scale(0.95); }
         .fab-btn.hidden { display: none; }
         
-        .toggle-checkbox:checked { right: 0; border-color: #22c55e; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #22c55e; }
-        
+        #coords-display {
+            position: absolute; bottom: 10px; left: 10px;
+            background: rgba(255, 255, 255, 0.9); color: #374151;
+            padding: 4px 8px; font-size: 12px; border-radius: 4px;
+            pointer-events: none; z-index: 50; backdrop-filter: blur(2px);
+            border: 1px solid #e5e7eb;
+        }
+
+        /* 修正 2: 調整提示框位置為靠上置中 (top: 30px) */
         #toast-message {
-            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            position: fixed; top: 30px; left: 50%; transform: translateX(-50%);
             background-color: rgba(245, 158, 11, 0.95); color: white;
             padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: bold;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2); z-index: 200;
@@ -89,11 +94,15 @@
         }
         .action-btn:active { transform: scale(0.95); }
         .action-btn.blue { background-color: #3b82f6; color: white; }
-        .action-btn.purple { background-color: #8b5cf6; color: white; } /* 紫色給模式切換 */
+        .action-btn.purple { background-color: #8b5cf6; color: white; }
+
+        /* 修正 3: 僅針對地圖區域禁止預設觸控行為 */
+        #mainView { touch-action: none; }
 
         @media (max-width: 768px) {
-            /* 手機版 FAB 稍微往下，避開漢堡選單 */
             .quick-actions { top: 80px; }
+            /* 手機版 Toast 稍微往下避開漢堡選單 */
+            #toast-message { top: 80px; }
         }
     </style>
 </head>
@@ -116,7 +125,10 @@
                     document.getElementById('app-content').style.display = 'flex';
                     setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
                 }
-            } catch (error) { document.body.innerHTML = '<div class="flex items-center justify-center h-screen w-screen bg-gray-900 text-red-400">驗證發生錯誤。</div>'; }
+            } catch (error) { 
+                console.error("Auth Error:", error);
+                alert("驗證伺服器連線異常，請檢查網路或是重新整理頁面。");
+             }
         }
         checkAuth();
     </script>
@@ -126,7 +138,6 @@
 
     <div id="app-content" class="w-full h-full flex">
         
-        <!-- 左上角按鈕群組 -->
         <div class="top-left-actions">
             <button id="hamburger-btn" class="action-btn md:hidden" onclick="toggleSidebar()">☰</button>
             <button id="quick-redraw-btn" class="action-btn blue hidden" onclick="optimizeRoute()" title="快速重繪 (AI分析)">↻</button>
@@ -146,7 +157,7 @@
 
             <div class="flex-1 overflow-y-auto p-4 space-y-6">
                 <div class="space-y-3">
-                    <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider border-b border-gray-700 pb-1">1. 登錄資訊</h2>
+                    <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider border-b border-gray-700 pb-1">1. 登錄路徑資訊</h2>
                     <div>
                         <label class="block text-xs font-medium text-gray-400 mb-1">路徑名稱</label>
                         <input type="text" id="route-name" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-500 placeholder-opacity-50 focus:border-green-500 focus:outline-none" placeholder="例如：大安森林公園">
@@ -169,12 +180,13 @@
 
                 <div class="space-y-4">
                     <div class="flex justify-between items-end border-b border-gray-700 pb-1">
-                        <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider">2. 路徑編輯</h2>
+                        <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider">2. 路徑模式</h2>
                         <div class="flex items-center">
-                            <label for="path-toggle" class="flex items-center cursor-pointer">
+                            <!-- 修正 4: Toggle Switch 結構，加入 peer 和 peer-checked -->
+                            <label for="path-toggle" class="flex items-center cursor-pointer select-none">
                                 <div class="relative">
-                                    <input type="checkbox" id="path-toggle" class="sr-only" onchange="onModeToggle()">
-                                    <div class="block bg-gray-600 w-10 h-6 rounded-full"></div>
+                                    <input type="checkbox" id="path-toggle" class="sr-only peer">
+                                    <div class="block bg-gray-600 w-10 h-6 rounded-full peer-checked:bg-green-500 transition-colors"></div>
                                     <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform peer-checked:translate-x-full"></div>
                                 </div>
                                 <span id="mode-label" class="ml-2 text-xs font-bold text-gray-300">直連模式</span>
@@ -220,7 +232,7 @@
                         <button onclick="generateGPX('Router')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow-lg transform transition hover:scale-[1.02]">生成 Router 路徑</button>
                         <button onclick="generateGPX('Joystick')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded shadow-lg transform transition hover:scale-[1.02]">生成 Joystick 路徑</button>
                     </div>
-                    <div id="statsBox" class="bg-gray-700/50 p-3 rounded text-xs text-gray-400 border border-gray-600 leading-relaxed">等待路徑生成...</div>
+                    <div id="statsBox" class="bg-gray-700/50 p-3 rounded text-xs text-gray-400 border border-gray-600 leading-relaxed">尚未有路徑資訊...</div>
                 </div>
             </div>
         </aside>
@@ -229,7 +241,7 @@
             <canvas id="mapCanvas" class="block w-full h-full"></canvas>
             
             <div class="map-control-group">
-                <button onclick="fitToScreen()" class="map-btn text-[10px] font-black" title="適應視窗">⛶</button>
+                <button onclick="fitToScreen()" class="map-btn text-[10px] font-black" title="適應視窗">All</button>
                 <div class="divider"></div>
                 <button onclick="zoomStep(1.2)" class="map-btn" title="放大">＋</button>
                 <div class="divider"></div>
@@ -242,6 +254,8 @@
                 <button id="fab-mirror" onclick="mirrorCurrentFlower()" class="fab-btn bg-blue-600 hover:bg-blue-500">鏡像</button>
                 <button id="fab-swap" onclick="initiateSwap()" class="fab-btn bg-orange-500 hover:bg-orange-400">交換</button>
             </div>
+
+            <div id="coords-display">Lat: -, Lon: -</div>
         </main>
     </div>
 
@@ -276,7 +290,14 @@
             canvas = document.getElementById('mapCanvas');
             ctx = canvas.getContext('2d');
             
-            // 自動淨化輸入框
+            // --- [新增] 修正 2: 阻止側邊欄事件穿透到地圖 ---
+            // 這段程式碼確保在側邊欄滑動時，不會誤觸到底下的地圖
+            const sidebar = document.getElementById('sidebar');
+            ['touchstart', 'touchmove', 'touchend', 'mousedown', 'mousemove', 'mouseup', 'wheel'].forEach(evt => {
+                sidebar.addEventListener(evt, (e) => e.stopPropagation(), { passive: false });
+            });
+            // ----------------------------------------------
+
             const rawInput = document.getElementById('rawInputData');
             rawInput.addEventListener('change', () => cleanInputData());
             
@@ -344,8 +365,6 @@
                 paramDiv.classList.remove('opacity-50', 'pointer-events-none');
                 indicator.classList.remove('hidden');
                 toggleDot.style.transform = 'translateX(100%)';
-                
-                // Update Quick Button
                 quickBtn.innerText = '🌸';
                 quickBtn.classList.remove('bg-gray-600');
                 quickBtn.classList.add('purple');
@@ -359,22 +378,16 @@
                 selectedIndex = -1; 
                 swapSourceIndex = -1;
                 toggleDot.style.transform = 'translateX(0)';
-                
-                // Update Quick Button
                 quickBtn.innerText = '📏';
                 quickBtn.classList.remove('purple');
                 quickBtn.classList.add('bg-gray-600');
             }
-            
-            // Sync checkbox if called from quick button
             document.getElementById('path-toggle').checked = isFlowerPathMode;
-            
             updatePathData(); 
             updateUIForMode(); 
             draw();
         }
 
-        // New function for Quick Toggle
         function quickToggleMode() {
             isFlowerPathMode = !isFlowerPathMode;
             onModeToggle();
@@ -515,15 +528,22 @@
 
         function checkAndFixGeometry(sortedCenters) {
             for (let i = 0; i < sortedCenters.length; i++) {
+                // 如果這個點已經有手動(或之前自動)設定的參數，就跳過，避免重複翻轉
+                if (flowerOverrides[i]) continue;
+
                 const curr = sortedCenters[i];
                 const prev = (i === 0) ? sortedCenters[sortedCenters.length-1] : sortedCenters[i-1];
                 const next = (i === sortedCenters.length - 1) ? sortedCenters[0] : sortedCenters[i+1];
                 const angleFromPrev = getBearing(prev, curr);
                 const angleToNext = getBearing(curr, next);
+                
+                // 計算轉角
                 let turnAngle = (angleToNext - angleFromPrev + 540) % 360 - 180;
                 let sideBias = (globalParams.sideAngle > 180) ? globalParams.sideAngle - 360 : globalParams.sideAngle;
+                
+                // 判斷是否需要翻轉 (僅針對沒有設定過的新點)
                 if ((turnAngle > 0 && sideBias > 0) || (turnAngle < 0 && sideBias < 0)) {
-                    if (!flowerOverrides[i]) flowerOverrides[i] = { ...globalParams };
+                    flowerOverrides[i] = { ...globalParams };
                     const p = flowerOverrides[i];
                     p.entryAngle = (360 - p.entryAngle) % 360;
                     p.apexAngle = (360 - p.apexAngle) % 360;
@@ -566,25 +586,18 @@
                 const curr = centersList[i];
                 let params = { ...globalParams };
                 if (flowerOverrides[i]) params = { ...params, ...flowerOverrides[i] };
-
                 const prev = (i === 0) ? centersList[centersList.length-1] : centersList[i-1];
                 const next = (i === centersList.length - 1) ? centersList[0] : centersList[i+1];
-
                 const angleFromPrev = getBearing(prev, curr);
                 const angleToNext = getBearing(curr, next);
-
                 const entryAngle = angleFromPrev - 180 + params.entryAngle;
                 const p1 = getOffsetPoint(curr, FIXED_ALGO_DIST * FIXED_ENTRY_DIST, entryAngle);
-
                 const apexAngle = angleToNext + params.apexAngle; 
                 const p2 = getOffsetPoint(curr, FIXED_ALGO_DIST * FIXED_CROSS_FACTOR, apexAngle);
-
                 const sideAngleCalc = angleToNext + params.sideAngle; 
                 const p3 = getOffsetPoint(curr, FIXED_ALGO_DIST * FIXED_SIDE_DIST, sideAngleCalc);
-
                 const exitAngleCalc = angleToNext + params.exitAngle;
                 const p4 = getOffsetPoint(curr, FIXED_ALGO_DIST, exitAngleCalc);
-
                 path.push(p1, p2, p3, p4);
             }
             return path;
@@ -616,7 +629,6 @@
             const redrawBtn = document.getElementById('quick-redraw-btn');
             const modeBtn = document.getElementById('quick-mode-btn');
             
-            // Check sidebar visibility to toggle quick buttons
             if (document.getElementById('sidebar').classList.contains('-translate-x-full')) {
                 redrawBtn.classList.remove('hidden');
                 modeBtn.classList.remove('hidden');
@@ -634,7 +646,13 @@
                 indicator.className = "text-xs text-center p-2 rounded bg-indigo-900/50 text-indigo-200 border border-indigo-700/50";
                 localBtns.classList.add('hidden');
                 swapHint.classList.add('hidden');
-                document.getElementById('toast-message').classList.remove('show');
+                
+                // 修正 2: 直連模式下也顯示提示框
+                if (swapSourceIndex !== -1) {
+                    document.getElementById('toast-message').classList.add('show');
+                } else {
+                    document.getElementById('toast-message').classList.remove('show');
+                }
                 
                 if (selectedIndex !== -1) {
                     fab.classList.add('show');
@@ -869,12 +887,15 @@
         function onCanvasClick(e) {
             const dx = e.clientX - clickStartX;
             const dy = e.clientY - clickStartY;
-            if (Math.hypot(dx, dy) > 5) return; 
+            if (Math.hypot(dx, dy) > 5) return; // 判定為點擊 (放寬判定至 20px 邏輯已在 handleStart)
+            // 這裡的 5px 是針對 PC 版的保護，手機版已在 handleStart 處理
+
             const rect = canvas.getBoundingClientRect();
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
             let clickedIndex = -1;
-            const hitRadius = meterToPx(40); 
+            const hitRadius = Math.max(meterToPx(40), 20); // 確保手機好點
+
             for (let i = centers.length - 1; i >= 0; i--) {
                 const sc = toScreen(centers[i]);
                 if (Math.hypot(mx - sc.x, my - sc.y) <= hitRadius) {
@@ -898,9 +919,7 @@
                     draw();
                     return;
                 } else if (clickedIndex === -1) {
-                    swapSourceIndex = -1;
-                    updateUIForMode();
-                    draw();
+                    // Do not cancel swap on blank click
                     return;
                 }
             }
