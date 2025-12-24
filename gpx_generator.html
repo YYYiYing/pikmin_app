@@ -1019,7 +1019,7 @@
             }
         }
         function onTouchMove(e) {
-            if (e.touches.length === 1 && (isDragging || isDraggingNode)) {
+            if (e.touches.length === 1 && (isDragging || isDraggingNode || isDraggingStart || isDraggingEnd)) {
                 e.preventDefault(); 
                 const touch = e.touches[0];
                 handleMove(touch.clientX, touch.clientY);
