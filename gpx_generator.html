@@ -285,7 +285,27 @@
         let draggingNodeIndex = -1;
         let lastMouseX, lastMouseY;
         let clickStartX, clickStartY;
-
+        let startNode = null;
+        let endNode = null;
+        let isDraggingStart = false;
+        let isDraggingEnd = false;
+        
+        // 螢幕座標轉經緯度 (用於拖曳起終點)
+        function screenToLatLon(x, y) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const base = centers.length > 0 ? centers[0] : {lat:0, lon:0};
+            
+            // 反推公式
+            const dx = (x - offsetX - cx) * 100 / scale;
+            const dy = -(y - offsetY - cy) * 100 / scale; // y軸反轉
+            
+            const lat = base.lat + dy / METERS_PER_DEGREE;
+            const lon = base.lon + dx / METERS_PER_DEGREE;
+            
+            return { lat, lon };
+        }
+        
         window.onload = function() {
             canvas = document.getElementById('mapCanvas');
             ctx = canvas.getContext('2d');
@@ -417,6 +437,9 @@
             flowerOverrides = {}; 
             selectedIndex = -1;
             swapSourceIndex = -1;
+            // 重置起終點，讓 updatePathData 重新計算預設位置
+            startNode = null;
+            endNode = null;
             
             document.getElementById('sort-stats').innerText = `已載入 ${uniquePoints.length} 點 (依照原始順序)。`;
             document.getElementById('sort-stats').classList.remove('hidden');
@@ -555,8 +578,36 @@
 
         function updatePathData() {
             if (centers.length < 2) return;
-            if (isFlowerPathMode) pathPoints = generatePathAlgorithm(centers);
-            else pathPoints = [...centers];
+            
+            let flowerPath = [];
+            if (isFlowerPathMode) flowerPath = generatePathAlgorithm(centers);
+            else flowerPath = [...centers];
+
+            // --- [新增] 起點與終點的初始化邏輯 ---
+            if (isFlowerPathMode && flowerPath.length > 0) {
+                // 如果還沒有起點，根據第一點的進入角度往外推 20米
+                if (!startNode) {
+                    const firstP = flowerPath[0];
+                    const secondP = flowerPath[1]; // 用來抓角度
+                    const angle = getBearing(secondP, firstP); // 反向延伸
+                    startNode = getOffsetPoint(firstP, 20, angle);
+                }
+                // 如果還沒有終點，根據最後一點的出口角度往外推 20米
+                if (!endNode) {
+                    const lastP = flowerPath[flowerPath.length - 1];
+                    const prevP = flowerPath[flowerPath.length - 2];
+                    const angle = getBearing(prevP, lastP); // 正向延伸
+                    endNode = getOffsetPoint(lastP, 20, angle);
+                }
+                // 組裝：起點 + 花朵路徑 + 終點
+                pathPoints = [startNode, ...flowerPath, endNode];
+            } else {
+                // 直連模式或無資料，保持原樣 (或是您也想在直連模式加起終點? 目前先只針對種花模式)
+                pathPoints = [...flowerPath];
+                startNode = null; 
+                endNode = null;
+            }
+            // ------------------------------------
 
             const totalDist = calcTotalDistance(pathPoints).toFixed(0);
             
@@ -573,7 +624,7 @@
             }
 
             document.getElementById('statsBox').innerHTML = `
-                <span class="text-indigo-300">模式：${isFlowerPathMode ? '種花 (4點繞行)' : '收果 (直連)'}</span><br>
+                <span class="text-indigo-300">模式：${isFlowerPathMode ? '種花 (含起終點)' : '收果 (直連)'}</span><br>
                 花朵數: ${centers.length} | 節點數: ${pathPoints.length}<br>
                 總長度: ${totalDist} m<br>
                 <span class="text-green-400 font-bold">${timeStr}</span> (以 18km/h 估算)
@@ -812,7 +863,30 @@
             if (isFlowerPathMode) {
                 pathPoints.forEach((p, i) => {
                     const sc = toScreen(p);
-                    const flowerIdx = Math.floor(i / 4);
+                    
+                    // [新增] 繪製起點 (Index 0) - 綠色方塊 S
+                    if (i === 0) {
+                        ctx.fillStyle = '#10b981'; // Green
+                        ctx.fillRect(sc.x - 6, sc.y - 6, 12, 12);
+                        ctx.fillStyle = 'white'; ctx.font = 'bold 10px Inter'; ctx.textAlign = 'center'; ctx.textBaseline='middle';
+                        ctx.fillText("S", sc.x, sc.y);
+                        return;
+                    }
+                    
+                    // [新增] 繪製終點 (Last Index) - 紅色方塊 E
+                    if (i === pathPoints.length - 1) {
+                        ctx.fillStyle = '#ef4444'; // Red
+                        ctx.fillRect(sc.x - 6, sc.y - 6, 12, 12);
+                        ctx.fillStyle = 'white'; ctx.font = 'bold 10px Inter'; ctx.textAlign = 'center'; ctx.textBaseline='middle';
+                        ctx.fillText("E", sc.x, sc.y);
+                        return;
+                    }
+
+                    // 繪製花朵控制點 (中間的點)
+                    // 因為加了 startNode (index 0)，所以花朵的點從 index 1 開始
+                    // 反推是第幾朵花: (i - 1) / 4
+                    const flowerIdx = Math.floor((i - 1) / 4);
+                    
                     if (flowerIdx === selectedIndex) {
                         ctx.fillStyle = '#3b82f6'; 
                         ctx.beginPath(); ctx.arc(sc.x, sc.y, 5, 0, 2 * Math.PI); ctx.fill();
@@ -957,16 +1031,43 @@
             const rect = canvas.getBoundingClientRect();
             const mx = clientX - rect.left;
             const my = clientY - rect.top;
-            if (isFlowerPathMode && selectedIndex !== -1) {
-                const startNodeIdx = selectedIndex * 4;
-                const nodeHitRadius = 20; 
-                for (let i = 0; i < 4; i++) {
-                    const nodeIdx = startNodeIdx + i;
-                    if (nodeIdx < pathPoints.length) {
-                        const p = pathPoints[nodeIdx];
-                        const sc = toScreen(p);
-                        if (Math.hypot(mx - sc.x, my - sc.y) <= nodeHitRadius) {
-                            isDraggingNode = true; draggingNodeIndex = i; isDragging = false; return;
+            
+            if (isFlowerPathMode && pathPoints.length > 2) {
+                const nodeHitRadius = 20;
+                
+                // 1. 檢查是否點擊到「起點」 (Index 0)
+                const startSc = toScreen(pathPoints[0]);
+                if (Math.hypot(mx - startSc.x, my - startSc.y) <= nodeHitRadius) {
+                    isDraggingStart = true;
+                    isDragging = false;
+                    return;
+                }
+
+                // 2. 檢查是否點擊到「終點」 (Last Index)
+                const endSc = toScreen(pathPoints[pathPoints.length - 1]);
+                if (Math.hypot(mx - endSc.x, my - endSc.y) <= nodeHitRadius) {
+                    isDraggingEnd = true;
+                    isDragging = false;
+                    return;
+                }
+
+                // 3. 檢查是否點擊到「花朵結構點」 (Index 1 ~ Length-2)
+                // 注意：因為加了起點，現在花朵路徑在 pathPoints 的 index 從 1 開始
+                if (selectedIndex !== -1) {
+                    // 原本是 selectedIndex * 4，現在要 +1 (因為前面有個 startNode)
+                    const startNodeIdx = 1 + (selectedIndex * 4); 
+                    
+                    for (let i = 0; i < 4; i++) {
+                        const nodeIdx = startNodeIdx + i;
+                        if (nodeIdx < pathPoints.length - 1) { // 扣掉終點
+                            const p = pathPoints[nodeIdx];
+                            const sc = toScreen(p);
+                            if (Math.hypot(mx - sc.x, my - sc.y) <= nodeHitRadius) {
+                                isDraggingNode = true; 
+                                draggingNodeIndex = i; // 這裡保持 i (0~3) 代表花的四個角
+                                isDragging = false; 
+                                return;
+                            }
                         }
                     }
                 }
@@ -978,6 +1079,25 @@
             const rect = canvas.getBoundingClientRect();
             const mx = clientX - rect.left;
             const my = clientY - rect.top;
+
+            // [新增] 拖曳起點
+            if (isDraggingStart) {
+                startNode = screenToLatLon(mx, my);
+                updatePathData(); // 更新 pathPoints 陣列
+                draw();
+                return;
+            }
+
+            // [新增] 拖曳終點
+            if (isDraggingEnd) {
+                endNode = screenToLatLon(mx, my);
+                updatePathData(); // 更新 pathPoints 陣列
+                draw();
+                return;
+            }
+
+            // 調整花朵角度 (邏輯不變，但因為 pathPoints 結構改變，我們不需要動這裡，
+            // 因為 draggingNodeIndex 儲存的是 0~3，代表花的四個角落，這邏輯是通用的)
             if (isDraggingNode && selectedIndex !== -1) {
                 const center = centers[selectedIndex];
                 const centerSc = toScreen(center);
@@ -990,6 +1110,7 @@
                 const angleToNext = getBearing(center, next);
                 let newVal;
                 const normalize = (ang) => (ang % 360 + 360) % 360;
+                
                 if (draggingNodeIndex === 0) { 
                     newVal = normalize(mouseAngle - (angleFromPrev - 180));
                     onParamChange('entryAng', newVal);
@@ -1005,6 +1126,8 @@
                 }
                 return;
             }
+
+            // 拖曳地圖
             if (isDragging) {
                 const dx = clientX - lastMouseX;
                 const dy = clientY - lastMouseY;
@@ -1014,7 +1137,14 @@
             }
         }
 
-        function handleEnd() { isDragging = false; isDraggingNode = false; draggingNodeIndex = -1; }
+        function handleEnd() { 
+            isDragging = false; 
+            isDraggingNode = false; 
+            isDraggingStart = false; 
+            isDraggingEnd = false; 
+            draggingNodeIndex = -1; 
+        }
+        
         function onWheel(e) { e.preventDefault(); const factor = e.deltaY > 0 ? 0.9 : 1.1; scale *= factor; draw(); }
 
         function parseTextToPoints(text) {
