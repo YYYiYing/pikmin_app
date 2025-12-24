@@ -1545,8 +1545,8 @@
     async function fetchChallenges() {
         const { data: challenges, error } = await supabaseClient
             .from('challenges')
-            // ★ 修改這行：加入 absent_score
-            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname, absent_score))`)
+            // 在 signups 的 profile 關聯中，加入 daily_signup_count
+            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname, absent_score, daily_signup_count))`)
             .order('start_time', { ascending: false });
 
         if (error) { challengesListEl.innerHTML = '<p class="text-center col-span-full text-red-400">無法載入挑戰。</p>'; return; }
@@ -1762,8 +1762,18 @@
                     rankText = `${index + 1}${getRankSuffix(index + 1)}`;
                 }
                 
-                // 1. 處理暱稱 (保留前台既有邏輯)
+                // 1. 處理暱稱
                 let rawNickname = signup.profile ? signup.profile.nickname : (signup.guest_name || '未知');
+                
+                // 讀取今日報名次數 (N)
+                // 只有當 profile 存在且 daily_signup_count 有值時才顯示
+                const dailyCount = signup.profile?.daily_signup_count;
+                
+                // 設定顯示 HTML，例如 (3)，樣式為灰色小字
+                const dailyCountHtml = (dailyCount !== undefined && dailyCount !== null) 
+                    ? `<span class="text-xs text-gray-400 ml-1 font-normal select-none" title="今日已報名 ${dailyCount} 次">(${dailyCount})</span>` 
+                    : '';
+
                 const cleanName = rawNickname.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
                 const codeMatch = rawNickname.match(/(\d{12})/);
                 
@@ -1834,10 +1844,13 @@
                 return `
                     ${separatorHtml}
                     <div class="participant-item group py-1 flex justify-between items-center">
-                        
                         <div class="flex items-center flex-1 min-w-0 pr-1 overflow-hidden">
                             <span class="participant-rank w-8 flex-shrink-0 text-center mr-1">${rankText}</span>
-                            <span class="text-gray-200 truncate font-bold min-w-[30px]" title="${cleanName}">${displayNameDisplay}</span>
+
+                            <span class="text-gray-200 truncate font-bold min-w-[30px]" title="${cleanName}">
+                                ${displayNameDisplay}${dailyCountHtml}
+                            </span>
+                            
                             ${statusIcon}
                             ${commentBlock}
                         </div>
@@ -1937,8 +1950,8 @@
 
     async function reloadChallengeCard(challengeId) {
         const { data: challenge, error } = await supabaseClient.from('challenges')
-            // ★★★ 重點：一定要有 absent_records(reporter_id, absentee_id) ★★★
-            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname, absent_score)), absent_records(reporter_id, absentee_id)`)
+            // 同樣加入 daily_signup_count
+            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname, absent_score, daily_signup_count)), absent_records(reporter_id, absentee_id)`)
             .eq('id', challengeId).single();
         
         if (error) {
@@ -1950,7 +1963,6 @@
         }
         renderChallenge(challenge);
         applyFilter();
-        // ★ 新增：更新紅點 (因為狀態可能變了，例如從開放變成已額滿)
         updateFilterBadges();
     }
 
