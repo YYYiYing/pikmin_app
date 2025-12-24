@@ -253,6 +253,7 @@
                 <button id="fab-reset" onclick="resetCurrentFlower()" class="fab-btn bg-red-600 hover:bg-red-500">重置</button>
                 <button id="fab-mirror" onclick="mirrorCurrentFlower()" class="fab-btn bg-blue-600 hover:bg-blue-500">鏡像</button>
                 <button id="fab-swap" onclick="initiateSwap()" class="fab-btn bg-orange-500 hover:bg-orange-400">交換</button>
+                <button id="fab-delete" onclick="deleteCurrentFlower()" class="fab-btn bg-gray-600 hover:bg-gray-500">刪除</button>
             </div>
 
             <div id="coords-display">Lat: -, Lon: -</div>
@@ -794,6 +795,42 @@
                     closeSidebar();
                 }
             }
+        }
+
+        function deleteCurrentFlower() {
+            if (selectedIndex === -1) return;
+
+            // 為了避免誤按，加入確認對話框
+            if (!confirm("確定要移除這個點位嗎？")) return;
+
+            // 1. 從座標陣列中移除
+            centers.splice(selectedIndex, 1);
+
+            // 2. 處理參數覆寫 (flowerOverrides) 的索引位移
+            // 當刪除第 N 個點，N 之後的所有參數都要往前移一格 (N+1 變成 N)
+            let newOverrides = {};
+            Object.keys(flowerOverrides).forEach(key => {
+                const idx = parseInt(key);
+                if (idx < selectedIndex) {
+                    // 在刪除點之前的設定，保持不變
+                    newOverrides[idx] = flowerOverrides[idx];
+                } else if (idx > selectedIndex) {
+                    // 在刪除點之後的設定，索引減 1
+                    newOverrides[idx - 1] = flowerOverrides[idx];
+                }
+                // 等於 selectedIndex 的設定則直接丟棄
+            });
+            flowerOverrides = newOverrides;
+
+            // 3. 重置選取狀態
+            selectedIndex = -1;
+            swapSourceIndex = -1;
+
+            // 4. 重新計算幾何與更新畫面
+            checkAndFixGeometry(centers); // 確保剩餘點位的角度邏輯正確
+            updatePathData();
+            updateUIForMode();
+            draw();
         }
 
         function draw() {
