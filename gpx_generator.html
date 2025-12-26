@@ -166,7 +166,13 @@
                         <label class="block text-xs font-medium text-gray-400 mb-1">巨大花座標 (緯度, 經度)</label>
                         <textarea id="rawInputData" class="w-full h-24 bg-gray-900 border border-gray-600 rounded p-2 text-xs font-mono text-green-300 placeholder-gray-500 placeholder-opacity-50 focus:border-green-500 focus:outline-none resize-y" placeholder="請貼上座標，格式範例：&#10;-0.5715520, 117.2818990&#10;-0.5711250, 117.2815350"></textarea>
                     </div>
-                    
+                    <div class="mt-2">
+                        <input type="file" id="gpxFileInput" accept=".gpx" class="hidden" multiple onchange="handleGPXUpload(this)">
+                        <button onclick="document.getElementById('gpxFileInput').click()" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold py-2 px-4 rounded text-sm transition border border-gray-500 border-dashed flex items-center justify-center gap-2">
+                            <span>📂</span> 上傳多個 GPX (自動過濾重覆)
+                        </button>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="drawDirectRoute()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded text-sm transition shadow hover:scale-[1.02]">
                             繪製 (依序)
@@ -363,6 +369,118 @@
             }
             if (cleaned) {
                 document.getElementById('rawInputData').value = cleaned.trim();
+            }
+        }
+
+        // 處理 GPX 上傳與解析
+        async function handleGPXUpload(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+
+            // 定義讀取單一檔案的 Promise 函式
+            const readFile = (file) => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve({ name: file.name, content: e.target.result });
+                reader.onerror = (e) => reject(e);
+                reader.readAsText(file);
+            });
+
+            try {
+                // 平行讀取所有檔案
+                const results = await Promise.all(files.map(readFile));
+                const parser = new DOMParser();
+                
+                // --- 情境 A：單一檔案 (嘗試還原專案模式) ---
+                if (results.length === 1) {
+                    const xmlDoc = parser.parseFromString(results[0].content, "text/xml");
+                    const descTags = xmlDoc.getElementsByTagName("desc");
+                    
+                    for (let i = 0; i < descTags.length; i++) {
+                        try {
+                            const jsonStr = descTags[i].textContent;
+                            if (jsonStr.includes("MushroomLabProject")) {
+                                const data = JSON.parse(jsonStr);
+                                if (confirm(`偵測到「${results[0].name}」包含完整專案數據！\n\n按「確定」：還原花朵中心與設定。\n按「取消」：僅讀取座標。`)) {
+                                    // 執行還原邏輯
+                                    centers = data.centers || [];
+                                    flowerOverrides = data.overrides || {};
+                                    selectedIndex = -1;
+                                    swapSourceIndex = -1;
+                                    startNode = null;
+                                    endNode = null;
+                                    isFlowerPathMode = data.isFlower || false;
+                                    document.getElementById('path-toggle').checked = isFlowerPathMode;
+                                    
+                                    checkAndFixGeometry(centers);
+                                    updatePathData();
+                                    updateUIForMode();
+                                    draw();
+                                    resizeCanvas();
+                                    setTimeout(fitToScreen, 100);
+                                    
+                                    alert(`專案還原成功！已載入 ${centers.length} 點。`);
+                                    input.value = '';
+                                    return;
+                                }
+                            }
+                        } catch (e) { console.log("JSON parse error", e); }
+                    }
+                }
+
+                // --- 情境 B：多檔或單檔 (純座標合併模式) ---
+                let combinedPoints = new Set(); // 使用 Set 自動過濾重複字串
+                let totalFiles = 0;
+                let totalPointsFound = 0;
+
+                results.forEach(fileResult => {
+                    const xmlDoc = parser.parseFromString(fileResult.content, "text/xml");
+                    const trkpts = xmlDoc.getElementsByTagName("trkpt");
+                    const rtepts = xmlDoc.getElementsByTagName("rtept");
+                    const wpts = xmlDoc.getElementsByTagName("wpt");
+
+                    let pointsInFile = 0;
+                    const extract = (nodes) => {
+                        for (let i = 0; i < nodes.length; i++) {
+                            const lat = nodes[i].getAttribute("lat");
+                            const lon = nodes[i].getAttribute("lon");
+                            if (lat && lon) {
+                                // 格式化為字串存入 Set，重複的會被自動忽略
+                                combinedPoints.add(`${lat}, ${lon}`);
+                                pointsInFile++;
+                            }
+                        }
+                    };
+
+                    extract(trkpts);
+                    extract(rtepts);
+                    extract(wpts);
+
+                    if (pointsInFile > 0) {
+                        totalFiles++;
+                        totalPointsFound += pointsInFile;
+                    }
+                });
+
+                if (combinedPoints.size === 0) {
+                    alert("在選取的檔案中找不到任何座標數據。");
+                    input.value = '';
+                    return;
+                }
+
+                // 將 Set 轉回陣列並填入 Textarea
+                const finalPointsArray = Array.from(combinedPoints);
+                const rawInput = document.getElementById('rawInputData');
+                rawInput.value = finalPointsArray.join('\n');
+
+                const duplicateCount = totalPointsFound - combinedPoints.size;
+                alert(`批次載入完成！\n\n- 來源檔案：${results.length} 個\n- 原始點數：${totalPointsFound}\n- 過濾重複：${duplicateCount}\n- 實際載入：${combinedPoints.size}\n\n請點擊「繪製」或「AI 繪製」繼續。`);
+                
+                input.value = '';
+
+            } catch (err) {
+                console.error(err);
+                alert("讀取檔案時發生錯誤，請確認檔案格式。");
+                input.value = '';
             }
         }
 
@@ -978,14 +1096,28 @@
             const pointsToExport = isFlowerPathMode ? pathPoints : centers;
             if (pointsToExport.length === 0) { alert("沒有路徑資料！"); return; }
 
+            // [新增] 準備要隱藏的專案數據 (Project State)
+            const appData = {
+                ver: "1.0",
+                type: "MushroomLabProject",
+                centers: centers,          // 原始中心點
+                overrides: flowerOverrides,// 個別花朵參數
+                isFlower: isFlowerPathMode // 當時是否為種花模式
+            };
+            // 將物件轉為 JSON 字串，放在 desc 標籤中
+            const serializedData = JSON.stringify(appData);
+
             let content = "";
+            // 在 GPX 標頭加入 desc 標籤存放數據
+            const metadata = `<metadata><name>${fileName}</name><desc>${serializedData}</desc></metadata>`;
+
             if (type === 'Router') {
                 const waypoints = pointsToExport.map(c => `  <wpt lat="${c.lat}" lon="${c.lon}"></wpt>`).join('\n');
                 const trackpoints = pointsToExport.map(c => `    <trkpt lat="${c.lat}" lon="${c.lon}"></trkpt>`).join('\n');
-                content = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n<gpx version="1.1" creator="Mushroom Lab" xmlns="http://www.topografix.com/GPX/1/1">\n${waypoints}\n<trk><name>${fileName}</name><trkseg>${trackpoints}</trkseg></trk></gpx>`;
+                content = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n<gpx version="1.1" creator="Mushroom Lab" xmlns="http://www.topografix.com/GPX/1/1">\n${metadata}\n${waypoints}\n<trk><name>${fileName}</name><trkseg>${trackpoints}</trkseg></trk></gpx>`;
             } else {
                 const routepoints = pointsToExport.map(c => `<rtept lat="${c.lat}" lon="${c.lon}"/>`).join('');
-                content = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?><gpx version="1.1" creator="Mushroom Lab"><rte><name>${fileName}</name><number>0</number>${routepoints}</rte></gpx>`;
+                content = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?><gpx version="1.1" creator="Mushroom Lab">\n${metadata}\n<rte><name>${fileName}</name><number>0</number>${routepoints}</rte></gpx>`;
             }
 
             const blob = new Blob([content], { type: 'application/gpx+xml;charset=utf-8' });
