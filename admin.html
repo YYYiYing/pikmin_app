@@ -278,7 +278,8 @@
                     <table class="w-full text-left">
                         <thead id="user-table-header" class="table-header sticky top-0"> 
                             <tr>
-                                <th class="p-3 sortable-header" data-sort-key="nickname">暱稱<span class="sort-indicator"></span></th>
+                                <th class="p-3 sortable-header w-60" data-sort-key="nickname">暱稱<span class="sort-indicator"></span></th>
+                                <th class="p-3 sortable-header min-w-[100px]" data-sort-key="notes">備註<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header" data-sort-key="role">角色<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header text-center" data-sort-key="monthly_signup_count">參與度<span class="sort-indicator"></span></th>
                                 <th class="p-3 sortable-header text-center" data-sort-key="absent_score">💤<span class="sort-indicator"></span></th>
@@ -334,6 +335,10 @@
                         <div>
                             <label for="edit-nickname" class="text-sm font-medium">新暱稱</label>
                             <input type="text" id="edit-nickname" required maxlength="50" class="dark-input mt-1 w-full rounded-md">
+                        </div>
+                        <div>
+                            <label for="edit-notes" class="text-sm font-medium">備註 (私密)</label>
+                            <input type="text" id="edit-notes" maxlength="100" class="dark-input mt-1 w-full rounded-md" placeholder="例如：某某人的朋友">
                         </div>
                     </div>
                     <div class="flex justify-end space-x-3 mt-8">
@@ -504,8 +509,8 @@
             updateSortIndicators();
 
             if (!allUsersData || allUsersData.length === 0) {
-                // ★ 修改：因為多了一欄，colspan 改為 6
-                userListBody.innerHTML = `<tr><td colspan="6" class="text-center p-4">目前沒有任何使用者。</td></tr>`;
+                // 因為新增了「備註」欄位，總欄位數變為 7，所以 colspan 改為 7
+                userListBody.innerHTML = `<tr><td colspan="7" class="text-center p-4">目前沒有任何使用者。</td></tr>`;
                 return;
             }
 
@@ -516,7 +521,7 @@
                 let comparison = 0;
                 
                 if (currentSortColumn === 'nickname') {
-                    // --- 保留：暱稱排序邏輯 ---
+                    // --- 暱稱排序邏輯 ---
                     const getStringType = (str) => {
                         if (!str) return 2;
                         if (/^[a-zA-Z]/.test(str)) return 1;
@@ -536,19 +541,20 @@
                     if (valB == null) return -1;
                     
                     if (currentSortColumn === 'monthly_signup_count') {
-                        // --- 保留：參與度排序 (總和) ---
+                        // --- 參與度排序 (總和) ---
                         const totalA = (valA ?? 0) + (a.monthly_host_count ?? 0);
                         const totalB = (valB ?? 0) + (b.monthly_host_count ?? 0);
                         comparison = totalA - totalB;
                     
                     } else if (currentSortColumn === 'absent_score') {
-                        // ★ 新增：缺席分數排序 (數值比較)
+                        // --- 缺席分數排序 (數值比較) ---
                         comparison = (valA ?? 0) - (valB ?? 0);
 
                     } else if (currentSortColumn === 'last_active_at') {
-                        // --- 保留：時間排序 ---
+                        // --- 時間排序 ---
                         comparison = new Date(valA).getTime() - new Date(valB).getTime();
                     } else {
+                        // 一般字串排序 (包含備註 notes)
                         comparison = String(valA).localeCompare(String(valB));
                     }
                 }
@@ -561,7 +567,7 @@
                     ? new Date(user.last_active_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '')
                     : '從未';
                 
-                // --- 保留：計算綜合參與度 ---
+                // --- 計算綜合參與度 ---
                 const signupCount = user.monthly_signup_count || 0;
                 const hostCount = user.monthly_host_count || 0;
                 const totalParticipation = signupCount + hostCount;
@@ -569,7 +575,7 @@
                 const hostClass = hostCount > 0 ? 'text-green-400' : 'text-gray-500';
                 const participationDisplay = `<span class="font-bold text-white">${totalParticipation}</span> <span class="text-xs text-gray-400">(<span class="${signupClass}">報${signupCount}</span>/<span class="${hostClass}">發${hostCount}</span>)</span>`;
 
-                // ★ 新增：缺席分數顯示邏輯 (大於0顯示紅字，等於0顯示灰色)
+                // --- 缺席分數顯示邏輯 ---
                 const absScore = user.absent_score || 0;
                 const absDisplay = absScore > 0 
                     ? `<span class="text-red-400 font-bold">💤+${absScore}</span>` 
@@ -578,6 +584,9 @@
                 return `
                     <tr class="border-b border-gray-700 hover:bg-gray-800/50">
                         <td class="p-3">${user.nickname || 'N/A'}</td>
+                        
+                        <td class="p-3 text-gray-400 text-sm">${user.notes || ''}</td>
+
                         <td class="p-3">${user.role || '未知'}</td>
                         
                         <td class="p-3 text-center">${participationDisplay}</td>
@@ -750,24 +759,48 @@
             }
         });
 
+        // 監聽列表按鈕點擊 (編輯 / 重設密碼 / 改角色 / 刪除)
         userListBody.addEventListener('click', async (e) => {
             const target = e.target.closest('button');
             if (!target) return;
-            const userData = target.dataset;
-            userToEdit = { id: userData.id, nickname: userData.nickname, role: userData.role };
+            
+            // 1. 先取得 ID
+            const userId = target.dataset.id;
+            
+            // 2. ★ 關鍵修正：從全域變數 allUsersData 中找出該使用者的「完整資料」
+            // 這樣才能確保讀取到最新的 notes (備註) 欄位
+            userToEdit = allUsersData.find(u => u.id === userId);
+
+            // 防呆：如果找不到 (理論上不應發生)，就退回用 dataset
+            if (!userToEdit) {
+                const d = target.dataset;
+                userToEdit = { id: d.id, nickname: d.nickname, role: d.role, notes: '' };
+            }
+
             if (target.classList.contains('edit-user-button')) {
+                // --- 編輯使用者 ---
                 document.getElementById('edit-user-id').value = userToEdit.id;
                 document.getElementById('edit-user-old-nickname').value = userToEdit.nickname;
                 document.getElementById('edit-nickname').value = userToEdit.nickname;
+                
+                // 強制帶入備註，若無則設為空字串 (清空上一次的值)
+                document.getElementById('edit-notes').value = userToEdit.notes || '';
+                
                 editUserModal.classList.remove('hidden');
+
             } else if (target.classList.contains('reset-password-button')) {
+                // --- 重設密碼 ---
                 document.getElementById('reset-pw-nickname').textContent = userToEdit.nickname;
                 resetPasswordModal.classList.remove('hidden');
+
             } else if (target.classList.contains('change-role-button')) {
+                // --- 變更角色 ---
                 document.getElementById('change-role-nickname').textContent = userToEdit.nickname;
                 document.getElementById('change-role-select').value = userToEdit.role;
                 changeRoleModal.classList.remove('hidden');
+
             } else if (target.classList.contains('delete-user-button')) {
+                // --- 刪除使用者 ---
                 const confirmationMessage = `【高風險管理員操作】\n\n您確定要永久刪除使用者「${userToEdit.nickname}」嗎？\n\n此操作會將其帳號及所有相關資料從系統中移除，且無法復原。`;
                 if (confirm(confirmationMessage)) {
                     target.disabled = true; target.textContent = '刪除中';
@@ -812,16 +845,19 @@
             e.preventDefault();
             const submitButton = document.getElementById('submit-edit-user');
             submitButton.disabled = true; submitButton.textContent = '儲存中...';
-        
+
             const payload = {
                 userId: document.getElementById('edit-user-id').value,
                 oldNickname: document.getElementById('edit-user-old-nickname').value,
                 newNickname: document.getElementById('edit-nickname').value,
+                // ★ 新增：傳送備註
+                notes: document.getElementById('edit-notes').value
             };
-        
+
             try {
+                // action 名稱維持 update-user-nickname 不變 (後端會一併處理)
                 await invokeAdminFunction('update-user-nickname', payload);
-                showMessage(`使用者暱稱已成功更新為 ${payload.newNickname}。`, false);
+                showMessage(`使用者資料更新成功。`, false);
                 editUserModal.classList.add('hidden');
                 loadUsers();
             } catch (error) {

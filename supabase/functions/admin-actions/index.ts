@@ -1520,35 +1520,45 @@ serve(async (req) => {
             ({ data } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId)); 
             break;
             
-        // ★ 修改：更新暱稱時，同步更新 Auth 表的虛擬信箱，確保登入邏輯一致
+        // 同時更新暱稱與備註
         case 'update-user-nickname': 
-            // 1. 先計算新暱稱對應的 Hex 虛擬信箱
-            const newHexNickname = Array.from(new TextEncoder().encode(payload.newNickname))
-                .map(b => b.toString(16).padStart(2, '0')).join('');
-            const newVirtualEmail = `${newHexNickname}@pikmin.sys`;
+            // 1. 如果暱稱有變更，才執行 Auth 更新 (避免不必要的 API 呼叫)
+            if (payload.newNickname !== payload.oldNickname) {
+                // 計算新 Hex 虛擬信箱
+                const newHexNickname = Array.from(new TextEncoder().encode(payload.newNickname))
+                    .map(b => b.toString(16).padStart(2, '0')).join('');
+                const newVirtualEmail = `${newHexNickname}@pikmin.sys`;
 
-            // 2. 更新 Supabase Auth (這步最關鍵，讓使用者能用新名字登入)
-            // 注意：這會讓該使用者變成「新制 (Hex) 帳號」，這很好，統一規格
-            const { error: authUpdateErr } = await adminSupabaseClient.auth.admin.updateUserById(
-                payload.userId, 
-                { email: newVirtualEmail }
-            );
-            
-            if (authUpdateErr) throw new Error(`Auth 更新失敗: ${authUpdateErr.message}`);
+                // 更新 Supabase Auth
+                const { error: authUpdateErr } = await adminSupabaseClient.auth.admin.updateUserById(
+                    payload.userId, 
+                    { email: newVirtualEmail }
+                );
+                
+                if (authUpdateErr) throw new Error(`Auth 更新失敗: ${authUpdateErr.message}`);
+                
+                // 更新 Partners 表 (如果有對應的話)
+                await adminSupabaseClient
+                    .from('partners')
+                    .update({ name: payload.newNickname })
+                    .eq('name', payload.oldNickname);
+            }
 
-            // 3. 更新 Profiles 表 (顯示用)
+            // 2. 更新 Profiles 表 (暱稱 + 備註)
+            const updateProfileData: any = {
+                nickname: payload.newNickname
+            };
+            // 如果前端有傳 notes 欄位，則更新備註
+            if (payload.notes !== undefined) {
+                updateProfileData.notes = payload.notes;
+            }
+
             const { error: pErr } = await adminSupabaseClient
                 .from('profiles')
-                .update({ nickname: payload.newNickname })
+                .update(updateProfileData)
                 .eq('id', payload.userId);
             
             if (pErr) throw pErr;
-
-            // 4. 更新 Partners 表 (如果有對應的話)
-            await adminSupabaseClient
-                .from('partners')
-                .update({ name: payload.newNickname })
-                .eq('name', payload.oldNickname);
             
             break;
             

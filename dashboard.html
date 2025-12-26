@@ -1771,7 +1771,7 @@
                 
                 // 設定顯示 HTML，例如 (3)，樣式為灰色小字
                 const dailyCountHtml = (dailyCount !== undefined && dailyCount !== null) 
-                    ? `<span class="text-xs text-gray-400 ml-1 font-normal select-none" title="今日已報名 ${dailyCount} 次">(${dailyCount})</span>` 
+                    ? `<span class="text-xs text-gray-400 font-normal select-none" title="今日已報名 ${dailyCount} 次">(${dailyCount})</span>` 
                     : '';
 
                 const cleanName = rawNickname.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
