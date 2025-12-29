@@ -1969,34 +1969,59 @@
         function onPlayerReady(event) {
             event.target.setShuffle(true);
             
+            // 設定進度條 (維持原樣)
             setTimeout(() => {
                 if (!musicPlayer || !musicPlayer.getDuration) return;
                 const total = musicPlayer.getDuration();
                 if (total) document.getElementById('music-progress').max = Math.floor(total);
             }, 1000);
 
-            const attemptPlay = () => {
-                musicPlayer.setVolume(50);
-                musicPlayer.unMute(); 
+            // ★ 1. 讀取使用者上次的靜音偏好
+            const isUserMuted = localStorage.getItem('bg_music_muted') === 'true';
+            const volBtn = document.getElementById('music-volume-btn');
+
+            if (isUserMuted) {
+                // ★ 2. 如果使用者上次是靜音，直接靜音播放
+                console.log("依照使用者偏好：靜音播放");
+                musicPlayer.mute();
                 musicPlayer.playVideoAt(0);
 
-                setTimeout(() => {
-                    const state = musicPlayer.getPlayerState();
-                    if (state === -1 || state === 2) {
-                        console.log("有聲播放被阻擋，切換為靜音自動播放");
-                        musicPlayer.mute(); 
-                        musicPlayer.playVideoAt(0); 
-                        
-                        const volBtn = document.getElementById('music-volume-btn');
-                        if(volBtn) {
-                            volBtn.classList.remove('text-gray-300');
-                            volBtn.classList.add('text-red-500');
-                        }
-                    }
-                }, 1000);
-            };
+                // 更新按鈕為紅色
+                if(volBtn) {
+                    volBtn.classList.remove('text-gray-300', 'text-white');
+                    volBtn.classList.add('text-red-500');
+                }
+            } else {
+                // ★ 3. 如果使用者想要有聲，執行您原本的嘗試播放邏輯
+                const attemptPlay = () => {
+                    musicPlayer.setVolume(50);
+                    musicPlayer.unMute(); 
+                    musicPlayer.playVideoAt(0);
 
-            attemptPlay();
+                    setTimeout(() => {
+                        const state = musicPlayer.getPlayerState();
+                        // 檢查是否被阻擋 (state -1: 未開始, 2: 暫停)
+                        if (state === -1 || state === 2) {
+                            console.log("有聲播放被阻擋，切換為靜音自動播放");
+                            musicPlayer.mute(); 
+                            musicPlayer.playVideoAt(0); 
+                            
+                            if(volBtn) {
+                                volBtn.classList.remove('text-gray-300');
+                                volBtn.classList.add('text-red-500');
+                            }
+                        } else {
+                            // 成功播放有聲，確保按鈕是灰色
+                            if(volBtn) {
+                                volBtn.classList.remove('text-red-500');
+                                volBtn.classList.add('text-gray-300');
+                            }
+                        }
+                    }, 1000);
+                };
+
+                attemptPlay();
+            }
         }
 
         function onPlayerStateChange(event) {
@@ -2046,13 +2071,17 @@
         document.getElementById('music-volume-btn').addEventListener('click', function() {
             if (!musicPlayer) return;
             if (musicPlayer.isMuted()) {
+                // 使用者開啟聲音 -> 存為 false
                 musicPlayer.unMute();
                 this.classList.remove('text-red-500');
-                this.classList.add('text-gray-600');
+                this.classList.add('text-gray-300');
+                localStorage.setItem('bg_music_muted', 'false');
             } else {
+                // 使用者關閉聲音 -> 存為 true
                 musicPlayer.mute();
-                this.classList.remove('text-gray-600');
-                this.classList.add('text-red-500'); 
+                this.classList.remove('text-gray-300', 'text-white');
+                this.classList.add('text-red-500');
+                localStorage.setItem('bg_music_muted', 'true');
             }
         });
 
