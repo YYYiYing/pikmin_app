@@ -244,18 +244,77 @@
         let uniqueCountries = new Set();
         let uniqueRegions = new Set(); 
 
+        // --- 綁定貼上按鈕事件 (支援編輯模式自動反查) ---
         document.addEventListener('DOMContentLoaded', async () => {
+            // 1. 初始化
             await checkUserStatus();
             await loadCategories();
             await loadHomeData(); 
             
-            const coordInput = document.getElementById('input-coords');
-            if(coordInput) { 
-                coordInput.addEventListener('blur', function() {
-                    this.value = formatCoordinateString(this.value);
+            // 2. 處理貼上按鈕
+            const pasteBtn = document.getElementById('paste-coord-btn');
+            if (pasteBtn) {
+                pasteBtn.addEventListener('click', async () => {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        if(text) {
+                            const formatted = formatCoordinateString(text);
+                            
+                            if (formatted) {
+                                // 填入座標
+                                document.getElementById('input-coords').value = formatted;
+                                
+                                // 按鈕回饋
+                                const originalText = pasteBtn.innerHTML;
+                                pasteBtn.innerHTML = '✅ OK';
+                                setTimeout(() => pasteBtn.innerHTML = originalText, 1000);
+
+                                // ★ 修改：移除「欄位要在空」的限制
+                                // 邏輯：既然用戶按了貼上，代表他要換地點，直接觸發反查覆蓋舊資料
+                                const [lat, lng] = formatted.split(',').map(s => s.trim());
+                                await autoFillLocation(lat, lng);
+
+                            } else {
+                                alert('❌ 剪貼簿內容不是有效的座標格式！');
+                            }
+                        } else {
+                            alert('剪貼簿是空的');
+                        }
+                    } catch(e) { 
+                        alert('無法讀取剪貼簿，請手動貼上'); 
+                    }
                 });
-                coordInput.addEventListener('paste', function(e) {
-                    setTimeout(() => { this.value = formatCoordinateString(this.value); }, 10);
+            }
+
+            // 3. 手動輸入優化：偵測座標是否有「變更」
+            const coordInput = document.getElementById('input-coords');
+            let coordsOnFocus = ''; // 用來記錄游標點進去時的舊數值
+
+            if (coordInput) {
+                // 點進欄位時，先記住原本的座標
+                coordInput.addEventListener('focus', function() {
+                    coordsOnFocus = this.value.trim();
+                });
+
+                // 離開欄位 (Blur) 時
+                coordInput.addEventListener('blur', async function() {
+                    const val = this.value.trim();
+                    if (!val) return;
+
+                    const formatted = formatCoordinateString(val);
+                    
+                    // 判斷條件：
+                    // A. 座標有被修改過 (val !== coordsOnFocus) -> 代表換地點了，要反查
+                    // B. 或是國家欄位是空的 (isCountryEmpty) -> 代表是新貼文還沒填，要反查
+                    const isChanged = (val !== coordsOnFocus);
+                    const isCountryEmpty = !document.getElementById('input-country').value;
+
+                    // 只有當「格式正確」且「符合上述任一條件」時，才觸發
+                    if (formatted && (isChanged || isCountryEmpty)) {
+                        this.value = formatted; // 順便格式化
+                        const [lat, lng] = formatted.split(',').map(s => s.trim());
+                        await autoFillLocation(lat, lng);
+                    }
                 });
             }
         });
@@ -933,6 +992,67 @@
             }
         }
 
+        // ★ 工具函式：自動反查地理位置 (透過後端 Proxy)
+        async function autoFillLocation(lat, lng) {
+            const countryInput = document.getElementById('input-country');
+            const regionInput = document.getElementById('input-region');
+            const areaInput = document.getElementById('input-area');
+
+            const originalPlaceholders = {
+                country: countryInput.placeholder,
+                region: regionInput.placeholder,
+                area: areaInput.placeholder
+            };
+            
+            countryInput.value = ''; countryInput.placeholder = '🔍 搜尋中...';
+            regionInput.value = ''; regionInput.placeholder = '🔍 搜尋中...';
+            areaInput.value = ''; areaInput.placeholder = '🔍 搜尋中...';
+
+            try {
+                // ★ 修改：改呼叫 Supabase Edge Function (由後端代為查詢)
+                const { data: resData, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ 
+                        action: 'reverse-geocode', 
+                        payload: { lat, lng } 
+                    })
+                });
+
+                if (error) throw error;
+
+                // 後端回傳的結構是 { success: true, data: { ...OSM資料... } }
+                const data = resData.data;
+
+                if (data && data.address) {
+                    const addr = data.address;
+
+                    // 1. 國家
+                    if (addr.country) countryInput.value = addr.country;
+
+                    // 2. 地區 (自動修正 "臺" 為 "台")
+                    const region = addr.city || addr.county || addr.state || '';
+                    if (region) regionInput.value = region.replace(/臺/g, '台');
+
+                    // 3. 細項
+                    const area = addr.suburb || addr.district || addr.town || addr.village || addr.neighbourhood || '';
+                    if (area) areaInput.value = area;
+                    
+                    // 閃爍綠框提示成功
+                    [countryInput, regionInput, areaInput].forEach(el => {
+                        if(el.value) {
+                            el.classList.add('ring-2', 'ring-green-500');
+                            setTimeout(() => el.classList.remove('ring-2', 'ring-green-500'), 1000);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('自動填寫位置失敗:', e);
+                // 失敗時恢復原本的 placeholder
+                countryInput.placeholder = originalPlaceholders.country;
+                regionInput.placeholder = originalPlaceholders.region;
+                areaInput.placeholder = originalPlaceholders.area;
+            }
+        }
+
         function copyText(text) {
             navigator.clipboard.writeText(text).then(() => alert('已複製座標'));
         }
@@ -1015,26 +1135,6 @@
                 setupInputDropdown('input-area', 'dropdown-area', uniqueAreas);
             }
         }
-
-        // --- 綁定貼上按鈕事件 ---
-        document.getElementById('paste-coord-btn').addEventListener('click', async () => {
-            try {
-                const text = await navigator.clipboard.readText();
-                if(text) {
-                    const formatted = formatCoordinateString(text);
-                    document.getElementById('input-coords').value = formatted;
-                    // 簡單閃爍提示
-                    const btn = document.getElementById('paste-coord-btn');
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = '✅ OK';
-                    setTimeout(() => btn.innerHTML = originalText, 1000);
-                } else {
-                    alert('剪貼簿是空的');
-                }
-            } catch(e) { 
-                alert('無法讀取剪貼簿，請手動貼上'); 
-            }
-        });
     </script>
 </body>
 </html>

@@ -408,6 +408,32 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // 反查地址 Proxy (解決前端 CORS 問題)
+        if (action === 'reverse-geocode') {
+            const { lat, lng } = payload;
+            
+            // 必須帶上 User-Agent，否則 OpenStreetMap 會回傳 403 Forbidden
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=zh-TW`;
+            
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Pikmin-Mushroom-Radar/1.0 (contact: secretsoulful@gmail.com)' 
+                }
+            });
+
+            if (!response.ok) {
+                console.error('Nominatim API Error:', response.status);
+                throw new Error('無法取得地址資訊');
+            }
+
+            const data = await response.json();
+            
+            return new Response(JSON.stringify({ success: true, data: data }), { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200 
+            });
+        }
+
 
     // ============================================================
     // === 訪客專用功能 (無需 Auth) ===
