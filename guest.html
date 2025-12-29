@@ -108,7 +108,7 @@
 <body class="bg-gray-900 min-h-screen p-4 pb-32">
 
     <div class="max-w-4xl mx-auto">
-        <header class="mb-8 flex justify-center items-start gap-4">
+        <header class="mb-8 flex justify-center items-start gap-4 relative">
             <img src="./mashroom_s.png" alt="Pikmin Logo" class="w-12 h-12 mt-1 rounded-full flex-shrink-0 object-contain bg-gray-800">
             
             <div class="flex flex-col items-start">
@@ -134,6 +134,12 @@
                     </button>
                 </div>
             </div>
+
+            <a href="./radar.html" 
+            class="absolute right-0 top-16 group flex items-center justify-center bg-gray-800/80 hover:bg-gray-700 text-purple-400 p-2 rounded-xl border border-purple-500/30 transition shadow-lg hover:scale-105 hover:text-purple-300 hover:shadow-purple-900/20 backdrop-blur-sm">
+                <span class="text-xl md:text-2xl group-hover:animate-pulse filter drop-shadow-md">📡</span>
+                <span class="text-[15px] font-bold mt-1 hidden md:block whitespace-nowrap" data-i18n="btn_radar_link">純點雷達</span>
+            </a>
 
             <div id="bg-music-player" class="fixed bottom-4 right-4 z-40 flex flex-col gap-1 items-center group transition-all duration-500">
                 <div class="bubble-icon">🎵</div>
@@ -2426,6 +2432,7 @@
         const RESOURCES = {
             'zh-TW': {
                 // --- 全域提示與 Toast (Global Messages) ---
+                'btn_radar_link': '純點雷達站',
                 'toast_success': '成功！',
                 'toast_copy_success': '已複製',
                 'toast_copy_fail': '複製失敗',
@@ -2587,6 +2594,7 @@
 
             'en': {
                 // --- Global / Toast ---
+                'btn_radar_link': 'Radar Station',
                 'toast_success': 'Success!',
                 'toast_copy_success': 'Copied!',
                 'toast_copy_fail': 'Copy failed',
@@ -2746,6 +2754,7 @@
 
             'ja': {
                 // --- Global / Toast ---
+                'btn_radar_link': 'レーダー',
                 'toast_success': '成功！',
                 'toast_copy_success': 'コピーしました',
                 'toast_copy_fail': 'コピーに失敗しました',
@@ -2905,6 +2914,7 @@
 
             'ko': {
                 // --- Global / Toast ---
+                'btn_radar_link': '레이더',
                 'toast_success': '성공!',
                 'toast_copy_success': '복사되었습니다',
                 'toast_copy_fail': '복사 실패',

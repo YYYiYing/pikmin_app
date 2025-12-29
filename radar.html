@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>純點雷達站 - 菇菇宅配網</title>
+    <link rel="icon" href="./mashroom_s.png" type="image/png">
+    <link rel="apple-touch-icon" href="./mashroom_s.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
+    <style>
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
+        .dark-input { background-color: #374151; border-color: #4b5563; color: #d1d5db; }
+        .dark-input:focus { border-color: #a855f7; --tw-ring-color: #a855f7; outline: none; ring: 2px; }
+        .category-tab {
+            transition: all 0.2s;
+            white-space: nowrap; /* 確保單個標籤不換行 */
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 15px;
+            background-color: #374151; /* 預設深灰底 */
+            color: #d1d5db;
+        }
+        .category-tab:hover {
+            background-color: #4b5563;
+            color: white;
+        }
+        .category-tab.active {
+            background-color: #9333ea; /* 紫色底 */
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+
+    <nav class="bg-gray-800 border-b border-gray-700 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center gap-2">
+                    <a href="javascript:history.back()" class="text-gray-400 hover:text-white transition cursor-pointer">← 返回</a>
+                    <h1 onclick="loadHomeData()" class="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 cursor-pointer hover:opacity-80 transition select-none" title="回到首頁">
+                        📡 純點雷達站
+                    </h1>
+                </div>
+                <div id="user-display" class="text-xs text-gray-400 font-mono"></div>
+            </div>
+        </div>
+        
+        <div class="bg-gray-900 shadow-inner relative group">
+            <div id="category-container" class="overflow-hidden max-h-[50px] transition-all duration-300 px-4 py-3">
+                <div id="category-list" class="flex flex-wrap gap-x-3 gap-y-2 text-sm text-gray-400">
+                    <span class="category-tab">載入中...</span>
+                </div>
+            </div>
+            
+            <button id="category-expand-btn" class="w-full text-center bg-gray-800/90 hover:bg-gray-700 text-gray-400 text-xs py-1 hidden shadow-md" onclick="toggleCategories()">
+                ▼ 展開更多
+            </button>
+        </div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto p-4 space-y-6">
+
+        <div id="category-info-section" class="hidden animate-fade-in">
+            <div class="relative w-full h-28 md:h-40 bg-gray-800 rounded-xl overflow-hidden shadow-lg group">
+                <img id="category-image" src="" alt="分類圖片" class="w-full h-full object-contain bg-gray-900/50 hidden">
+                <div id="category-placeholder" class="w-full h-full flex items-center justify-center text-gray-600 bg-gray-800">
+                    <span class="text-4xl">📡</span>
+                </div>
+                
+                <button id="admin-edit-category-btn" class="hidden absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white px-2 py-1 rounded text-xs backdrop-blur-sm">
+                    ⚙️
+                </button>
+
+                <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-4">
+                    <h2 id="current-category-name" class="text-2xl font-bold text-white shadow-black drop-shadow-md"></h2>
+                </div>
+            </div>
+        </div>
+
+        <div id="share-section" class="hidden">
+            <button onclick="openShareModal()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+                <span>📍</span> 分享此類別的純點
+            </button>
+        </div>
+
+        <div id="filter-section" class="hidden bg-gray-800 p-4 rounded-xl border border-gray-700 grid grid-cols-3 gap-2">
+            <div>
+                <label class="text-xs text-gray-500 block mb-1">國家</label>
+                <select id="filter-country" class="dark-input w-full p-2 rounded text-sm"><option value="all">全部</option></select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500 block mb-1">地區</label>
+                <select id="filter-region" class="dark-input w-full p-2 rounded text-sm"><option value="all">全部</option></select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500 block mb-1">細項</label>
+                <select id="filter-area" class="dark-input w-full p-2 rounded text-sm"><option value="all">全部</option></select>
+            </div>
+        </div>
+
+        <div id="radar-list" class="grid grid-cols-1 gap-4">
+            <p class="text-center text-gray-500 py-10">請選擇上方分類以查看雷達點</p>
+        </div>
+    </div>
+
+    <div id="share-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="bg-gray-800 w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-700">
+            <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span>📍</span> <span id="modal-title">分享純點</span>
+            </h3>
+            
+            <form id="share-form" class="space-y-4">
+                <input type="hidden" id="post-id"> 
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">座標</label>
+                    <input type="text" id="input-coords" required placeholder="例如: 22.123456, 120.654321" 
+                           class="dark-input w-full p-3 rounded-lg font-mono text-sm">
+                    <p class="text-[10px] text-gray-500 mt-1">支援貼上 Google Maps 網址自動轉換</p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">國家</label>
+                        <input type="text" id="input-country" list="country-list" required placeholder="台灣" class="dark-input w-full p-2 rounded-lg text-sm">
+                        <datalist id="country-list"></datalist>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">地區</label>
+                        <input type="text" id="input-region" list="region-list" required placeholder="高雄" class="dark-input w-full p-2 rounded-lg text-sm">
+                        <datalist id="region-list"></datalist>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">細項</label>
+                        <input type="text" id="input-area" list="area-list" placeholder="鳳山" class="dark-input w-full p-2 rounded-lg text-sm">
+                        <datalist id="area-list"></datalist>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex gap-3">
+                    <button type="button" onclick="closeShareModal()" class="flex-1 py-2 bg-gray-700 text-gray-300 rounded-lg font-bold hover:bg-gray-600">取消</button>
+                    <button type="submit" id="submit-btn" class="flex-1 py-2 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-500">發布</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="category-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="bg-gray-800 w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-gray-700">
+            <h3 class="text-xl font-bold text-white mb-4">編輯類別</h3>
+            <form id="category-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">類別名稱</label>
+                    <input type="text" id="cat-name" required class="dark-input w-full p-2 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">代表圖片</label>
+                    <input type="file" id="cat-image" accept="image/*" class="dark-input w-full p-1 rounded-lg text-xs">
+                    <p class="text-xs text-gray-500 mt-1">若不更換請留空</p>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" onclick="document.getElementById('category-modal').classList.add('hidden')" class="px-4 py-2 bg-gray-700 rounded text-sm">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded text-sm font-bold">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
+        const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ'; 
+        const supabaseClient = supabase.createClient(SUPABASE_URL, PUBLIC_KEY);
+
+        let currentUser = null; 
+        let currentCategory = null; 
+        let allCategories = [];
+        let allPosts = [];
+        let isEditing = false;
+        let uniqueAreas = new Set();
+        let uniqueCountries = new Set();
+        let uniqueRegions = new Set(); 
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkUserStatus();
+            await loadCategories();
+            await loadHomeData(); 
+            
+            const coordInput = document.getElementById('input-coords');
+            if(coordInput) { 
+                coordInput.addEventListener('blur', function() {
+                    this.value = formatCoordinateString(this.value);
+                });
+                coordInput.addEventListener('paste', function(e) {
+                    setTimeout(() => { this.value = formatCoordinateString(this.value); }, 10);
+                });
+            }
+        });
+
+        async function checkUserStatus() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const displayEl = document.getElementById('user-display');
+
+            if (session) {
+                const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
+                if (profile) {
+                    currentUser = { id: session.user.id, nickname: profile.nickname, role: profile.role };
+                    displayEl.textContent = `${profile.nickname}`;
+                    displayEl.classList.add('text-purple-400');
+                    return;
+                }
+            }
+            
+            const guestNick = localStorage.getItem('guest_nick');
+            if (guestNick) {
+                currentUser = { id: null, nickname: guestNick, role: 'guest' };
+                displayEl.textContent = `訪客: ${guestNick}`;
+            } else {
+                displayEl.textContent = '未設定暱稱';
+            }
+        }
+
+        async function loadCategories() {
+            const listEl = document.getElementById('category-list');
+            listEl.innerHTML = '載入中...';
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'get-radar-categories' })
+                });
+                
+                if (error) throw error;
+                allCategories = data.data;
+
+                renderCategoryTabs();
+            } catch (e) {
+                console.error(e);
+                listEl.innerHTML = '無法載入分類';
+            }
+        }
+
+        async function loadHomeData() {
+            currentCategory = null; 
+            
+            document.getElementById('category-info-section').classList.add('hidden');
+            document.getElementById('share-section').classList.add('hidden'); 
+            
+            document.querySelectorAll('.category-tab').forEach(el => el.classList.remove('active'));
+
+            const listEl = document.getElementById('radar-list');
+            listEl.innerHTML = '<p class="text-center py-10 text-gray-500">正在搜尋全境訊號...</p>';
+
+            try {
+                const session = (await supabaseClient.auth.getSession()).data.session;
+                const options = {
+                    body: JSON.stringify({ action: 'get-radar-home-data' })
+                };
+                if (session) options.headers = { Authorization: `Bearer ${session.access_token}` };
+
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', options);
+                if (error) throw error;
+                
+                allPosts = data.data;
+                
+                const filterSec = document.getElementById('filter-section');
+                if(filterSec) filterSec.classList.remove('hidden');
+
+                updateFilters(); 
+                renderPosts(allPosts); 
+
+            } catch (e) {
+                console.error(e);
+                listEl.innerHTML = `<p class="text-center text-red-400">讀取失敗: ${e.message}</p>`;
+            }
+        }
+
+        function renderCategoryTabs() {
+            const listEl = document.getElementById('category-list');
+            const container = document.getElementById('category-container');
+            const btn = document.getElementById('category-expand-btn');
+            
+            listEl.innerHTML = '';
+
+            allCategories.forEach(cat => {
+                const span = document.createElement('span');
+                span.className = `category-tab`; 
+                span.innerHTML = `${cat.name} <span class="text-[10px] ml-1 opacity-70">(${cat.count || 0})</span>`;
+                span.onclick = () => selectCategory(cat);
+                listEl.appendChild(span);
+            });
+
+            setTimeout(() => {
+                if (listEl.offsetHeight > 52) { // 一行的高度
+                    btn.classList.remove('hidden'); 
+                } else {
+                    btn.classList.add('hidden');
+                }
+            }, 0);
+        }
+
+        async function selectCategory(cat) {
+            // 如果再次點擊已選取的分類 -> 取消選取 (回到首頁)
+            if (currentCategory && currentCategory.id === cat.id) {
+                await loadHomeData();
+                return; // 中斷後續執行
+            }
+            currentCategory = cat;
+            
+            document.querySelectorAll('.category-tab').forEach(el => {
+                el.classList.remove('active');
+                if (el.textContent.includes(cat.name)) el.classList.add('active');
+            });
+
+            const infoSec = document.getElementById('category-info-section');
+            const imgEl = document.getElementById('category-image');
+            const phEl = document.getElementById('category-placeholder');
+            const nameEl = document.getElementById('current-category-name');
+            const adminBtn = document.getElementById('admin-edit-category-btn');
+            const shareSec = document.getElementById('share-section');
+            const filterSec = document.getElementById('filter-section');
+
+            if (infoSec) {
+                infoSec.classList.remove('hidden');
+                if (nameEl) nameEl.textContent = cat.name;
+
+                if (cat.image_url) {
+                    if (imgEl) {
+                        imgEl.src = cat.image_url;
+                        imgEl.classList.remove('hidden');
+                    }
+                    if (phEl) phEl.classList.add('hidden');
+                } else {
+                    if (imgEl) imgEl.classList.add('hidden');
+                    if (phEl) phEl.classList.remove('hidden');
+                }
+
+                if (adminBtn) {
+                    if (currentUser && currentUser.role === '管理者') {
+                        adminBtn.classList.remove('hidden');
+                        adminBtn.onclick = () => openCategoryModal();
+                    } else {
+                        adminBtn.classList.add('hidden');
+                    }
+                }
+            }
+
+            if (shareSec) shareSec.classList.remove('hidden');
+            
+            if (filterSec) {
+                filterSec.classList.remove('hidden');
+            } else {
+                console.warn('找不到 filter-section 元素');
+            }
+
+            const container = document.getElementById('category-container');
+            const btn = document.getElementById('category-expand-btn');
+            
+            if (container && !container.classList.contains('max-h-[50px]')) {
+                container.classList.add('max-h-[50px]');
+                container.classList.remove('max-h-[1000px]');
+                if (btn) btn.textContent = '▼ 展開更多';
+            }
+            
+            // 讓被選中的分類滾動到可視區域
+            setTimeout(() => {
+                const activeTab = document.querySelector('.category-tab.active');
+                if (activeTab) {
+                    activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }, 300);
+
+            await loadRadarPosts(cat.id);
+        }
+
+        async function loadRadarPosts(categoryId) {
+            const listEl = document.getElementById('radar-list');
+            listEl.innerHTML = '<p class="text-center py-10 text-gray-500">搜尋訊號中...</p>';
+
+            try {
+                const session = (await supabaseClient.auth.getSession()).data.session;
+                const options = {
+                    body: JSON.stringify({ action: 'get-radar-posts', payload: { categoryId } })
+                };
+                if (session) {
+                    options.headers = { Authorization: `Bearer ${session.access_token}` };
+                }
+
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', options);
+                if (error) throw error;
+                
+                allPosts = data.data;
+                updateFilters(); 
+                renderPosts(allPosts); 
+
+            } catch (e) {
+                console.error(e);
+                listEl.innerHTML = `<p class="text-center text-red-400">讀取失敗: ${e.message}</p>`;
+            }
+        }
+
+        function updateFilters() {
+            uniqueCountries = new Set();
+            uniqueRegions = new Set();
+            uniqueAreas = new Set();
+            
+            allPosts.forEach(p => {
+                if(p.country) uniqueCountries.add(p.country);
+                if(p.region) uniqueRegions.add(p.region);
+                if(p.area) uniqueAreas.add(p.area);
+            });
+
+            const fillSelect = (id, options, defaultText = '全部') => {
+                const el = document.getElementById(id);
+                if (!el) return; 
+                el.innerHTML = defaultText ? `<option value="all">${defaultText}</option>` : '';
+                options.sort().forEach(val => {
+                    el.add(new Option(val, val));
+                });
+            };
+            
+            const fillDatalist = (id, options) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.innerHTML = '';
+                options.sort().forEach(val => {
+                    el.innerHTML += `<option value="${val}">`;
+                });
+            }
+
+            fillDatalist('country-list', [...uniqueCountries]);
+            fillDatalist('region-list', [...uniqueRegions]);
+            fillDatalist('area-list', [...uniqueAreas]);
+
+            const selCountry = document.getElementById('filter-country');
+            const selRegion = document.getElementById('filter-region');
+            const selArea = document.getElementById('filter-area');
+
+            if(selCountry) {
+                const oldVal = selCountry.value;
+                fillSelect('filter-country', [...uniqueCountries], '全部國家');
+                if([...uniqueCountries].includes(oldVal)) selCountry.value = oldVal;
+                selCountry.onchange = applyFilter;
+            }
+            if(selRegion) {
+                const oldVal = selRegion.value;
+                fillSelect('filter-region', [...uniqueRegions], '全部地區');
+                if([...uniqueRegions].includes(oldVal)) selRegion.value = oldVal;
+                selRegion.onchange = applyFilter;
+            }
+            if(selArea) {
+                const oldVal = selArea.value;
+                fillSelect('filter-area', [...uniqueAreas], '全部細項');
+                if([...uniqueAreas].includes(oldVal)) selArea.value = oldVal;
+                selArea.onchange = applyFilter;
+            }
+        }
+
+        function applyFilter() {
+            const cVal = document.getElementById('filter-country').value;
+            const rVal = document.getElementById('filter-region').value;
+            const aVal = document.getElementById('filter-area').value; 
+            
+            const filtered = allPosts.filter(p => {
+                const matchC = (cVal === 'all') || (p.country === cVal);
+                const matchR = (rVal === 'all') || (p.region === rVal);
+                const matchA = (aVal === 'all') || (p.area === aVal);
+                return matchC && matchR && matchA;
+            });
+
+            renderPosts(filtered);
+            
+            const regionOptions = new Set();
+            allPosts.forEach(p => {
+                if (cVal === 'all' || p.country === cVal) regionOptions.add(p.region);
+            });
+            const selRegion = document.getElementById('filter-region');
+            const oldR = selRegion.value;
+            selRegion.innerHTML = '<option value="all">全部</option>';
+            [...regionOptions].sort().forEach(r => selRegion.add(new Option(r, r)));
+            if ([...regionOptions].includes(oldR) || oldR === 'all') selRegion.value = oldR;
+
+            const areaOptions = new Set();
+            allPosts.forEach(p => {
+                const matchC = (cVal === 'all' || p.country === cVal);
+                const matchR = (rVal === 'all' || p.region === rVal); 
+                if (matchC && matchR && p.area) areaOptions.add(p.area);
+            });
+            const selArea = document.getElementById('filter-area');
+            const oldA = selArea.value;
+            selArea.innerHTML = '<option value="all">全部</option>';
+            [...areaOptions].sort().forEach(a => selArea.add(new Option(a, a)));
+            if ([...areaOptions].includes(oldA) || oldA === 'all') selArea.value = oldA;
+        }
+
+        function renderPosts(posts) {
+            const listEl = document.getElementById('radar-list');
+            listEl.innerHTML = '';
+
+            if (posts.length === 0) {
+                listEl.innerHTML = '<p class="text-center text-gray-500 py-10">這裡還沒有訊號...</p>';
+                return;
+            }
+            
+            const catMap = {};
+            allCategories.forEach(c => catMap[c.id] = c);
+
+            posts.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-sm relative';
+                
+                let isOwner = false;
+                if (currentUser) {
+                    if (currentUser.role === '管理者') isOwner = true;
+                    if (currentUser.id && currentUser.id === p.uploader_id) isOwner = true;
+                }
+
+                let controlBtns = '';
+                if (isOwner) {
+                    const pStr = JSON.stringify(p).replace(/"/g, '&quot;');
+                    controlBtns = `
+                        <div class="absolute top-3 right-3 flex gap-3">
+                            <button onclick="editPost(${pStr})" class="text-gray-500 hover:text-blue-400 transition" title="編輯">✏️</button>
+                            <button onclick="deletePost('${p.id}')" class="text-gray-500 hover:text-red-400 transition" title="刪除">🗑️</button>
+                        </div>
+                    `;
+                }
+
+                const safeName = (p.uploader_nickname || '未知').replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
+                const pureActive = p.my_vote === 'pure' ? 'text-green-400 bg-green-900/30 border-green-500' : 'text-gray-400 border-gray-600 hover:text-green-300';
+                const impureActive = p.my_vote === 'impure' ? 'text-red-400 bg-red-900/30 border-red-500' : 'text-gray-400 border-gray-600 hover:text-red-300';
+                const areaTag = p.area ? `<span class="bg-teal-900/30 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded">${p.area}</span>` : '';
+
+                let categoryBadge = '';
+                if (!currentCategory && catMap[p.category_id]) {
+                    const c = catMap[p.category_id];
+                    categoryBadge = `
+                        <span class="ml-auto mr-5 text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full border border-gray-600 cursor-pointer hover:bg-gray-600" onclick="selectCategoryById(${c.id})">
+                            ${c.name}
+                        </span>`;
+                }
+
+                card.innerHTML = `
+                    ${controlBtns}
+                    <div class="space-y-2 pr-12">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-purple-300 bg-purple-900/30 px-2 py-0.5 rounded-full">📡 訊號來源</span>
+                            <span class="text-sm font-bold text-white">${safeName}</span>
+                            ${categoryBadge}
+                        </div>
+
+                        <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded-lg border border-gray-700/50">
+                            <code class="text-sm text-cyan-300 font-mono flex-1 truncate">${p.coordinates}</code>
+                            <button onclick="copyText('${p.coordinates}')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded transition">複製</button>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 text-xs">
+                            <span class="bg-blue-900/30 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded">${p.country}</span>
+                            <span class="bg-indigo-900/30 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded">${p.region}</span>
+                            ${areaTag}
+                        </div>
+
+                        <div class="flex gap-3 pt-2 mt-2 border-t border-gray-700/50">
+                            <button onclick="votePost('${p.id}', 'pure', this)" class="flex-1 flex items-center justify-center gap-1 py-1.5 rounded border ${pureActive} transition text-sm font-bold">
+                                🥴 好純 <span class="count text-xs ml-1">(${p.pure_count})</span>
+                            </button>
+                            <button onclick="votePost('${p.id}', 'impure', this)" class="flex-1 flex items-center justify-center gap-1 py-1.5 rounded border ${impureActive} transition text-sm font-bold">
+                                🥲 不純 <span class="count text-xs ml-1">(${p.impure_count})</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                listEl.appendChild(card);
+            });
+        }
+
+        function openShareModal() {
+            if (!currentUser && !localStorage.getItem('guest_nick')) {
+                if(confirm('請先設定暱稱才能發布！前往設定？')) {
+                    window.location.href = './guest.html';
+                }
+                return;
+            }
+            
+            isEditing = false;
+            document.getElementById('modal-title').textContent = '分享純點';
+            document.getElementById('post-id').value = ''; 
+            document.getElementById('share-form').reset(); 
+            document.getElementById('submit-btn').textContent = '發布';
+            
+            document.getElementById('share-modal').classList.remove('hidden');
+        }
+
+        function editPost(post) {
+            isEditing = true;
+            document.getElementById('modal-title').textContent = '編輯純點';
+            document.getElementById('post-id').value = post.id; 
+            
+            document.getElementById('input-coords').value = post.coordinates;
+            document.getElementById('input-country').value = post.country;
+            document.getElementById('input-region').value = post.region;
+            document.getElementById('input-area').value = post.area || ''; 
+            
+            document.getElementById('submit-btn').textContent = '更新';
+            document.getElementById('share-modal').classList.remove('hidden');
+        }
+
+        function closeShareModal() {
+            document.getElementById('share-modal').classList.add('hidden');
+            document.getElementById('share-form').reset();
+        }
+
+        async function votePost(postId, type, btnEl) {
+            try {
+                const session = (await supabaseClient.auth.getSession()).data.session;
+                const options = {
+                    body: JSON.stringify({ action: 'vote-radar-post', payload: { postId, type } })
+                };
+                if (session) options.headers = { Authorization: `Bearer ${session.access_token}` };
+
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', options);
+                if (error) throw error;
+
+                if (currentCategory) {
+                    await loadRadarPosts(currentCategory.id);
+                } else {
+                    await loadHomeData();
+                }
+
+            } catch (e) {
+                console.error('投票失敗', e);
+            }
+        }
+
+        async function deletePost(postId) {
+            if (!confirm('確定刪除此雷達點？')) return;
+            try {
+                const session = (await supabaseClient.auth.getSession()).data.session;
+                const options = {
+                    body: JSON.stringify({ action: 'delete-radar-post', payload: { postId } })
+                };
+                if (session) options.headers = { Authorization: `Bearer ${session.access_token}` };
+                
+                const { error } = await supabaseClient.functions.invoke('admin-actions', options);
+                if (error) throw error;
+
+                if(currentCategory) loadRadarPosts(currentCategory.id);
+                else loadHomeData();
+
+            } catch (e) {
+                alert('刪除失敗: ' + e.message);
+            }
+        }
+
+        function openCategoryModal() {
+            document.getElementById('cat-name').value = currentCategory.name;
+            document.getElementById('cat-image').value = '';
+            document.getElementById('category-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('category-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newName = document.getElementById('cat-name').value;
+            const fileInput = document.getElementById('cat-image');
+            
+            try {
+                let imageUrl = currentCategory.image_url;
+
+                if (fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    const fileName = `cat_${Date.now()}.${file.name.split('.').pop()}`;
+                    
+                    const { data, error } = await supabaseClient.storage.from('radar-category-images').upload(fileName, file);
+                    if (error) throw error;
+                    
+                    const { data: pub } = supabaseClient.storage.from('radar-category-images').getPublicUrl(fileName);
+                    imageUrl = pub.publicUrl;
+                }
+
+                const session = (await supabaseClient.auth.getSession()).data.session;
+                const { error } = await supabaseClient.functions.invoke('admin-actions', {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ 
+                        action: 'update-radar-category', 
+                        payload: { id: currentCategory.id, name: newName, image_url: imageUrl } 
+                    })
+                });
+
+                if (error) throw error;
+                
+                alert('更新成功');
+                document.getElementById('category-modal').classList.add('hidden');
+                loadCategories(); 
+                currentCategory.name = newName;
+                currentCategory.image_url = imageUrl;
+                selectCategory(currentCategory);
+
+            } catch (err) {
+                alert('更新失敗: ' + err.message);
+            }
+        });
+
+        document.getElementById('share-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            
+            btn.disabled = true; 
+            btn.textContent = isEditing ? '更新中...' : '發送中...';
+
+            try {
+                const postId = document.getElementById('post-id').value;
+                const catId = currentCategory ? currentCategory.id : null;
+
+                const payload = {
+                    categoryId: catId,
+                    coordinates: document.getElementById('input-coords').value,
+                    country: document.getElementById('input-country').value,
+                    region: document.getElementById('input-region').value,
+                    area: document.getElementById('input-area').value,
+                    nickname: currentUser ? currentUser.nickname : (localStorage.getItem('guest_nick') || '匿名訪客')
+                };
+
+                const action = isEditing ? 'update-radar-post' : 'create-radar-post';
+                
+                if (isEditing) {
+                    payload.postId = postId;
+                }
+
+                const session = (await supabaseClient.auth.getSession()).data.session;
+                const options = {
+                    body: JSON.stringify({ action, payload })
+                };
+                if (session) options.headers = { Authorization: `Bearer ${session.access_token}` };
+
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', options);
+                
+                if (error) throw error;
+
+                alert(isEditing ? '更新成功！' : '發布成功！');
+                
+                closeShareModal(); 
+                
+                if (currentCategory) {
+                    loadRadarPosts(currentCategory.id);
+                } else {
+                    loadHomeData(); 
+                }
+                
+                if (!isEditing && currentCategory) loadCategories(); 
+
+            } catch (err) {
+                alert('操作失敗: ' + err.message);
+            } finally {
+                btn.disabled = false; 
+                btn.textContent = isEditing ? '更新' : '發布';
+            }
+        });
+
+        function formatCoordinateString(val) {
+            if (!val) return '';
+            if (val.includes('maps.google.com') || val.includes('goo.gl')) {
+                const match = val.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+                if (match) return `${match[1]}, ${match[2]}`;
+                const match2 = val.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+                if (match2) return `${match2[1]}, ${match2[2]}`;
+            }
+            return val.trim();
+        }
+
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => alert('已複製座標'));
+        }
+
+        function toggleCategories() {
+            const container = document.getElementById('category-container');
+            const btn = document.getElementById('category-expand-btn');
+            
+            if (container.classList.contains('max-h-[50px]')) {
+                container.classList.remove('max-h-[50px]');
+                container.classList.add('max-h-[1000px]'); 
+                btn.textContent = '▲ 收合分類';
+            } else {
+                container.classList.add('max-h-[50px]');
+                container.classList.remove('max-h-[1000px]');
+                btn.textContent = '▼ 展開更多';
+            }
+        }
+
+        function selectCategoryById(id) {
+            const cat = allCategories.find(c => c.id === id);
+            if (cat) selectCategory(cat);
+        }
+    </script>
+</body>
+</html>

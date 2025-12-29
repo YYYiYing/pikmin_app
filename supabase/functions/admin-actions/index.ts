@@ -364,6 +364,51 @@ serve(async (req) => {
         });
     }
 
+    // ★ 新增：取得首頁數據 (全類別 Top 3)
+    if (action === 'get-radar-home-data') {
+        const authHeader = req.headers.get('Authorization');
+
+        // 呼叫 SQL RPC
+        const { data, error } = await adminSupabaseClient.rpc('get_radar_top_posts', { p_limit: 3 });
+
+        if (error) throw error;
+
+        // 處理投票狀態 (為了讓首頁也能顯示亮燈)
+        // (這裡重複使用了 get-radar-posts 的邏輯，建議未來可抽成共用函式，這裡先直接寫)
+        let userVotes: any[] = [];
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        
+        if (authHeader) {
+             const tempClient = createClient(
+                  Deno.env.get('SUPABASE_URL') ?? '',
+                  Deno.env.get('PUBLIC_KEY') ?? '',
+                  { global: { headers: { Authorization: authHeader } } }
+             );
+             const { data: uData } = await tempClient.auth.getUser();
+             if (uData?.user) {
+                 const { data: votes } = await adminSupabaseClient.from('radar_votes').select('post_id, vote_type').in('post_id', data.map((p:any)=>p.id)).eq('user_id', uData.user.id);
+                 userVotes = votes || [];
+             }
+        } 
+        
+        if (userVotes.length === 0 && clientIp !== 'unknown') {
+            const encoder = new TextEncoder();
+            const d = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', d);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+            const { data: votes } = await adminSupabaseClient.from('radar_votes').select('post_id, vote_type').in('post_id', data.map((p:any)=>p.id)).eq('ip_fingerprint', fingerprint);
+            userVotes = votes || [];
+        }
+
+        const voteMap: Record<string, string> = {}; 
+        userVotes.forEach((v: any) => voteMap[v.post_id] = v.vote_type);
+
+        const result = data.map((p: any) => ({ ...p, my_vote: voteMap[p.id] || null }));
+        return new Response(JSON.stringify({ success: true, data: result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+
     // ============================================================
     // === 訪客專用功能 (無需 Auth) ===
     // ============================================================
@@ -1039,6 +1084,226 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // ==========================================
+    // ▼▼▼ 純點雷達站 (Radar) - 公開功能區 ▼▼▼
+    // (放在區塊 B 檢查之前，讓訪客也能讀取)
+    // ==========================================
+
+    // 1. 取得所有分類
+    if (action === 'get-radar-categories') {
+        const { data, error } = await adminSupabaseClient
+            .from('radar_categories')
+            .select('id, name, image_url, sort_order')
+            .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+        
+        // 簡單計算每個分類的貼文數
+        const { data: counts } = await adminSupabaseClient.from('radar_posts').select('category_id');
+        const countMap: Record<string, number> = {};
+        if (counts) counts.forEach((c: any) => countMap[c.category_id] = (countMap[c.category_id] || 0) + 1);
+
+        const result = data.map((c: any) => ({ ...c, count: countMap[c.id] || 0 }));
+        return new Response(JSON.stringify({ success: true, data: result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 2. 取得雷達點 (需手動檢查 Auth 以判斷投票狀態)
+    if (action === 'get-radar-posts') {
+        const { categoryId } = payload;
+        const authHeader = req.headers.get('Authorization'); // 手動獲取
+        
+        const { data, error } = await adminSupabaseClient
+            .from('radar_posts')
+            .select('*')
+            .eq('category_id', categoryId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // 判斷使用者投票狀態
+        let userVotes: any[] = [];
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        
+        // A. 嘗試用 Token 查
+        if (authHeader) {
+             const tempClient = createClient(
+                  Deno.env.get('SUPABASE_URL') ?? '',
+                  Deno.env.get('PUBLIC_KEY') ?? '',
+                  { global: { headers: { Authorization: authHeader } } }
+             );
+             const { data: uData } = await tempClient.auth.getUser();
+             if (uData?.user) {
+                 const { data: votes } = await adminSupabaseClient.from('radar_votes').select('post_id, vote_type').eq('user_id', uData.user.id);
+                 userVotes = votes || [];
+             }
+        } 
+        
+        // B. 如果沒登入，用 IP 查
+        if (userVotes.length === 0 && clientIp !== 'unknown') {
+            const encoder = new TextEncoder();
+            const d = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', d);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+            const { data: votes } = await adminSupabaseClient.from('radar_votes').select('post_id, vote_type').eq('ip_fingerprint', fingerprint);
+            userVotes = votes || [];
+        }
+
+        const voteMap: Record<string, string> = {}; 
+        userVotes.forEach((v: any) => voteMap[v.post_id] = v.vote_type);
+
+        const result = data.map((p: any) => ({ ...p, my_vote: voteMap[p.id] || null }));
+        return new Response(JSON.stringify({ success: true, data: result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 3. 發布雷達點 (含座標重複檢查 + 第三層 area)
+    if (action === 'create-radar-post') {
+        const { categoryId, coordinates, country, region, area, nickname } = payload;
+        const authHeader = req.headers.get('Authorization');
+        
+        // ★ 1. 檢查座標是否重複 (全資料庫檢查)
+        // 使用 maybeSingle，如果有找到資料代表重複
+        const { data: existing } = await adminSupabaseClient
+            .from('radar_posts')
+            .select('id')
+            .eq('coordinates', coordinates) // 需完全一致
+            .maybeSingle();
+
+        if (existing) {
+            throw new Error('此座標已經被登錄過了！請勿重複回報。');
+        }
+
+        // 2. 判斷 Uploader
+        let uploaderId = null;
+        if (authHeader) {
+             const tempClient = createClient(
+                  Deno.env.get('SUPABASE_URL') ?? '',
+                  Deno.env.get('PUBLIC_KEY') ?? '',
+                  { global: { headers: { Authorization: authHeader } } }
+             );
+             const { data: uData } = await tempClient.auth.getUser();
+             if (uData?.user) uploaderId = uData.user.id;
+        }
+
+        // 3. 寫入資料 (含 area)
+        const { data, error } = await adminSupabaseClient
+            .from('radar_posts')
+            .insert({
+                category_id: categoryId,
+                coordinates,
+                country,
+                region,
+                area: area || '', // 第三層
+                uploader_nickname: nickname,
+                uploader_id: uploaderId
+            })
+            .select().single();
+
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 編輯雷達點 (權限檢查：本人或管理員)
+    if (action === 'update-radar-post') {
+        const { postId, coordinates, country, region, area } = payload;
+        const authHeader = req.headers.get('Authorization');
+
+        // 1. 先查該貼文的原始資料 (確認擁有者)
+        const { data: post } = await adminSupabaseClient.from('radar_posts').select('uploader_id').eq('id', postId).single();
+        if (!post) throw new Error('找不到該貼文');
+
+        // 2. 辨識當前請求者身分
+        let currentUserId = null;
+        let isAdmin = false;
+
+        if (authHeader) {
+             const tempClient = createClient(
+                  Deno.env.get('SUPABASE_URL') ?? '',
+                  Deno.env.get('PUBLIC_KEY') ?? '',
+                  { global: { headers: { Authorization: authHeader } } }
+             );
+             const { data: uData } = await tempClient.auth.getUser();
+             if (uData?.user) {
+                 currentUserId = uData.user.id;
+                 // 順便查是否為管理員
+                 const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', currentUserId).single();
+                 if (profile?.role === '管理者') isAdmin = true;
+             }
+        }
+
+        // 3. 權限比對
+        // 允許編輯條件：是管理員 OR (是登入用戶 且 ID與貼文上傳者一致)
+        const isOwner = post.uploader_id && post.uploader_id === currentUserId;
+        
+        if (!isAdmin && !isOwner) {
+            throw new Error('您無權編輯此貼文 (僅限發布者或管理員)');
+        }
+
+        // 4. 執行更新
+        const { error } = await adminSupabaseClient
+            .from('radar_posts')
+            .update({
+                coordinates,
+                country,
+                region,
+                area: area || ''
+            })
+            .eq('id', postId);
+
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 4. 投票 (允許訪客)
+    if (action === 'vote-radar-post') {
+        const { postId, type } = payload;
+        const authHeader = req.headers.get('Authorization'); // 手動獲取
+        
+        let userId = null;
+        let fingerprint = null;
+
+        if (authHeader) {
+             const tempClient = createClient(
+                  Deno.env.get('SUPABASE_URL') ?? '',
+                  Deno.env.get('PUBLIC_KEY') ?? '',
+                  { global: { headers: { Authorization: authHeader } } }
+             );
+             const { data: uData } = await tempClient.auth.getUser();
+             if (uData?.user) userId = uData.user.id;
+        }
+
+        if (!userId) {
+            const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+            const encoder = new TextEncoder();
+            const d = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', d);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+        }
+
+        let query = adminSupabaseClient.from('radar_votes').select('*').eq('post_id', postId);
+        if (userId) query = query.eq('user_id', userId);
+        else query = query.eq('ip_fingerprint', fingerprint);
+
+        const { data: existing } = await query.maybeSingle();
+
+        if (existing) {
+            if (existing.vote_type === type) await adminSupabaseClient.from('radar_votes').delete().eq('id', existing.id);
+            else await adminSupabaseClient.from('radar_votes').update({ vote_type: type }).eq('id', existing.id);
+        } else {
+            await adminSupabaseClient.from('radar_votes').insert({
+                post_id: postId, user_id: userId, ip_fingerprint: fingerprint, vote_type: type
+            });
+        }
+
+        await adminSupabaseClient.rpc('update_radar_vote_counts', { p_id: postId });
+        const { data: newCounts } = await adminSupabaseClient.from('radar_posts').select('pure_count, impure_count').eq('id', postId).single();
+        
+        return new Response(JSON.stringify({ success: true, data: newCounts }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+
+    
     // ============================================================
     // 區塊 B：使用者驗證 (需要 Authorization Header)
     // ============================================================
@@ -1053,6 +1318,66 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await userSupabaseClient.auth.getUser();
     if (userError || !user) throw new Error('無效的使用者或 Token');
+
+
+    // ▼▼▼ 純點雷達站 - 需驗證功能
+
+    // 5. 管理員編輯分類 (含舊圖清理)
+    if (action === 'update-radar-category') {
+        const { id, name, image_url } = payload;
+        const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
+        if (profile?.role !== '管理者') throw new Error('權限不足');
+
+        // ★ 1. 先查出舊資料 (為了拿舊圖 URL)
+        const { data: oldCat } = await adminSupabaseClient
+            .from('radar_categories')
+            .select('image_url')
+            .eq('id', id)
+            .single();
+
+        const updateData: any = {};
+        if (name) updateData.name = name;
+        if (image_url) updateData.image_url = image_url;
+
+        // ★ 2. 執行更新
+        const { error } = await adminSupabaseClient.from('radar_categories').update(updateData).eq('id', id);
+        if (error) throw error;
+
+        // ★ 3. 垃圾清理：有換圖(image_url存在) 且 有舊圖 且 新舊不同 -> 刪除舊圖
+        // 注意：這裡是刪除 radar-category-images 裡的圖
+        if (image_url && oldCat?.image_url && oldCat.image_url !== image_url) {
+            try {
+                // 濾除 URL 參數 (?t=...) 取出檔名
+                const oldFileName = oldCat.image_url.split('/').pop()?.split('?')[0];
+                if (oldFileName) {
+                    await adminSupabaseClient.storage.from('radar-category-images').remove([oldFileName]);
+                    console.log(`[Radar] 舊分類圖已刪除: ${oldFileName}`);
+                }
+            } catch (e) {
+                console.error('舊圖清理失敗 (不影響更新):', e);
+            }
+        }
+
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 6. 刪除雷達點 (本人或管理員)
+    if (action === 'delete-radar-post') {
+        const { postId } = payload;
+        const { data: post } = await adminSupabaseClient.from('radar_posts').select('uploader_id').eq('id', postId).single();
+        if (!post) throw new Error('找不到貼文');
+
+        let isAllowed = false;
+        const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
+        if (profile?.role === '管理者') isAllowed = true;
+        if (post.uploader_id && post.uploader_id === user.id) isAllowed = true;
+
+        if (!isAllowed) throw new Error('無權刪除');
+
+        const { error } = await adminSupabaseClient.from('radar_posts').delete().eq('id', postId);
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
 
     // ============================================================
