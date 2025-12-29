@@ -347,20 +347,23 @@
             
             listEl.innerHTML = '';
 
-            // 計算總數
             const totalCount = allCategories.reduce((sum, cat) => sum + (cat.count || 0), 0);
 
-            // ★ 需求5：新增「全類別」標籤
+            // 1. 全類別按鈕
             const allSpan = document.createElement('span');
-            allSpan.className = `category-tab ${!currentCategory ? 'active' : ''}`; // 如果沒有選中特定分類，全類別就是 active
+            allSpan.dataset.id = 'all'; // ★ 新增：設定 ID
+            // 判斷是否為全類別狀態 (currentCategory 為 null)
+            allSpan.className = `category-tab ${!currentCategory ? 'active' : ''}`; 
             allSpan.innerHTML = `全類別 <span class="text-[10px] ml-1 opacity-70">(${totalCount})</span>`;
-            allSpan.onclick = () => loadHomeData(); // 點擊載入首頁數據
+            allSpan.onclick = () => loadHomeData();
             listEl.appendChild(allSpan);
 
-            // 渲染其他分類
+            // 2. 其他分類按鈕
             allCategories.forEach(cat => {
                 const span = document.createElement('span');
-                // 檢查是否為當前選中分類
+                span.dataset.id = cat.id; // ★ 新增：設定 ID
+                
+                // 判斷是否為當前選中分類
                 const isActive = currentCategory && currentCategory.id === cat.id;
                 span.className = `category-tab ${isActive ? 'active' : ''}`; 
                 span.innerHTML = `${cat.name} <span class="text-[10px] ml-1 opacity-70">(${cat.count || 0})</span>`;
@@ -381,13 +384,15 @@
             // 如果再次點擊已選取的分類 -> 取消選取 (回到首頁)
             if (currentCategory && currentCategory.id === cat.id) {
                 await loadHomeData();
-                return; // 中斷後續執行
+                return; 
             }
             currentCategory = cat;
             
+            // 改用 dataset.id 進行精準比對
             document.querySelectorAll('.category-tab').forEach(el => {
                 el.classList.remove('active');
-                if (el.textContent.includes(cat.name)) el.classList.add('active');
+                // 注意：dataset.id 是字串，cat.id 可能是數字，使用 == 讓它們可以比對
+                if (el.dataset.id == cat.id) el.classList.add('active');
             });
 
             const infoSec = document.getElementById('category-info-section');
@@ -427,8 +432,6 @@
             
             if (filterSec) {
                 filterSec.classList.remove('hidden');
-            } else {
-                console.warn('找不到 filter-section 元素');
             }
 
             const container = document.getElementById('category-container');
@@ -440,7 +443,6 @@
                 if (btn) btn.textContent = '▼ 展開更多';
             }
             
-            // 讓被選中的分類滾動到可視區域
             setTimeout(() => {
                 const activeTab = document.querySelector('.category-tab.active');
                 if (activeTab) {

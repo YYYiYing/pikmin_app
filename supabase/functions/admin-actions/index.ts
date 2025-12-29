@@ -1172,7 +1172,7 @@ serve(async (req) => {
             // 這裡改成回傳 200 OK，但在 JSON 裡告訴前端 success: false
             return new Response(JSON.stringify({ 
                 success: false, 
-                message: '此座標已經被登錄過了！請勿重複回報。' 
+                message: '此座標已經被登錄過了！謝謝您的分享。' 
             }), { 
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 200 // 狀態碼改為 200，瀏覽器就不會報紅字
