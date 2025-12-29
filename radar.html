@@ -32,6 +32,50 @@
             font-weight: bold;
             box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
         }
+
+        /* === 新增：自訂下拉選單與貼上按鈕樣式 (移植自 postcard.html) === */
+        .custom-dropdown-container {
+            position: relative;
+            width: 100%;
+        }
+        .dropdown-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background-color: #374151; /* 深灰背景 */
+            border: 1px solid #4b5563;
+            border-radius: 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 60;
+            display: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+        .dropdown-options.show {
+            display: block;
+        }
+        .dropdown-option {
+            padding: 10px 12px;
+            color: #d1d5db;
+            cursor: pointer;
+            transition: background-color 0.1s;
+            font-size: 0.875rem;
+            border-bottom: 1px solid #4b5563;
+            text-align: left;
+        }
+        .dropdown-option:last-child {
+            border-bottom: none;
+        }
+        .dropdown-option:hover {
+            background-color: #9333ea; /* Purple-600 */
+            color: white;
+        }
+        /* 貼上按鈕的容器定位 */
+        .input-with-btn {
+            position: relative;
+        }
     </style>
 </head>
 <body class="min-h-screen pb-20">
@@ -115,28 +159,45 @@
             
             <form id="share-form" class="space-y-4">
                 <input type="hidden" id="post-id"> 
+                
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">座標</label>
-                    <input type="text" id="input-coords" required placeholder="例如: 22.123456, 120.654321" 
-                           class="dark-input w-full p-3 rounded-lg font-mono text-sm">
+                    <div class="relative"> <input type="text" id="input-coords" placeholder="例如: 22.123456, 120.654321" 
+                            class="dark-input w-full p-3 pr-20 rounded-lg font-mono text-sm shadow-sm">
+                        
+                        <button type="button" id="paste-coord-btn" 
+                            class="absolute right-2 top-2 bg-gray-700 hover:bg-gray-600 text-green-400 px-3 py-1 rounded transition font-bold flex items-center gap-1 text-xs" 
+                            title="貼上剪貼簿內容">
+                            📋 貼上
+                        </button>
+                    </div>
                     <p class="text-[10px] text-gray-500 mt-1">支援貼上 Google Maps 網址自動轉換</p>
                 </div>
 
-                <div class="grid grid-cols-3 gap-2">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">國家</label>
-                        <input type="text" id="input-country" list="country-list" required placeholder="台灣" class="dark-input w-full p-2 rounded-lg text-sm">
-                        <datalist id="country-list"></datalist>
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="input-country" placeholder="選擇或輸入" autocomplete="off"
+                                class="dark-input w-full p-2 rounded-lg text-sm">
+                            <div id="dropdown-country" class="dropdown-options"></div>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">地區</label>
-                        <input type="text" id="input-region" list="region-list" required placeholder="高雄" class="dark-input w-full p-2 rounded-lg text-sm">
-                        <datalist id="region-list"></datalist>
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="input-region" placeholder="選擇或輸入" autocomplete="off"
+                                class="dark-input w-full p-2 rounded-lg text-sm">
+                            <div id="dropdown-region" class="dropdown-options"></div>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">細項</label>
-                        <input type="text" id="input-area" list="area-list" placeholder="鳳山" class="dark-input w-full p-2 rounded-lg text-sm">
-                        <datalist id="area-list"></datalist>
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="input-area" placeholder="選擇或輸入" autocomplete="off"
+                                class="dark-input w-full p-2 rounded-lg text-sm">
+                            <div id="dropdown-area" class="dropdown-options"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -263,9 +324,12 @@
                 if (error) throw error;
                 
                 allPosts = data.data;
-                
+                                
                 const filterSec = document.getElementById('filter-section');
                 if(filterSec) filterSec.classList.remove('hidden');
+
+                // 重新渲染標籤，確保「全類別」按鈕亮起
+                renderCategoryTabs();
 
                 updateFilters(); 
                 renderPosts(allPosts); 
@@ -283,16 +347,29 @@
             
             listEl.innerHTML = '';
 
+            // 計算總數
+            const totalCount = allCategories.reduce((sum, cat) => sum + (cat.count || 0), 0);
+
+            // ★ 需求5：新增「全類別」標籤
+            const allSpan = document.createElement('span');
+            allSpan.className = `category-tab ${!currentCategory ? 'active' : ''}`; // 如果沒有選中特定分類，全類別就是 active
+            allSpan.innerHTML = `全類別 <span class="text-[10px] ml-1 opacity-70">(${totalCount})</span>`;
+            allSpan.onclick = () => loadHomeData(); // 點擊載入首頁數據
+            listEl.appendChild(allSpan);
+
+            // 渲染其他分類
             allCategories.forEach(cat => {
                 const span = document.createElement('span');
-                span.className = `category-tab`; 
+                // 檢查是否為當前選中分類
+                const isActive = currentCategory && currentCategory.id === cat.id;
+                span.className = `category-tab ${isActive ? 'active' : ''}`; 
                 span.innerHTML = `${cat.name} <span class="text-[10px] ml-1 opacity-70">(${cat.count || 0})</span>`;
                 span.onclick = () => selectCategory(cat);
                 listEl.appendChild(span);
             });
 
             setTimeout(() => {
-                if (listEl.offsetHeight > 52) { // 一行的高度
+                if (listEl.offsetHeight > 52) {
                     btn.classList.remove('hidden'); 
                 } else {
                     btn.classList.add('hidden');
@@ -454,6 +531,10 @@
                 fillSelect('filter-area', [...uniqueAreas], '全部細項');
                 if([...uniqueAreas].includes(oldVal)) selArea.value = oldVal;
                 selArea.onchange = applyFilter;
+            }
+
+            if (typeof updateInputDropdowns === 'function') {
+                updateInputDropdowns();
             }
         }
 
@@ -705,7 +786,16 @@
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
             
+            // ★ 1. 先執行座標格式化 (彈性版)
+            // 這一步很重要，能將 Google Maps 網址轉為座標，並統一小數點
+            const rawCoords = document.getElementById('input-coords').value;
+            const formattedCoords = formatCoordinateString(rawCoords);
+            // 將整理後的座標填回輸入框，讓 payload 抓到乾淨的數據
+            document.getElementById('input-coords').value = formattedCoords;
+
+            // ★ 2. 鎖定按鈕狀態
             btn.disabled = true; 
+            const originalText = btn.textContent;
             btn.textContent = isEditing ? '更新中...' : '發送中...';
 
             try {
@@ -714,10 +804,11 @@
 
                 const payload = {
                     categoryId: catId,
+                    // 這裡抓取的值已經是上方格式化過的 formattedCoords
                     coordinates: document.getElementById('input-coords').value,
-                    country: document.getElementById('input-country').value,
-                    region: document.getElementById('input-region').value,
-                    area: document.getElementById('input-area').value,
+                    country: document.getElementById('input-country').value || '',
+                    region: document.getElementById('input-region').value || '',
+                    area: document.getElementById('input-area').value || '',
                     nickname: currentUser ? currentUser.nickname : (localStorage.getItem('guest_nick') || '匿名訪客')
                 };
 
@@ -733,39 +824,111 @@
                 };
                 if (session) options.headers = { Authorization: `Bearer ${session.access_token}` };
 
+                // 呼叫後端
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', options);
                 
+                // 1. 處理系統層級錯誤 (網路斷線、500錯誤等)
                 if (error) throw error;
 
+                // 2. ★ 處理業務邏輯錯誤 (處理重複座標回傳的 success: false)
+                if (data && data.success === false) {
+                    // 顯示後端傳回來的 message ("此座標已經被登錄過了...")
+                    alert('⚠️ 提示：' + (data.message || '操作被拒絕'));
+                    return; // 中斷，不關閉視窗，保留按鈕鎖定狀態或解鎖需視需求 (這裡會進 finally 解鎖)
+                }
+
+                // 成功後的處理
                 alert(isEditing ? '更新成功！' : '發布成功！');
                 
                 closeShareModal(); 
                 
+                // 重新載入列表
                 if (currentCategory) {
                     loadRadarPosts(currentCategory.id);
                 } else {
                     loadHomeData(); 
                 }
                 
+                // 如果是發布新貼文，重新載入分類統計(數量會變)
                 if (!isEditing && currentCategory) loadCategories(); 
 
             } catch (err) {
-                alert('操作失敗: ' + err.message);
+                console.error(err);
+                alert('操作失敗: ' + (err.message || '未知錯誤'));
             } finally {
+                // 解鎖按鈕
                 btn.disabled = false; 
-                btn.textContent = isEditing ? '更新' : '發布';
+                btn.textContent = originalText;
             }
         });
 
+        // ★ 工具函式：座標格式標準化 (彈性版 - 兼顧地址輸入)
         function formatCoordinateString(val) {
-            if (!val) return '';
-            if (val.includes('maps.google.com') || val.includes('goo.gl')) {
-                const match = val.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-                if (match) return `${match[1]}, ${match[2]}`;
-                const match2 = val.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-                if (match2) return `${match2[1]}, ${match2[2]}`;
+            if (!val) return "";
+            let str = val.trim();
+
+            // 1. 嘗試解析 Google Maps 網址 (最優先)
+            let match = str.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (match) return `${parseFloat(match[1]).toFixed(7)}, ${parseFloat(match[2]).toFixed(7)}`;
+            
+            match = str.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (match) return `${parseFloat(match[1]).toFixed(7)}, ${parseFloat(match[2]).toFixed(7)}`;
+            
+            match = str.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+            if (match) return `${parseFloat(match[1]).toFixed(7)}, ${parseFloat(match[2]).toFixed(7)}`;
+
+            // 2. 嘗試解析標準座標
+            // 先把全形逗號轉半形
+            let tempStr = str.replace(/，/g, ',');
+            
+            // 判斷是否為度分秒 (DMS)
+            const isDMS = tempStr.includes('°') && (tempStr.includes("'") || tempStr.includes('"') || tempStr.includes('’'));
+            
+            let lat = 0, lng = 0;
+            let success = false;
+
+            if (isDMS) {
+                // === 處理度分秒 ===
+                const numbers = tempStr.match(/(\d+(\.\d+)?)/g);
+                const directions = tempStr.match(/[NSEW北南東西]/gi) || [];
+                
+                if (numbers && numbers.length >= 6) {
+                    const d1 = parseFloat(numbers[0]), m1 = parseFloat(numbers[1]), s1 = parseFloat(numbers[2]);
+                    const d2 = parseFloat(numbers[3]), m2 = parseFloat(numbers[4]), s2 = parseFloat(numbers[5]);
+
+                    lat = d1 + (m1 / 60) + (s1 / 3600);
+                    lng = d2 + (m2 / 60) + (s2 / 3600);
+
+                    const dirStr = directions.join('');
+                    if (/[S南]/.test(dirStr)) lat = -lat; 
+                    if (/[W西]/.test(dirStr)) lng = -lng;
+
+                    success = true;
+                }
+            } else {
+                // === 處理一般小數格式 ===
+                const numbers = tempStr.match(/(-?\d+\.\d+)/g);
+                
+                if (numbers && numbers.length >= 2) {
+                    lat = parseFloat(numbers[0]);
+                    lng = parseFloat(numbers[1]);
+                    
+                    // 範圍檢查 (-90~90, -180~180) 避免把日期誤判為座標
+                    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                        if (/[S南]/.test(tempStr) && lat > 0) lat = -lat;
+                        if (/[W西]/.test(tempStr) && lng > 0) lng = -lng;
+                        success = true;
+                    }
+                }
             }
-            return val.trim();
+
+            if (success) {
+                // 成功解析出座標 -> 回傳 7 位小數格式
+                return `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+            } else {
+                // 解析失敗 (可能是地址或地標名稱) -> 回傳原字串，不做修改
+                return val; 
+            }
         }
 
         function copyText(text) {
@@ -791,6 +954,85 @@
             const cat = allCategories.find(c => c.id === id);
             if (cat) selectCategory(cat);
         }
+
+        // 初始化下拉選單功能
+        function setupInputDropdown(inputId, dropdownId, dataSet) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            
+            const renderOptions = (filterText = '') => {
+                // 從 Set 轉為 Array 並排序
+                const options = Array.from(dataSet).sort();
+                
+                // 過濾
+                const filtered = options.filter(txt => 
+                    txt && txt.toLowerCase().includes(filterText.toLowerCase())
+                );
+
+                dropdown.innerHTML = '';
+                if (filtered.length === 0) {
+                    dropdown.innerHTML = '<div class="dropdown-option text-gray-500 cursor-default text-xs">無符合項目</div>';
+                } else {
+                    filtered.forEach(txt => {
+                        const div = document.createElement('div');
+                        div.className = 'dropdown-option';
+                        div.textContent = txt;
+                        div.onclick = () => {
+                            input.value = txt;
+                            dropdown.classList.remove('show');
+                        };
+                        dropdown.appendChild(div);
+                    });
+                }
+            };
+
+            input.onfocus = () => {
+                renderOptions(input.value);
+                dropdown.classList.add('show');
+            };
+            
+            input.oninput = () => {
+                renderOptions(input.value);
+                dropdown.classList.add('show');
+            };
+
+            // 點擊外部關閉
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
+            });
+        }
+
+        // 每次數據載入後，更新下拉選單的資料來源
+        function updateInputDropdowns() {
+            // 確保 uniqueSets 已經在 updateFilters() 中被計算過了
+            if (document.getElementById('input-country')) {
+                setupInputDropdown('input-country', 'dropdown-country', uniqueCountries);
+                setupInputDropdown('input-region', 'dropdown-region', uniqueRegions);
+                setupInputDropdown('input-area', 'dropdown-area', uniqueAreas);
+            }
+        }
+
+        // --- 綁定貼上按鈕事件 ---
+        document.getElementById('paste-coord-btn').addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                if(text) {
+                    const formatted = formatCoordinateString(text);
+                    document.getElementById('input-coords').value = formatted;
+                    // 簡單閃爍提示
+                    const btn = document.getElementById('paste-coord-btn');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '✅ OK';
+                    setTimeout(() => btn.innerHTML = originalText, 1000);
+                } else {
+                    alert('剪貼簿是空的');
+                }
+            } catch(e) { 
+                alert('無法讀取剪貼簿，請手動貼上'); 
+            }
+        });
     </script>
 </body>
 </html>

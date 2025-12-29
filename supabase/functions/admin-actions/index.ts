@@ -1161,16 +1161,22 @@ serve(async (req) => {
         const { categoryId, coordinates, country, region, area, nickname } = payload;
         const authHeader = req.headers.get('Authorization');
         
-        // ★ 1. 檢查座標是否重複 (全資料庫檢查)
-        // 使用 maybeSingle，如果有找到資料代表重複
+        // 檢查座標是否重複 (改為回傳 200 + success: false)
         const { data: existing } = await adminSupabaseClient
             .from('radar_posts')
             .select('id')
-            .eq('coordinates', coordinates) // 需完全一致
+            .eq('coordinates', coordinates)
             .maybeSingle();
 
         if (existing) {
-            throw new Error('此座標已經被登錄過了！請勿重複回報。');
+            // 這裡改成回傳 200 OK，但在 JSON 裡告訴前端 success: false
+            return new Response(JSON.stringify({ 
+                success: false, 
+                message: '此座標已經被登錄過了！請勿重複回報。' 
+            }), { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200 // 狀態碼改為 200，瀏覽器就不會報紅字
+            });
         }
 
         // 2. 判斷 Uploader
