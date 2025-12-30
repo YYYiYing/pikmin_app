@@ -434,6 +434,445 @@ serve(async (req) => {
             });
         }
 
+    // ==========================================
+    // ▼▼▼ 美片藝廊 (Guest Gallery) 功能區 ▼▼▼
+    // ==========================================
+
+    // 1. 讀取藝廊列表 (含按讚狀態檢查)
+    if (action === 'list-guest-postcards') {
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        
+        // 計算 IP 指紋 (用於判斷是否按過讚)
+        let fingerprint = 'unknown';
+        if (clientIp !== 'unknown') {
+            const encoder = new TextEncoder();
+            const d = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', d);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+        }
+
+        // 讀取所有卡片
+        const { data: cards, error } = await adminSupabaseClient
+            .from('guest_postcards')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw new Error(error.message);
+
+        // 讀取該 IP 的按讚紀錄
+        const { data: myLikes } = await adminSupabaseClient
+            .from('guest_postcard_likes')
+            .select('postcard_id')
+            .eq('ip_fingerprint', fingerprint);
+        
+        const likedSet = new Set(myLikes ? myLikes.map((l: any) => l.postcard_id) : []);
+
+        // 組合回傳資料
+        const result = cards.map((c: any) => ({
+            ...c,
+            isLiked: likedSet.has(c.id)
+        }));
+
+        return new Response(JSON.stringify({ success: true, data: result, ip_fingerprint: fingerprint }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 2. 發布訪客美片 (含座標重複檢查)
+    if (action === 'add-guest-postcard') {
+        const { nickname, friendCode, coordinate, country, region, area, imageUrl, tags } = payload;
+        
+        // ★ 檢查座標是否重複
+        const { data: existing } = await adminSupabaseClient
+            .from('guest_postcards')
+            .select('id')
+            .eq('coordinate', coordinate)
+            .maybeSingle();
+
+        if (existing) {
+            return new Response(JSON.stringify({ 
+                success: false, 
+                message: '此座標已經有其他訪客分享過美片囉！' 
+            }), { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200 
+            });
+        }
+
+        // 獲取 IP 指紋
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        let fingerprint = 'unknown';
+        if (clientIp !== 'unknown') {
+            const encoder = new TextEncoder();
+            const d = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', d);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+        }
+
+        // 寫入資料
+        const { data, error } = await adminSupabaseClient
+            .from('guest_postcards')
+            .insert({
+                nickname,
+                friend_code: friendCode,
+                ip_fingerprint: fingerprint,
+                coordinate,
+                country: country || '',
+                region: region || '',
+                area: area || '',
+                image_url: imageUrl,
+                tags: tags || [],
+                likes: 0
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 3. 編輯訪客美片 (支援：本人 IP/Code 驗證 或 管理員 Token 驗證)
+    if (action === 'edit-guest-postcard') {
+        const { id, nickname, friendCode, coordinate, country, region, area, imageUrl, tags } = payload;
+        const authHeader = req.headers.get('Authorization'); // ★ 取得 Token
+
+        // 1. 查舊資料
+        const { data: oldCard } = await adminSupabaseClient.from('guest_postcards').select('*').eq('id', id).single();
+        if (!oldCard) throw new Error('找不到該美片');
+
+        // 2. 驗證權限 (層層關卡)
+        let hasPermission = false;
+
+        // 關卡 A: 管理員
+        if (authHeader) {
+            try {
+                const tempClient = createClient(
+                    Deno.env.get('SUPABASE_URL') ?? '',
+                    Deno.env.get('PUBLIC_KEY') ?? '',
+                    { global: { headers: { Authorization: authHeader } } }
+                );
+                const { data: { user } } = await tempClient.auth.getUser();
+                if (user) {
+                    const { data: profile } = await adminSupabaseClient
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', user.id)
+                        .single();
+                    if (profile?.role === '管理者') hasPermission = true;
+                }
+            } catch (e) {}
+        }
+
+        // 關卡 B: 本人 (若非管理員)
+        if (!hasPermission) {
+            const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+            let fingerprint = 'unknown';
+            // ... (計算指紋邏輯同前) ...
+            if (clientIp !== 'unknown') {
+                const encoder = new TextEncoder();
+                const d = encoder.encode(clientIp + 'SALT_2025');
+                const hashBuffer = await crypto.subtle.digest('SHA-1', d);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+            }
+
+            const isIpMatch = oldCard.ip_fingerprint === fingerprint;
+            const isUserMatch = (oldCard.friend_code === friendCode && oldCard.nickname === nickname);
+            
+            if (isIpMatch || isUserMatch) hasPermission = true;
+        }
+
+        if (!hasPermission) throw new Error('權限不足：您無法編輯此卡片');
+
+        // 3. 更新資料
+        const updateData: any = { coordinate, tags, country, region, area };
+        if (imageUrl) updateData.image_url = imageUrl;
+
+        const { error } = await adminSupabaseClient
+            .from('guest_postcards')
+            .update(updateData)
+            .eq('id', id);
+
+        if (error) throw error;
+
+        // 4. 清理舊圖
+        if (imageUrl && oldCard.image_url && oldCard.image_url !== imageUrl) {
+            try {
+                const oldFileName = oldCard.image_url.split('/').pop()?.split('?')[0];
+                if (oldFileName) {
+                    await adminSupabaseClient.storage.from('guest-postcard-images').remove([oldFileName]);
+                }
+            } catch (e) { console.error('舊圖清理失敗', e); }
+        }
+
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 4. 刪除訪客美片 (支援：本人 IP/Code 驗證 或 管理員 Token 驗證)
+    if (action === 'delete-guest-postcard') {
+        const { id, nickname, friendCode } = payload;
+        const authHeader = req.headers.get('Authorization'); // 取得登入 Token
+
+        // 1. 查舊資料
+        const { data: oldCard } = await adminSupabaseClient.from('guest_postcards').select('*').eq('id', id).single();
+        if (!oldCard) throw new Error('找不到該美片');
+
+        // 2. 驗證權限 (層層關卡)
+        let hasPermission = false;
+
+        // 關卡 A: 驗證是否為管理員 (最高權限)
+        if (authHeader) {
+            try {
+                // 建立一個臨時客戶端來驗證 Token
+                const tempClient = createClient(
+                    Deno.env.get('SUPABASE_URL') ?? '',
+                    Deno.env.get('PUBLIC_KEY') ?? '',
+                    { global: { headers: { Authorization: authHeader } } }
+                );
+                const { data: { user } } = await tempClient.auth.getUser();
+                
+                if (user) {
+                    // 查 Profile 確認角色
+                    const { data: profile } = await adminSupabaseClient
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', user.id)
+                        .single();
+                    
+                    if (profile?.role === '管理者') {
+                        hasPermission = true; // 管理員通行
+                    }
+                }
+            } catch (e) {
+                console.error('Admin check failed:', e);
+            }
+        }
+
+        // 關卡 B: 若非管理員，驗證是否為本人 (IP 或 暱稱+好友碼)
+        if (!hasPermission) {
+            const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+            let fingerprint = 'unknown';
+            if (clientIp !== 'unknown') {
+                const encoder = new TextEncoder();
+                const d = encoder.encode(clientIp + 'SALT_2025');
+                const hashBuffer = await crypto.subtle.digest('SHA-1', d);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+            }
+
+            const isIpMatch = oldCard.ip_fingerprint === fingerprint;
+            const isUserMatch = (oldCard.friend_code === friendCode && oldCard.nickname === nickname);
+
+            if (isIpMatch || isUserMatch) {
+                hasPermission = true;
+            }
+        }
+
+        // 最終判決
+        if (!hasPermission) {
+             throw new Error('權限不足：您無法刪除此卡片');
+        }
+
+        // 3. 刪除圖片
+        // 安全機制：只有當這張卡片「不是」系統匯入時，才執行檔案刪除
+        // 保護「美片圖書館」原本的圖片不被刪除
+        if (oldCard.image_url && oldCard.ip_fingerprint !== 'system_import') {
+            try {
+                // 嘗試從網址解析檔名
+                const fileName = oldCard.image_url.split('/').pop()?.split('?')[0];
+                if (fileName) {
+                    // 只針對「訪客上傳區 (guest-postcard-images)」進行刪除
+                    await adminSupabaseClient.storage.from('guest-postcard-images').remove([fileName]);
+                }
+            } catch (e) { 
+                console.error('圖片刪除失敗 (但不影響資料刪除)', e); 
+            }
+        }
+
+        // 4. 刪除資料
+        const { error } = await adminSupabaseClient.from('guest_postcards').delete().eq('id', id);
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 5. 訪客美片點讚
+    if (action === 'toggle-guest-postcard-like') {
+        const { postcardId } = payload;
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        
+        let fingerprint = 'unknown';
+        if (clientIp !== 'unknown') {
+            const encoder = new TextEncoder();
+            const d = encoder.encode(clientIp + 'SALT_2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-1', d);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
+        }
+
+        // 檢查是否讚過
+        const { data: existing } = await adminSupabaseClient
+            .from('guest_postcard_likes')
+            .select('id')
+            .eq('postcard_id', postcardId)
+            .eq('ip_fingerprint', fingerprint)
+            .maybeSingle();
+
+        let delta = 0;
+        let isLiked = false;
+
+        if (existing) {
+            await adminSupabaseClient.from('guest_postcard_likes').delete().eq('id', existing.id);
+            delta = -1;
+            isLiked = false;
+        } else {
+            await adminSupabaseClient.from('guest_postcard_likes').insert({ postcard_id: postcardId, ip_fingerprint: fingerprint });
+            delta = 1;
+            isLiked = true;
+        }
+
+        // 更新計數
+        const { data: card } = await adminSupabaseClient.from('guest_postcards').select('likes').eq('id', postcardId).single();
+        const newCount = (card?.likes || 0) + delta;
+        await adminSupabaseClient.from('guest_postcards').update({ likes: newCount }).eq('id', postcardId);
+
+        return new Response(JSON.stringify({ success: true, data: { likes: newCount, isLiked } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 6. 訪客回報/取消絕版
+    if (action === 'toggle-guest-postcard-obsolete') {
+        const { postcardId } = payload;
+        
+        // 1. 查詢目前狀態
+        const { data: card, error: fetchErr } = await adminSupabaseClient
+            .from('guest_postcards')
+            .select('is_obsolete')
+            .eq('id', postcardId)
+            .single();
+            
+        if (fetchErr || !card) throw new Error('找不到該美片');
+
+        // 2. 切換狀態
+        const newStatus = !card.is_obsolete;
+
+        const { error: updateErr } = await adminSupabaseClient
+            .from('guest_postcards')
+            .update({ is_obsolete: newStatus })
+            .eq('id', postcardId);
+
+        if (updateErr) throw updateErr;
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: { 
+                is_obsolete: newStatus,
+                message: newStatus ? '已回報為絕版' : '已恢復為上架狀態'
+            } 
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 7. 座標反查地址 (Reverse Geocoding)
+    if (action === 'reverse-geocode') {
+        const { lat, lng } = payload;
+        
+        try {
+            // 使用 BigDataCloud 免費 API
+            const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=zh-tw`;
+            
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('Geocoding service unavailable');
+            
+            const data = await resp.json();
+            
+            // 資料對應整理
+            const address = {
+                country: data.countryName || '',
+                city: data.principalSubdivision || data.city || '', 
+                county: '', 
+                suburb: data.locality || '', 
+                district: '',
+                town: ''
+            };
+
+            return new Response(JSON.stringify({ 
+                success: true, 
+                data: { address } 
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+
+        } catch (err) {
+            console.error('Reverse Geocode Error:', err);
+            return new Response(JSON.stringify({ 
+                success: false, 
+                message: '無法解析地址' 
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
+    }
+
+    // 8. [管理員專用] 搬家工具：從美片圖書館轉移到美片藝廊
+    if (action === 'migrate-postcards') {
+        const { ids } = payload; // 接收前端傳來的 ID 陣列
+        const authHeader = req.headers.get('Authorization');
+
+        // --- 1. 嚴格驗證管理員權限 ---
+        let isAdmin = false;
+        if (authHeader) {
+            try {
+                const tempClient = createClient(
+                    Deno.env.get('SUPABASE_URL') ?? '',
+                    Deno.env.get('PUBLIC_KEY') ?? '',
+                    { global: { headers: { Authorization: authHeader } } }
+                );
+                const { data: { user } } = await tempClient.auth.getUser();
+                if (user) {
+                    const { data: profile } = await adminSupabaseClient
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', user.id)
+                        .single();
+                    if (profile?.role === '管理者') isAdmin = true;
+                }
+            } catch (e) {}
+        }
+
+        if (!isAdmin) throw new Error('權限不足：僅管理員可執行轉移操作');
+        if (!ids || ids.length === 0) throw new Error('未選擇任何項目');
+
+        // --- 2. 讀取來源資料 (美片圖書館 public.postcards) ---
+        const { data: sourceCards, error: fetchError } = await adminSupabaseClient
+            .from('postcards')
+            .select('*')
+            .in('id', ids);
+
+        if (fetchError) throw fetchError;
+        if (!sourceCards || sourceCards.length === 0) throw new Error('找不到指定的原始資料');
+
+        // --- 3. 轉換格式並寫入目標 (美片藝廊 public.guest_postcards) ---
+        const newCards = sourceCards.map((card: any) => ({
+            nickname: card.uploader_nickname || '匿名', // 轉移暱稱
+            friend_code: '000000000000',               // 預設官方好友碼
+            ip_fingerprint: 'system_import',           // ★ 關鍵：設定為系統匯入 (觸發您的刪除保護機制)
+            coordinate: card.coordinate,
+            image_url: card.image_url,                 // 複製連結 (不搬運實體檔案)
+            tags: card.tags,
+            likes: card.likes || 0,                    // 保留按讚數
+            country: card.country,
+            region: card.region,
+            area: card.area,
+            is_obsolete: card.is_obsolete || false,
+            created_at: card.created_at                // 保留原始時間
+        }));
+
+        const { error: insertError } = await adminSupabaseClient
+            .from('guest_postcards')
+            .insert(newCards);
+
+        if (insertError) throw insertError;
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            message: `成功轉移 ${newCards.length} 張美片！` 
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
 
     // ============================================================
     // === 訪客專用功能 (無需 Auth) ===

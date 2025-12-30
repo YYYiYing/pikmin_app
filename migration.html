@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>美片搬家工具 (Admin)</title>
+    <link rel="icon" href="./mashroom_s.png" type="image/png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
+        /* 選取時的綠色邊框樣式 */
+        .card-selected { 
+            border-color: #10b981 !important; /* Green-500 */
+            background-color: #064e3b !important; /* Green-900 */
+            transform: scale(0.98);
+        }
+        .check-icon { display: none; }
+        .card-selected .check-icon { display: block; }
+    </style>
+</head>
+<body class="p-6 min-h-screen pb-24">
+
+    <div class="max-w-7xl mx-auto mb-6 flex justify-between items-center border-b border-gray-700 pb-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                📦 美片圖書館 -> 藝廊 搬家工具
+            </h1>
+            <p class="text-xs text-gray-500 mt-1">請勾選想要轉移到「美片藝廊」的圖片，轉移後會標記為 system_import。</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="selectAll()" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded font-bold text-sm">全選 / 取消</button>
+            <a href="./gallery.html" class="bg-gray-800 hover:bg-gray-700 text-gray-400 px-4 py-2 rounded font-bold text-sm">前往藝廊</a>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto">
+        <div id="loader" class="text-center py-10 text-gray-500">正在讀取圖書館資料...</div>
+        
+        <div id="library-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            </div>
+    </div>
+
+    <div id="action-bar" class="fixed bottom-0 left-0 w-full bg-gray-900 border-t border-gray-700 p-4 transform translate-y-full transition duration-300 shadow-2xl z-50">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="text-white font-bold">
+                已選取 <span id="selected-count" class="text-green-400 text-xl mx-1">0</span> 張
+            </div>
+            <button onclick="executeMigration()" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-8 rounded-full shadow-lg transition transform hover:scale-105 flex items-center gap-2">
+                🚀 開始轉移
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 設定區
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
+        const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ'; 
+        const supabaseClient = supabase.createClient(SUPABASE_URL, PUBLIC_KEY);
+
+        let allLibraryCards = [];
+        let selectedIds = new Set();
+        let isAdmin = false;
+
+        async function init() {
+            // 1. 檢查權限
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                alert('請先登入管理員帳號！');
+                window.location.href = './index.html'; // 或其他登入頁
+                return;
+            }
+
+            // 簡單檢查 Role (後端會再擋一次)
+            const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', session.user.id).single();
+            if (profile?.role !== '管理者') {
+                alert('權限不足：此頁面僅供管理員使用');
+                window.location.href = './index.html';
+                return;
+            }
+            isAdmin = true;
+
+            // 2. 載入資料 (讀取 Postcards 表)
+            await loadLibrary();
+        }
+
+        async function loadLibrary() {
+            const grid = document.getElementById('library-grid');
+            const loader = document.getElementById('loader');
+
+            try {
+                // 撈取未絕版且有圖片的資料
+                const { data, error } = await supabaseClient
+                    .from('postcards')
+                    .select('*')
+                    .eq('is_obsolete', false)
+                    .not('image_url', 'is', null)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                allLibraryCards = data;
+                
+                loader.classList.add('hidden');
+                renderGrid();
+                
+            } catch (err) {
+                console.error(err);
+                loader.innerHTML = `<span class="text-red-500">讀取失敗: ${err.message}</span>`;
+            }
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('library-grid');
+            grid.innerHTML = allLibraryCards.map(c => {
+                const isSelected = selectedIds.has(c.id);
+                const shortCoord = c.coordinate ? c.coordinate.split(',').map(n=>parseFloat(n).toFixed(3)).join(',') : '無座標';
+
+                return `
+                    <div class="card-item relative bg-gray-800 rounded-lg overflow-hidden border-2 border-transparent cursor-pointer group transition select-none ${isSelected ? 'card-selected' : 'hover:border-gray-600'}"
+                         onclick="toggleSelect(${c.id}, this)">
+                        
+                        <div class="aspect-video bg-gray-900 relative">
+                            <img src="${c.image_url}" 
+                                 loading="lazy" 
+                                 decoding="async"
+                                 class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition">
+                            
+                            <div class="check-icon absolute top-2 right-2 bg-green-500 text-white rounded-full p-1 shadow-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="p-3">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-sm font-bold text-gray-200 truncate">${c.uploader_nickname || '匿名'}</span>
+                                <span class="text-xs text-gray-500">${new Date(c.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <div class="text-xs text-gray-400 font-mono truncate">
+                                📍 ${shortCoord}
+                            </div>
+                            <div class="mt-2 text-[10px] text-gray-500">
+                                ${c.country} ${c.region ? '· '+c.region : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleSelect(id, el) {
+            if (selectedIds.has(id)) {
+                selectedIds.delete(id);
+                el.classList.remove('card-selected');
+            } else {
+                selectedIds.add(id);
+                el.classList.add('card-selected');
+            }
+            updateActionBar();
+        }
+
+        function selectAll() {
+            if (selectedIds.size === allLibraryCards.length) {
+                selectedIds.clear();
+            } else {
+                allLibraryCards.forEach(c => selectedIds.add(c.id));
+            }
+            renderGrid();
+            updateActionBar();
+        }
+
+        function updateActionBar() {
+            const bar = document.getElementById('action-bar');
+            const countEl = document.getElementById('selected-count');
+            countEl.textContent = selectedIds.size;
+
+            if (selectedIds.size > 0) {
+                bar.classList.remove('translate-y-full');
+            } else {
+                bar.classList.add('translate-y-full');
+            }
+        }
+
+        async function executeMigration() {
+            if (selectedIds.size === 0) return;
+            if (!confirm(`確定要將這 ${selectedIds.size} 張圖片複製到美片藝廊嗎？`)) return;
+
+            const btn = document.querySelector('#action-bar button');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '⏳ 處理中...';
+
+            try {
+                const session = (await supabaseClient.auth.getSession()).data.session;
+                
+                // 呼叫後端執行轉移
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ 
+                        action: 'migrate-postcards', 
+                        payload: { ids: Array.from(selectedIds) } 
+                    })
+                });
+
+                if (error) throw error;
+                if (!data.success) throw new Error(data.message);
+
+                alert(data.message);
+                
+                // 清空選取並重整頁面 (或跳轉)
+                selectedIds.clear();
+                window.location.href = './gallery.html'; // 轉移成功後直接去看成果
+
+            } catch (err) {
+                alert('轉移失敗: ' + err.message);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
