@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資源監控 - 菇菇宅配網</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background-color: #111827; color: #d1d5db; font-family: sans-serif; }
+        .monitor-card { background-color: #1f2937; border: 1px solid #374151; border-radius: 1rem; padding: 1.5rem; }
+        .bar-transition { transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s; }
+    </style>
+</head>
+<body class="p-6 md:p-12">
+    <div class="max-w-4xl mx-auto">
+        <header class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+            <h1 class="text-2xl font-bold text-white flex items-center gap-2">📊 系統資源監控</h1>
+            <div class="flex gap-3">
+                <button onclick="loadStats()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition">🔄 刷新</button>
+                <a href="./admin.html" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition">返回後台</a>
+            </div>
+        </header>
+
+        <div id="loading" class="text-center py-20 text-gray-500">正在讀取資源數據...</div>
+
+        <div id="stats-grid" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="monitor-card">
+                <div class="flex justify-between items-end mb-2">
+                    <h3 class="font-bold">數據庫空間 (DB Size)</h3>
+                    <span id="db-size-text" class="text-xs font-mono">0 / 500 MB</span>
+                </div>
+                <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden border border-gray-700">
+                    <div id="db-size-bar" class="bar-transition h-full w-0"></div>
+                </div>
+                <p id="db-size-percent" class="text-[10px] mt-2 text-right text-gray-500">0%</p>
+            </div>
+
+            <div class="monitor-card">
+                <div class="flex justify-between items-end mb-2">
+                    <h3 class="font-bold">總行數 (Rows)</h3>
+                    <span id="db-rows-text" class="text-xs font-mono">0 / 10,000</span>
+                </div>
+                <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden border border-gray-700">
+                    <div id="db-rows-bar" class="bar-transition h-full w-0"></div>
+                </div>
+                <p id="db-rows-percent" class="text-[10px] mt-2 text-right text-gray-500">0%</p>
+            </div>
+
+            <div class="monitor-card">
+                <div class="flex justify-between items-end mb-2">
+                    <h3 class="font-bold">文件儲存 (Storage)</h3>
+                    <span id="storage-text" class="text-xs font-mono">0 / 1,024 MB</span>
+                </div>
+                <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden border border-gray-700">
+                    <div id="storage-bar" class="bar-transition h-full w-0"></div>
+                </div>
+                <p id="storage-percent" class="text-[10px] mt-2 text-right text-gray-500">0%</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
+        const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, PUBLIC_KEY);
+
+        async function loadStats() {
+            const loading = document.getElementById('loading');
+            const grid = document.getElementById('stats-grid');
+            loading.classList.remove('hidden');
+            grid.classList.add('hidden');
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'get-system-stats' })
+                });
+
+                if (error) throw error;
+                if (!data.success) throw new Error(data.data?.message || '未知錯誤');
+
+                const stats = data.data;
+
+                // 更新三個進度條
+                updateVisual('db-size', stats.dbSizeMB, 500, 'MB');
+                updateVisual('db-rows', stats.totalRows, 10000, 'Rows');
+                updateVisual('storage', stats.storageMB, 1024, 'MB');
+
+                loading.classList.add('hidden');
+                grid.classList.remove('hidden');
+            } catch (err) {
+                loading.innerHTML = `<div class="text-red-400">❌ 讀取失敗<br><span class="text-xs">${err.message}</span></div>`;
+            }
+        }
+
+        function updateVisual(id, current, max, unit) {
+            const percent = Math.min((current / max) * 100, 100);
+            const bar = document.getElementById(`${id}-bar`);
+            const text = document.getElementById(`${id}-text`);
+            const percentText = document.getElementById(`${id}-percent`);
+
+            // 顏色邏輯
+            let colorClass = 'bg-green-500'; // 0-60% 綠色
+            if (percent > 90) colorClass = 'bg-red-500'; // 91-100% 紅色
+            else if (percent > 60) colorClass = 'bg-orange-500'; // 61-90% 橘色
+
+            bar.className = `bar-transition h-full ${colorClass}`;
+            setTimeout(() => { bar.style.width = `${percent}%`; }, 100);
+            
+            text.textContent = `${current.toLocaleString()} / ${max.toLocaleString()} ${unit}`;
+            percentText.textContent = `${percent.toFixed(1)}%`;
+        }
+
+        document.addEventListener('DOMContentLoaded', loadStats);
+    </script>
+</body>
+</html>

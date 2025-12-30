@@ -2451,7 +2451,37 @@ serve(async (req) => {
         case 'ping': 
             break;
             
+        case 'get-system-stats': {
+        // 1. 查詢資料庫大小 (需要先在 SQL Editor 執行下方的 SQL 建立 RPC)
+        const { data: dbBytes } = await adminSupabaseClient.rpc('get_database_size_bytes');
+
+        // 2. 查詢總行數 (統計您主要的資料表)
+        const tables = ['profiles', 'postcards', 'guest_postcards', 'challenges', 'guest_messages', 'signups'];
+        let totalRows = 0;
+        for (const table of tables) {
+            const { count } = await adminSupabaseClient
+                .from(table)
+                .select('*', { count: 'exact', head: true });
+            totalRows += (count || 0);
+        }
+
+        // 3. 查詢 Storage 使用量 (以 guest-postcard-images 為例)
+        const { data: files } = await adminSupabaseClient
+            .storage
+            .from('guest-postcard-images')
+            .list();
+        const storageBytes = files?.reduce((acc: number, file: any) => acc + (file.metadata?.size || 0), 0) || 0;
+
+        data = {
+            dbSizeMB: parseFloat((dbBytes / 1024 / 1024).toFixed(2)),
+            totalRows: totalRows,
+            storageMB: parseFloat((storageBytes / 1024 / 1024).toFixed(2))
+        };
+        break;
+    }
+
         default: throw new Error(`未知的操作: ${action}`);
+
     }
 
     return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
