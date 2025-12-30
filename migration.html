@@ -2,104 +2,140 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>美片搬家工具 (Admin)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>美片搬家公司 (Admin)</title>
     <link rel="icon" href="./mashroom_s.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #111827; color: #d1d5db; }
-        /* 選取時的綠色邊框樣式 */
+        
+        /* 選取時的樣式 (綠色) */
         .card-selected { 
-            border-color: #10b981 !important; /* Green-500 */
-            background-color: #064e3b !important; /* Green-900 */
+            border-color: #10b981 !important; 
+            background-color: #064e3b !important; 
             transform: scale(0.98);
         }
+        
+        /* 已搬家樣式 (鎖定) */
+        .card-migrated {
+            pointer-events: none; /* 禁止點擊 */
+            border-color: #1e40af; /* 深藍色邊框 */
+        }
+
+        /* 只針對卡片內的圖片進行黑白處理，這樣藍色標籤才不會變灰 */
+        .card-migrated img {
+            filter: grayscale(100%); /* 圖片全黑白 */
+            opacity: 0.4; /* 圖片變暗，讓標籤更明顯 */
+        }
+
         .check-icon { display: none; }
         .card-selected .check-icon { display: block; }
+
+        /* 手機版優化：防止點擊過快放大 */
+        .card-item { touch-action: manipulation; }
     </style>
 </head>
-<body class="p-6 min-h-screen pb-24">
+<body class="p-4 md:p-6 min-h-screen pb-24">
 
-    <div class="max-w-7xl mx-auto mb-6 flex justify-between items-center border-b border-gray-700 pb-4">
+    <div class="max-w-7xl mx-auto mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-700 pb-4 gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-white flex items-center gap-2">
-                📦 美片圖書館 -> 藝廊 搬家工具
+            <h1 class="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                📦 美片搬家公司
+                <span class="text-xs font-normal text-gray-500 bg-gray-800 px-2 py-1 rounded-full border border-gray-600">Admin</span>
             </h1>
-            <p class="text-xs text-gray-500 mt-1">請勾選想要轉移到「美片藝廊」的圖片，轉移後會標記為 system_import。</p>
+            <p class="text-xs text-gray-400 mt-1">勾選轉移至「藝廊」，藍色標籤代表已搬家。</p>
         </div>
-        <div class="flex gap-3">
-            <button onclick="selectAll()" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded font-bold text-sm">全選 / 取消</button>
-            <a href="./gallery.html" class="bg-gray-800 hover:bg-gray-700 text-gray-400 px-4 py-2 rounded font-bold text-sm">前往藝廊</a>
+        <div class="flex gap-2 w-full md:w-auto">
+            <button onclick="selectAll()" class="flex-1 md:flex-none bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded font-bold text-sm transition">全選/取消</button>
+            <a href="./gallery.html" class="flex-1 md:flex-none text-center bg-gray-800 hover:bg-gray-700 text-indigo-400 px-3 py-2 rounded font-bold text-sm border border-gray-700 transition">前往藝廊</a>
         </div>
     </div>
 
     <div class="max-w-7xl mx-auto">
-        <div id="loader" class="text-center py-10 text-gray-500">正在讀取圖書館資料...</div>
+        <div id="loader" class="flex flex-col items-center justify-center py-20 text-gray-500 gap-2">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+            <span class="text-sm">正在比對資料庫...</span>
+        </div>
         
-        <div id="library-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div id="library-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4">
             </div>
     </div>
 
-    <div id="action-bar" class="fixed bottom-0 left-0 w-full bg-gray-900 border-t border-gray-700 p-4 transform translate-y-full transition duration-300 shadow-2xl z-50">
+    <div id="action-bar" class="fixed bottom-0 left-0 w-full bg-gray-900/95 backdrop-blur border-t border-gray-700 p-3 md:p-4 transform translate-y-full transition duration-300 shadow-2xl z-50">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="text-white font-bold">
-                已選取 <span id="selected-count" class="text-green-400 text-xl mx-1">0</span> 張
+            <div class="text-white font-bold text-sm md:text-base">
+                已選 <span id="selected-count" class="text-green-400 text-lg mx-1">0</span> 張
             </div>
-            <button onclick="executeMigration()" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-8 rounded-full shadow-lg transition transform hover:scale-105 flex items-center gap-2">
-                🚀 開始轉移
+            <button onclick="executeMigration()" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded-full shadow-lg transition transform active:scale-95 flex items-center gap-2 text-sm md:text-base">
+                🚀 確認搬家
             </button>
         </div>
     </div>
 
     <script>
-        // 設定區
+        // --- 設定區 ---
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
         const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ'; 
         const supabaseClient = supabase.createClient(SUPABASE_URL, PUBLIC_KEY);
 
         let allLibraryCards = [];
+        let existingGalleryUrls = new Set();
         let selectedIds = new Set();
         let isAdmin = false;
 
         async function init() {
             // 1. 檢查權限
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) {
-                alert('請先登入管理員帳號！');
-                window.location.href = './index.html'; // 或其他登入頁
-                return;
-            }
+            if (!session) return alertRedirect('請先登入');
 
-            // 簡單檢查 Role (後端會再擋一次)
             const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', session.user.id).single();
-            if (profile?.role !== '管理者') {
-                alert('權限不足：此頁面僅供管理員使用');
-                window.location.href = './index.html';
-                return;
-            }
+            if (profile?.role !== '管理者') return alertRedirect('權限不足');
+            
             isAdmin = true;
 
-            // 2. 載入資料 (讀取 Postcards 表)
-            await loadLibrary();
+            // 2. 載入資料
+            await loadData();
         }
 
-        async function loadLibrary() {
-            const grid = document.getElementById('library-grid');
+        function alertRedirect(msg) {
+            alert(msg);
+            window.location.href = './index.html';
+        }
+
+        // 網址標準化
+        const normalizeUrl = (url) => {
+            if (!url) return '';
+            try { return decodeURIComponent(url).trim(); } catch (e) { return url.trim(); }
+        };
+
+        async function loadData() {
             const loader = document.getElementById('loader');
-
             try {
-                // 撈取未絕版且有圖片的資料
-                const { data, error } = await supabaseClient
-                    .from('postcards')
-                    .select('*')
-                    .eq('is_obsolete', false)
-                    .not('image_url', 'is', null)
-                    .order('created_at', { ascending: false });
+                const [libraryRes, galleryRes] = await Promise.all([
+                    supabaseClient
+                        .from('postcards')
+                        .select('*')
+                        .eq('is_obsolete', false)
+                        .not('image_url', 'is', null)
+                        .order('created_at', { ascending: false }),
+                    
+                    supabaseClient
+                        .from('guest_postcards') 
+                        .select('image_url')
+                ]);
 
-                if (error) throw error;
-                allLibraryCards = data;
-                
+                if (libraryRes.error) throw libraryRes.error;
+
+                if (galleryRes.data) {
+                    galleryRes.data.forEach(item => {
+                        if(item.image_url) {
+                            existingGalleryUrls.add(normalizeUrl(item.image_url));
+                        }
+                    });
+                }
+
+                allLibraryCards = libraryRes.data;
                 loader.classList.add('hidden');
                 renderGrid();
                 
@@ -111,36 +147,51 @@
 
         function renderGrid() {
             const grid = document.getElementById('library-grid');
+            
             grid.innerHTML = allLibraryCards.map(c => {
                 const isSelected = selectedIds.has(c.id);
-                const shortCoord = c.coordinate ? c.coordinate.split(',').map(n=>parseFloat(n).toFixed(3)).join(',') : '無座標';
+                const isMigrated = existingGalleryUrls.has(normalizeUrl(c.image_url));
+                
+                // 已搬家標籤樣式 (改為藍色背景，彩色圖示感)
+                const migratedOverlay = isMigrated 
+                    ? `<div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                            <span class="bg-blue-600/90 text-white text-[10px] px-2 py-1 rounded-full shadow-md font-bold backdrop-blur-sm border border-blue-400/80">
+                            ✅ 已搬家
+                            </span>
+                        </div>` 
+                    : '';
+
+                const cardClass = isMigrated 
+                    ? 'card-migrated cursor-not-allowed' 
+                    : `cursor-pointer hover:border-gray-500 ${isSelected ? 'card-selected' : ''}`;
+
+                const clickAction = isMigrated ? '' : `onclick="toggleSelect(${c.id}, this)"`;
 
                 return `
-                    <div class="card-item relative bg-gray-800 rounded-lg overflow-hidden border-2 border-transparent cursor-pointer group transition select-none ${isSelected ? 'card-selected' : 'hover:border-gray-600'}"
-                         onclick="toggleSelect(${c.id}, this)">
+                    <div class="card-item relative bg-gray-800 rounded-lg overflow-hidden border-2 border-transparent transition select-none ${cardClass}"
+                         ${clickAction}>
                         
                         <div class="aspect-video bg-gray-900 relative">
                             <img src="${c.image_url}" 
                                  loading="lazy" 
-                                 decoding="async"
-                                 class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition">
+                                 class="w-full h-full object-cover transition duration-500">
                             
-                            <div class="check-icon absolute top-2 right-2 bg-green-500 text-white rounded-full p-1 shadow-lg">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            ${migratedOverlay}
+
+                            <div class="check-icon absolute top-2 right-2 bg-green-500 text-white rounded-full p-1 shadow-lg z-20">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                                 </svg>
                             </div>
                         </div>
 
-                        <div class="p-3">
+                        <div class="p-2 md:p-3">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="text-sm font-bold text-gray-200 truncate">${c.uploader_nickname || '匿名'}</span>
-                                <span class="text-xs text-gray-500">${new Date(c.created_at).toLocaleDateString()}</span>
+                                <span class="text-xs md:text-sm font-bold text-gray-200 truncate max-w-[80px] md:max-w-none">${c.uploader_nickname || '匿名'}</span>
+                                <span class="text-[10px] md:text-xs text-gray-500">${new Date(c.created_at).toLocaleDateString()}</span>
                             </div>
-                            <div class="text-xs text-gray-400 font-mono truncate">
-                                📍 ${shortCoord}
-                            </div>
-                            <div class="mt-2 text-[10px] text-gray-500">
+                            
+                            <div class="mt-1 text-[10px] text-gray-500 truncate">
                                 ${c.country} ${c.region ? '· '+c.region : ''}
                             </div>
                         </div>
@@ -150,6 +201,8 @@
         }
 
         function toggleSelect(id, el) {
+            if (el.classList.contains('card-migrated')) return;
+
             if (selectedIds.has(id)) {
                 selectedIds.delete(id);
                 el.classList.remove('card-selected');
@@ -161,10 +214,12 @@
         }
 
         function selectAll() {
-            if (selectedIds.size === allLibraryCards.length) {
-                selectedIds.clear();
+            const availableCards = allLibraryCards.filter(c => !existingGalleryUrls.has(normalizeUrl(c.image_url)));
+            
+            if (selectedIds.size === availableCards.length) {
+                selectedIds.clear(); 
             } else {
-                allLibraryCards.forEach(c => selectedIds.add(c.id));
+                availableCards.forEach(c => selectedIds.add(c.id)); 
             }
             renderGrid();
             updateActionBar();
@@ -184,7 +239,7 @@
 
         async function executeMigration() {
             if (selectedIds.size === 0) return;
-            if (!confirm(`確定要將這 ${selectedIds.size} 張圖片複製到美片藝廊嗎？`)) return;
+            if (!confirm(`確定要轉移這 ${selectedIds.size} 張圖片嗎？`)) return;
 
             const btn = document.querySelector('#action-bar button');
             const originalText = btn.innerHTML;
@@ -194,7 +249,6 @@
             try {
                 const session = (await supabaseClient.auth.getSession()).data.session;
                 
-                // 呼叫後端執行轉移
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
                     headers: { Authorization: `Bearer ${session.access_token}` },
                     body: JSON.stringify({ 
@@ -207,10 +261,7 @@
                 if (!data.success) throw new Error(data.message);
 
                 alert(data.message);
-                
-                // 清空選取並重整頁面 (或跳轉)
-                selectedIds.clear();
-                window.location.href = './gallery.html'; // 轉移成功後直接去看成果
+                window.location.reload();
 
             } catch (err) {
                 alert('轉移失敗: ' + err.message);

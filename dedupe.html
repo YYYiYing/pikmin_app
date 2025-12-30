@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>重複美片清理工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background-color: #111827; color: #d1d5db; font-family: sans-serif; }
+        .card-group { background-color: #1f2937; border: 1px solid #374151; border-radius: 0.75rem; overflow: hidden; margin-bottom: 2rem; }
+        .card-header { background-color: #374151; padding: 0.75rem 1rem; font-weight: bold; color: white; display: flex; justify-content: space-between; align-items: center; }
+        .card-item { display: flex; gap: 1rem; padding: 1rem; border-bottom: 1px solid #374151; align-items: center; }
+        .card-item:last-child { border-bottom: none; }
+        .tag { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        .tag-lib { background-color: #db2777; color: white; } /* 粉紅: 圖書館 */
+        .tag-gal { background-color: #7c3aed; color: white; } /* 紫色: 藝廊 */
+        
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.9); backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+            <h1 class="text-2xl font-bold text-white">🧹 重複美片清理工具</h1>
+            <a href="./index.html" class="text-gray-400 hover:text-white">回首頁</a>
+        </header>
+
+        <div id="status-bar" class="mb-6 text-center text-gray-400">正在檢查權限...</div>
+
+        <div id="duplicate-list" class="space-y-6"></div>
+    </div>
+
+    <div id="image-viewer-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 modal-backdrop transition-opacity duration-300" onclick="closeImageViewer()">
+        <div class="relative max-w-5xl w-full max-h-[95vh] flex justify-center items-center p-2" onclick="event.stopPropagation()">
+            <button type="button" onclick="closeImageViewer()" class="absolute -top-12 right-0 md:top-4 md:right-4 text-white text-4xl hover:text-gray-300 font-bold bg-black/50 hover:bg-black/70 rounded-full w-12 h-12 flex items-center justify-center transition z-50">&times;</button>
+            <img id="viewer-image" src="" alt="美片大圖" class="rounded-lg shadow-2xl max-h-[85vh] md:max-h-[90vh] w-auto object-contain bg-gray-900 border border-gray-800">
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
+        const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ'; 
+        const supabaseClient = supabase.createClient(SUPABASE_URL, PUBLIC_KEY);
+
+        async function init() {
+            // 1. 檢查管理員權限
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                alert('請先登入管理員帳號');
+                window.location.href = './index.html';
+                return;
+            }
+
+            document.getElementById('status-bar').textContent = '正在讀取資料庫並進行本地比對...';
+
+            // 2. 改為直接在前端抓取資料並比對 (這樣修改邏輯最快，不用動後端)
+            try {
+                await scanLocalDuplicates();
+            } catch (err) {
+                console.error(err);
+                document.getElementById('status-bar').innerHTML = `<span class="text-red-500">發生錯誤: ${err.message}</span>`;
+            }
+        }
+
+        // 核心邏輯：本地掃描重複
+        // 核心邏輯：本地掃描重複 (修正版：僅比對單一來源內部的重複)
+        async function scanLocalDuplicates() {
+            const [libRes, galRes] = await Promise.all([
+                supabaseClient.from('postcards').select('id, coordinate, created_at, image_url, uploader_nickname'),
+                supabaseClient.from('guest_postcards').select('id, coordinate, created_at, image_url, nickname, friend_code, tags')
+            ]);
+
+            if (libRes.error) throw libRes.error;
+            if (galRes.error) throw galRes.error;
+
+            const libraryItems = libRes.data || [];
+            const galleryItems = galRes.data || [];
+
+            const coordMap = new Map();
+
+            // 座標標準化 (取小數點後 3 位)
+            const normalize = (coord) => {
+                if (!coord) return 'unknown';
+                const parts = coord.split(',').map(s => parseFloat(s.trim()));
+                if (parts.length < 2 || isNaN(parts[0])) return coord;
+                return `${parts[0].toFixed(3)},${parts[1].toFixed(3)}`;
+            };
+
+            // 歸戶資料
+            libraryItems.forEach(item => {
+                const key = normalize(item.coordinate);
+                if (!coordMap.has(key)) coordMap.set(key, []);
+                coordMap.get(key).push({
+                    id: item.id,
+                    coordinate: item.coordinate,
+                    image_url: item.image_url,
+                    created_at: item.created_at,
+                    source: 'library',
+                    sourceLabel: '📚 圖書館',
+                    name: item.uploader_nickname,
+                    tags: []
+                });
+            });
+
+            galleryItems.forEach(item => {
+                const key = normalize(item.coordinate);
+                if (!coordMap.has(key)) coordMap.set(key, []);
+                coordMap.get(key).push({
+                    id: item.id,
+                    coordinate: item.coordinate,
+                    image_url: item.image_url,
+                    created_at: item.created_at,
+                    source: 'gallery',
+                    sourceLabel: '🎨 藝廊',
+                    name: item.nickname,
+                    friend_code: item.friend_code,
+                    tags: item.tags || []
+                });
+            });
+
+            const duplicates = [];
+
+            for (const [key, items] of coordMap.entries()) {
+                if (key === 'unknown') continue;
+
+                // 分別計算該座標在各表的筆數
+                const libs = items.filter(i => i.source === 'library');
+                const gals = items.filter(i => i.source === 'gallery');
+
+                // --- 判斷邏輯 ---
+                // 條件 A：圖書館內部有重複 (>=2 筆)
+                // 條件 B：藝廊內部有重複 (>=2 筆)
+                // 只要符合其中一個，這組座標就要顯示出來
+                if (libs.length >= 2 || gals.length >= 2) {
+                    // 為了方便清理，我們依然把該座標的所有資料都顯示出來 (包含對應的搬家檔)
+                    // 這樣您才能決定要刪除哪一邊
+                    duplicates.push({ coordinateKey: key, items: items });
+                }
+            }
+
+            duplicates.sort((a, b) => b.items.length - a.items.length);
+
+            renderList(duplicates);
+            document.getElementById('status-bar').textContent = `掃描完成！發現 ${duplicates.length} 組重複資料。`;
+        }
+
+        function renderList(duplicates) {
+            const container = document.getElementById('duplicate-list');
+            container.innerHTML = '';
+
+            if (duplicates.length === 0) {
+                container.innerHTML = '<div class="text-center text-green-400 py-10 text-xl">🎉 太棒了！目前沒有發現重複的資料。</div>';
+                return;
+            }
+
+            duplicates.forEach((group) => {
+                const groupEl = document.createElement('div');
+                groupEl.className = 'card-group';
+                
+                // 計算群組內的分類數量
+                const libCount = group.items.filter(i => i.source === 'library').length;
+                const galCount = group.items.filter(i => i.source === 'gallery').length;
+
+                // 群組標題
+                groupEl.innerHTML = `
+                    <div class="card-header">
+                        <div class="flex flex-col md:flex-row md:items-center gap-2">
+                            <span>📍 座標: ${group.coordinateKey}</span>
+                            <span class="text-xs font-normal text-gray-400">(圖書館: ${libCount}, 藝廊: ${galCount})</span>
+                        </div>
+                        <span class="text-sm bg-gray-600 px-2 py-1 rounded whitespace-nowrap">共 ${group.items.length} 筆</span>
+                    </div>
+                `;
+
+                // 列表項目
+                group.items.forEach(item => {
+                    const isLib = item.source === 'library';
+                    const tagClass = isLib ? 'tag-lib' : 'tag-gal';
+                    const dateStr = new Date(item.created_at).toLocaleString('zh-TW', { hour12: false });
+                    
+                    // 檢查是否為系統搬移的卡片
+                    const isSystemImport = !isLib && item.tags && item.tags.includes('system_import');
+                    const systemBadge = isSystemImport 
+                        ? `<span class="ml-2 text-[10px] border border-blue-500 text-blue-400 px-1 rounded">系統轉移</span>` 
+                        : '';
+
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'card-item bg-gray-800 hover:bg-gray-750 transition';
+                    itemEl.id = `item-${item.source}-${item.id}`; 
+                    
+                    itemEl.innerHTML = `
+                        <div class="w-24 h-16 flex-shrink-0 bg-gray-900 rounded overflow-hidden border border-gray-700 cursor-pointer hover:opacity-80 transition" onclick="viewImage('${item.image_url}')">
+                            <img src="${item.image_url}" class="w-full h-full object-cover" title="點擊查看大圖">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="tag ${tagClass}">${item.sourceLabel}</span>
+                                <span class="font-bold text-white truncate text-sm md:text-base">${item.name}</span>
+                                <span class="text-xs text-gray-500">#${item.id}</span>
+                                ${systemBadge}
+                            </div>
+                            <div class="text-xs text-gray-400">📅 ${dateStr}</div>
+                            <div class="text-xs text-gray-500 truncate font-mono">${item.coordinate}</div>
+                        </div>
+                        <button onclick="deleteItem('${item.source}', '${item.id}', '${item.name}', '${item.friend_code || ''}')" 
+                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded text-xs md:text-sm font-bold transition shadow whitespace-nowrap">
+                            🗑️ 刪除
+                        </button>
+                    `;
+                    groupEl.appendChild(itemEl);
+                });
+
+                container.appendChild(groupEl);
+            });
+        }
+
+        // 刪除函式 (維持不變，呼叫後端 Action)
+        window.deleteItem = async (source, id, nickname, friendCode) => {
+            if (!confirm('確定要刪除這張卡片嗎？此操作無法復原。')) return;
+
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '...';
+            btn.disabled = true;
+
+            try {
+                let action = '';
+                let payload = {};
+
+                if (source === 'library') {
+                    action = 'delete-postcard'; 
+                    payload = { postcardId: id };
+                } else {
+                    action = 'delete-guest-postcard'; 
+                    payload = { id: id, nickname: nickname, friendCode: friendCode };
+                }
+
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action, payload })
+                });
+
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                // 移除畫面上的該列
+                const row = document.getElementById(`item-${source}-${id}`);
+                if(row) {
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 300);
+                }
+
+            } catch (e) {
+                console.error(e);
+                alert(`刪除失敗: ${e.message}`);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        };
+
+        // 圖片檢視器邏輯
+        window.viewImage = (url) => {
+            const m = document.getElementById('image-viewer-modal');
+            const i = document.getElementById('viewer-image');
+            if(m && i) { 
+                i.src = url; 
+                m.classList.remove('hidden'); 
+                document.body.style.overflow = 'hidden'; 
+            }
+        };
+        
+        window.closeImageViewer = () => {
+            const m = document.getElementById('image-viewer-modal');
+            if(m) { 
+                m.classList.add('hidden'); 
+                document.body.style.overflow = ''; 
+                setTimeout(() => document.getElementById('viewer-image').src='', 300); 
+            }
+        };
+        
+        document.addEventListener('keydown', (e) => { 
+            if(e.key==='Escape') window.closeImageViewer(); 
+        });
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

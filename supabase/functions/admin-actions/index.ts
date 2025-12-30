@@ -2286,6 +2286,79 @@ serve(async (req) => {
             data = { message: '刪除成功' };
             break;
 
+        // 掃描重複座標 (跨資料庫比對)
+        case 'scan-duplicate-coordinates': {
+            // 1. 撈取 美片圖書館 (Library) 全部資料
+            const { data: libCards } = await adminSupabaseClient
+                .from('postcards')
+                .select('id, coordinate, image_url, uploader_nickname, created_at')
+                .order('created_at', { ascending: false });
+
+            // 2. 撈取 美片藝廊 (Gallery) 全部資料
+            const { data: guestCards } = await adminSupabaseClient
+                .from('guest_postcards')
+                // ★ 修改：多撈取 ip_fingerprint 欄位，用於判斷是否為轉移檔
+                .select('id, coordinate, image_url, nickname, friend_code, created_at, ip_fingerprint')
+                .order('created_at', { ascending: false });
+
+            // 3. 進行座標分組
+            const map = new Map<string, any[]>();
+
+            // 輔助函式：標準化座標字串 (去除空白，統一格式)
+            const normalize = (coord: string) => {
+                if (!coord) return '';
+                return coord.replace(/\s/g, ''); 
+            };
+
+            // 整理 Library 資料
+            libCards?.forEach((c: any) => {
+                const key = normalize(c.coordinate);
+                if (!key) return;
+                if (!map.has(key)) map.set(key, []);
+                map.get(key).push({
+                    id: c.id,
+                    source: 'library',
+                    sourceLabel: '圖書館',
+                    coordinate: c.coordinate,
+                    image_url: c.image_url,
+                    name: c.uploader_nickname || '匿名',
+                    created_at: c.created_at
+                });
+            });
+
+            // 整理 Gallery 資料
+            guestCards?.forEach((c: any) => {
+                // ★ 新增過濾：如果是從圖書館轉移過去的 (system_import)，視為合法分身，跳過不檢查
+                if (c.ip_fingerprint === 'system_import') return;
+
+                const key = normalize(c.coordinate);
+                if (!key) return;
+                if (!map.has(key)) map.set(key, []);
+                map.get(key).push({
+                    id: c.id,
+                    source: 'gallery',
+                    sourceLabel: '藝廊',
+                    coordinate: c.coordinate,
+                    image_url: c.image_url,
+                    name: c.nickname || '匿名',
+                    friend_code: c.friend_code,
+                    created_at: c.created_at
+                });
+            });
+
+            // 4. 篩選出「有重複」的群組 (數量 > 1)
+            const duplicates = [];
+            for (const [key, items] of map.entries()) {
+                if (items.length > 1) {
+                    items.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    duplicates.push({ coordinateKey: key, items });
+                }
+            }
+
+            data = { duplicates, totalGroups: duplicates.length };
+            break;
+        }
+
         case 'create-user':
              // ★ 修改：改用 Hex 編碼生成虛擬信箱，確保每個字元(含特殊符號)都能區分，解決撞名問題
              const hexNickname = Array.from(new TextEncoder().encode(payload.nickname))
