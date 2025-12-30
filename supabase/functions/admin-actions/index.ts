@@ -771,43 +771,6 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 7. 座標反查地址 (Reverse Geocoding)
-    if (action === 'reverse-geocode') {
-        const { lat, lng } = payload;
-        
-        try {
-            // 使用 BigDataCloud 免費 API
-            const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=zh-tw`;
-            
-            const resp = await fetch(url);
-            if (!resp.ok) throw new Error('Geocoding service unavailable');
-            
-            const data = await resp.json();
-            
-            // 資料對應整理
-            const address = {
-                country: data.countryName || '',
-                city: data.principalSubdivision || data.city || '', 
-                county: '', 
-                suburb: data.locality || '', 
-                district: '',
-                town: ''
-            };
-
-            return new Response(JSON.stringify({ 
-                success: true, 
-                data: { address } 
-            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
-
-        } catch (err) {
-            console.error('Reverse Geocode Error:', err);
-            return new Response(JSON.stringify({ 
-                success: false, 
-                message: '無法解析地址' 
-            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
-        }
-    }
-
     // 8. [管理員專用] 搬家工具：從美片圖書館轉移到美片藝廊
     if (action === 'migrate-postcards') {
         const { ids } = payload; // 接收前端傳來的 ID 陣列
@@ -1965,13 +1928,30 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // --- 新增功能：美片圖書館 Actions ---
-    // 4. 發布新美片 (含計數更新)
+    // --- 美片圖書館 Actions ---
+    // 4. 發布新美片 (含計數更新 + 座標重複檢查) [已修復: 加入地區欄位]
     if (action === 'add-postcard') {
-        const { uploaderId, uploaderNickname, coordinate, imageUrl, tags } = payload;
+        const { uploaderId, uploaderNickname, coordinate, imageUrl, tags, country, region, area } = payload;
         if (user.id !== uploaderId) throw new Error('身分驗證失敗');
 
-        // A. 寫入 postcards 表
+        // 檢查座標是否重複
+        const { data: existing } = await adminSupabaseClient
+            .from('postcards')
+            .select('id')
+            .eq('coordinate', coordinate)
+            .maybeSingle();
+
+        if (existing) {
+            return new Response(JSON.stringify({ 
+                success: false, 
+                message: '此座標已經被登錄過了！請勿重複發布。' 
+            }), { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200 
+            });
+        }
+
+        // A. 寫入 postcards 表 (加入 country, region, area)
         const { data: newCard, error: insertErr } = await adminSupabaseClient
             .from('postcards')
             .insert({
@@ -1980,6 +1960,9 @@ serve(async (req) => {
                 coordinate: coordinate,
                 image_url: imageUrl,
                 tags: tags,
+                country: country || '', 
+                region: region || '',  
+                area: area || '',       
                 likes: 0
             })
             .select()
@@ -1987,9 +1970,7 @@ serve(async (req) => {
 
         if (insertErr) throw insertErr;
 
-        // B. 更新該使用者的計數 (Total / Week / Month)
-        // 使用 RPC 或直接 SQL update (這裡用直接 update 簡化)
-        // 注意：需先讀取當前值再 +1 會有併發風險，建議用 rpc increment，這裡為示範直接 update
+        // B. 更新該使用者的計數
         await adminSupabaseClient.rpc('increment_postcard_count', { user_id: uploaderId });
         
         return new Response(JSON.stringify({ success: true, data: newCard }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
@@ -2030,24 +2011,47 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 6. 編輯美片 (支援換圖)
+    // 6. 編輯美片 (支援換圖 + 座標重複檢查) [ 加入地區欄位]
     if (action === 'edit-postcard') {
-        const { postcardId, coordinate, tags, imageUrl } = payload;
+        const { postcardId, coordinate, tags, imageUrl, country, region, area } = payload;
         
-        // 1. 查出舊資料 (驗證權限 + 取得舊圖路徑用)
+        // 1. 查出舊資料
         const { data: oldCard } = await adminSupabaseClient.from('postcards').select('uploader_id, image_url').eq('id', postcardId).single();
         if (!oldCard) throw new Error('找不到該美片');
 
-        // 驗證權限
         const { data: operatorProfile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
         const isAdmin = operatorProfile?.role === '管理者';
 
         if (oldCard.uploader_id !== user.id && !isAdmin) throw new Error('權限不足');
 
-        // 2. 準備更新資料
-        const updateData: any = { coordinate, tags };
+        // 檢查座標是否與「其他」卡片重複
+        const { data: existing } = await adminSupabaseClient
+            .from('postcards')
+            .select('id')
+            .eq('coordinate', coordinate)
+            .neq('id', postcardId)
+            .maybeSingle();
+
+        if (existing) {
+            return new Response(JSON.stringify({ 
+                success: false, 
+                message: '修改失敗：此座標已存在於其他卡片中。' 
+            }), { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200 
+            });
+        }
+
+        // 2. 準備更新資料 (加入 country, region, area)
+        const updateData: any = { 
+            coordinate, 
+            tags,
+            country: country || '', 
+            region: region || '',  
+            area: area || ''      
+        };
         if (imageUrl) {
-            updateData.image_url = imageUrl; // 如果有新圖，才更新欄位
+            updateData.image_url = imageUrl;
         }
 
         // 3. 執行更新
@@ -2058,19 +2062,15 @@ serve(async (req) => {
 
         if (error) throw error;
 
-        // 4. ★ 關鍵：如果有換圖 (imageUrl 存在)，且更新成功，就刪除舊圖
+        // 4. 刪除舊圖
         if (imageUrl && oldCard.image_url) {
             try {
                 const oldFileName = oldCard.image_url.split('/').pop()?.split('?')[0];
                 const newFileName = imageUrl.split('/').pop()?.split('?')[0];
-                
                 if (oldFileName && oldFileName !== newFileName) {
                     await adminSupabaseClient.storage.from('postcard-images').remove([oldFileName]);
-                    console.log(`[Postcard] 舊圖已刪除: ${oldFileName}`);
                 }
-            } catch (e) {
-                console.error('舊圖刪除失敗 (不影響更新):', e);
-            }
+            } catch (e) { console.error('舊圖刪除失敗:', e); }
         }
 
         return new Response(JSON.stringify({ success: true, data: { message: '更新成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });

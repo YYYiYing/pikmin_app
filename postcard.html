@@ -71,17 +71,22 @@
     
     <div class="max-w-7xl mx-auto">
         <header class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4 border-b border-gray-700 pb-6">
-            <h1 class="text-3xl font-bold text-white flex items-center gap-2">
-                <span>🖼️</span> 美片圖書館
+            <h1 class="text-3xl font-bold flex items-center gap-2 cursor-pointer" onclick="window.location.reload()">
+                <span>🖼️</span> 
+                
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">
+                    美片圖書館
+                </span>
             </h1>
+            
             <div class="flex items-center gap-4">
                 <button id="add-postcard-btn" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transition flex items-center gap-2 transform hover:scale-105">
                     <span>➕</span> 分享美片
                 </button>
-                <a href="./dashboard.html" class="text-gray-400 hover:text-white font-bold transition flex items-center gap-1">
-                    <span>↩️</span> 返回主頁
-                </a>
+                 <a href="javascript:history.back()" class="text-gray-400 hover:text-white transition cursor-pointer">← 返回</a>
             </div>
+
+            <div id="user-display" class="w-full md:w-auto text-center md:text-right text-xs text-gray-500 font-mono"></div>
         </header>
 
         <div class="mb-8">
@@ -91,6 +96,21 @@
             <div id="filter-container" class="flex flex-wrap gap-2 items-center">
                 <button class="filter-tag active" data-tag="all">全部顯示</button>
                 </div>
+        </div>
+
+        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 grid grid-cols-3 gap-2 text-sm mb-6">
+            <div>
+                <label class="text-xs text-gray-500 block mb-1">國家</label>
+                <select id="filter-country" class="dark-input w-full p-2 rounded text-xs"><option value="all">全部</option></select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500 block mb-1">地區</label>
+                <select id="filter-region" class="dark-input w-full p-2 rounded text-xs"><option value="all">全部</option></select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500 block mb-1">細項</label>
+                <select id="filter-area" class="dark-input w-full p-2 rounded text-xs"><option value="all">全部</option></select>
+            </div>
         </div>
 
         <div id="postcard-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -119,14 +139,39 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-400 mb-1">座標 (緯度, 經度)</label>
                     <div class="relative">
-                        <input type="text" id="coordinate-input" required placeholder="例如: 22.6123, 120.3456" class="dark-input w-full rounded-lg shadow-sm pl-3 pr-10 py-2.5">
+                        <input type="text" id="coordinate-input" required placeholder="例如: 22.6123, 120.3456 (支援 Google Maps 網址)" class="dark-input w-full rounded-lg shadow-sm pl-3 pr-16 py-2.5">
                         
                         <button type="button" id="paste-coord-btn" 
                             class="absolute right-2 top-2 bg-gray-700 hover:bg-gray-600 text-green-400 px-2 py-1.5 rounded transition font-bold flex items-center gap-1 text-xs" 
                             title="貼上剪貼簿內容">
                             📋 貼上
                         </button>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-1">支援貼上 Google Maps 網址自動轉換，並自動帶入地點資訊。</p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">國家</label>
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="input-country" class="dark-input w-full rounded-lg px-2 py-2 text-sm" placeholder="輸入或選擇">
+                            <div id="dropdown-country" class="dropdown-options text-left"></div>
                         </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">地區</label>
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="input-region" class="dark-input w-full rounded-lg px-2 py-2 text-sm" placeholder="輸入或選擇">
+                            <div id="dropdown-region" class="dropdown-options text-left"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">細項</label>
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="input-area" class="dark-input w-full rounded-lg px-2 py-2 text-sm" placeholder="輸入或選擇">
+                            <div id="dropdown-area" class="dropdown-options text-left"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
@@ -176,35 +221,27 @@
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // --- 全域變數 ---
         let currentUser = null;
         let allPostcards = [];
         let activeTag = 'all';
+        // 地點資料集合 (用於篩選與自動完成)
+        let uniqueCountries = new Set(), uniqueRegions = new Set(), uniqueAreas = new Set();
 
-        // ★ 新增：封裝圖片壓縮功能的 Promise 函式
+        // --- 核心工具：圖片壓縮 ---
         function compressImage(file) {
             return new Promise((resolve, reject) => {
                 new Compressor(file, {
-                    quality: 0.6,      // 壓縮品質 (0 ~ 1)，0.6 通常能壓到 500KB 以下且畫質良好
-                    maxWidth: 1600,    // 最大寬度 (像素)，避免上傳 4K/8K 超大圖
-                    maxHeight: 1600,   // 最大高度
-                    mimeType: 'image/jpeg', // 統一轉為 JPEG (以獲得最佳壓縮率)
-                    success(result) {
-                        // result 是一個 Blob 物件，我們把它轉回 File 物件以便上傳
-                        const compressedFile = new File([result], file.name, {
-                            type: 'image/jpeg',
-                            lastModified: Date.now(),
-                        });
-                        resolve(compressedFile);
-                    },
-                    error(err) {
-                        reject(err);
-                    },
+                    quality: 0.6, maxWidth: 1600, maxHeight: 1600, mimeType: 'image/jpeg',
+                    success(result) { resolve(new File([result], file.name, { type: 'image/jpeg', lastModified: Date.now() })); },
+                    error(err) { reject(err); },
                 });
             });
         }
 
-        // 初始化
+        // --- 初始化 ---
         async function init() {
+            // 檢查登入狀態
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (!session) {
                 alert('請先登入才能使用美片圖書館');
@@ -212,14 +249,27 @@
                 return;
             }
             
+            // 取得使用者資料
             const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
             currentUser = { ...session.user, ...profile };
 
+            // 載入資料並初始化介面
             loadPostcards();
-            initTagDropdowns(); // ★ 啟動下拉選單功能
+            initDropdowns(); 
+            
+            // 綁定全域點擊事件 (用於關閉下拉選單)
+            document.addEventListener('click', (e) => {
+                document.querySelectorAll('.custom-dropdown-container').forEach(container => {
+                    const input = container.querySelector('input');
+                    const dd = container.querySelector('.dropdown-options');
+                    if (input && dd && !container.contains(e.target)) {
+                        dd.classList.remove('show');
+                    }
+                });
+            });
         }
 
-        // 載入資料
+        // --- 讀取資料 ---
         async function loadPostcards() {
             const grid = document.getElementById('postcard-grid');
             try {
@@ -231,6 +281,7 @@
                 if (error) throw error;
                 allPostcards = data;
 
+                // 取得按讚狀態
                 const { data: likes } = await supabaseClient
                     .from('postcard_likes')
                     .select('postcard_id')
@@ -239,7 +290,7 @@
                 const likedSet = new Set(likes ? likes.map(l => l.postcard_id) : []);
                 allPostcards.forEach(p => { p.isLiked = likedSet.has(p.id); });
                 
-                updateFilterTags();  
+                updateFilters(); // 更新篩選器 (含標籤與地點)
                 renderGrid();
             } catch (e) {
                 console.error(e);
@@ -247,210 +298,119 @@
             }
         }
 
-        // 修改 postcard.html 中的 updateFilterTags 函式
-        function updateFilterTags() {
+        // --- 篩選器邏輯 (整合標籤 + 地點) ---
+        function updateFilters() {
+            // 1. 標籤統計
             const tagCounts = {};
             allPostcards.forEach(p => {
-                if (p.tags) p.tags.forEach(t => {
-                    const cleanTag = t.trim();
-                    if(cleanTag) tagCounts[cleanTag] = (tagCounts[cleanTag] || 0) + 1;
+                if (!p.is_obsolete && p.tags) p.tags.forEach(t => {
+                    const clean = t.trim();
+                    if(clean) tagCounts[clean] = (tagCounts[clean] || 0) + 1;
                 });
             });
-
-            // 依照熱門程度排序的所有標籤
-            const allTags = Object.entries(tagCounts)
-                .sort((a, b) => b[1] - a[1])
-                .map(x => x[0]);
+            const sortedTags = Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a]);
 
             const container = document.getElementById('filter-container');
-            container.innerHTML = ''; // 清空
+            container.innerHTML = ''; 
 
-            // 1. 永遠顯示「全部顯示」按鈕
+            // 按鈕：全部顯示
             const allBtn = document.createElement('button');
-            allBtn.className = 'filter-tag active';
-            allBtn.dataset.tag = 'all';
+            allBtn.className = `filter-tag ${activeTag==='all'?'active':''}`;
             allBtn.textContent = `全部顯示 (${allPostcards.length})`;
-            allBtn.onclick = function() {
-                document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                activeTag = 'all';
-                renderGrid();
-            };
+            allBtn.onclick = () => setTag('all');
             container.appendChild(allBtn);
 
-            // ★★★ 新增：絕版區按鈕 ★★★
+            // 按鈕：絕版區
             const obsoleteBtn = document.createElement('button');
-            obsoleteBtn.className = 'filter-tag text-red-400 border-red-900/50 hover:bg-red-900/30';
+            obsoleteBtn.className = `filter-tag ${activeTag==='obsolete'?'active':''} text-red-400 border-red-900/50 hover:bg-red-900/30`;
+            if(activeTag === 'obsolete') obsoleteBtn.classList.add('bg-red-900/50');
             obsoleteBtn.textContent = `🚫 絕版區`;
-            obsoleteBtn.dataset.tag = 'obsolete';
-            obsoleteBtn.onclick = function() {
-                document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                activeTag = 'obsolete'; // 設定特殊標籤
-                renderGrid();
-            };
+            obsoleteBtn.onclick = () => setTag('obsolete');
             container.appendChild(obsoleteBtn);
 
-            // 2. 設定顯示數量限制 (例如預設顯示 6 個)
+            // 標籤顯示 (前6個 + 更多)
             const DISPLAY_LIMIT = 6;
-            const hasMore = allTags.length > DISPLAY_LIMIT;
-            
-            // 決定要渲染哪些標籤 (如果沒展開，就只拿前6個；如果展開了，就拿全部)
-            // 這裡我們用一個簡單的變數來控制介面，不需要全域變數，直接操作 DOM
-            const tagsToShow = allTags.slice(0, DISPLAY_LIMIT);
-            const hiddenTags = allTags.slice(DISPLAY_LIMIT);
+            const tagsToShow = sortedTags.slice(0, DISPLAY_LIMIT);
+            const hiddenTags = sortedTags.slice(DISPLAY_LIMIT);
 
-            // 3. 渲染前 6 個標籤
             tagsToShow.forEach(tag => createTagButton(tag, tagCounts[tag], container));
 
-            // 4. 如果有更多標籤，建立「收納區」與「更多按鈕」
-            if (hasMore) {
-                // 建立一個隱藏的容器放剩下的標籤
+            if (hiddenTags.length > 0) {
                 const hiddenContainer = document.createElement('span');
-                hiddenContainer.className = 'hidden flex flex-wrap gap-2 items-center'; // 使用 flex 排列
+                hiddenContainer.className = 'hidden flex flex-wrap gap-2 items-center';
                 hiddenContainer.id = 'more-tags-container';
-                
                 hiddenTags.forEach(tag => createTagButton(tag, tagCounts[tag], hiddenContainer));
                 container.appendChild(hiddenContainer);
 
-                // 建立「更多/收起」切換按鈕
                 const toggleBtn = document.createElement('button');
                 toggleBtn.className = 'text-xs text-pink-400 hover:text-pink-300 underline ml-1 font-bold';
                 toggleBtn.textContent = `▼ 更多 (${hiddenTags.length})`;
-                
                 toggleBtn.onclick = () => {
                     const isHidden = hiddenContainer.classList.contains('hidden');
-                    if (isHidden) {
-                        hiddenContainer.classList.remove('hidden');
-                        toggleBtn.textContent = '▲ 收起';
-                    } else {
-                        hiddenContainer.classList.add('hidden');
-                        toggleBtn.textContent = `▼ 更多 (${hiddenTags.length})`;
-                    }
+                    hiddenContainer.classList.toggle('hidden');
+                    toggleBtn.textContent = isHidden ? '▲ 收起' : `▼ 更多 (${hiddenTags.length})`;
                 };
                 container.appendChild(toggleBtn);
             }
-        }
 
-        // 輔助函式：建立標籤按鈕
-        function createTagButton(tag, count, parent) {
-            const btn = document.createElement('button');
-            btn.className = 'filter-tag';
-            btn.textContent = `#${tag} (${count})`;
-            btn.dataset.tag = tag;
-            btn.onclick = () => {
-                document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                activeTag = tag;
-                renderGrid();
-            };
-            parent.appendChild(btn);
-        }
-
-        // 輔助函式：建立標籤按鈕
-        function createTagButton(tag, count, parent) {
-            const btn = document.createElement('button');
-            btn.className = 'filter-tag';
-            btn.textContent = `#${tag} (${count})`;
-            btn.dataset.tag = tag;
-            btn.onclick = () => {
-                document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                activeTag = tag;
-                renderGrid();
-            };
-            parent.appendChild(btn);
-        }
-
-        // ★ 新增：取得排序後的熱門標籤列表
-        function getSortedGlobalTags() {
-            const tagCounts = {};
+            // 2. 地點下拉選單資料收集
+            uniqueCountries = new Set(); uniqueRegions = new Set(); uniqueAreas = new Set();
             allPostcards.forEach(p => {
-                if (p.tags) p.tags.forEach(t => {
-                    const cleanTag = t.trim();
-                    if(cleanTag) tagCounts[cleanTag] = (tagCounts[cleanTag] || 0) + 1;
-                });
-            });
-            return Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a]);
-        }
-
-        // ★ 新增：初始化單個下拉選單的邏輯
-        function setupTagDropdown(inputId, dropdownId, otherInputIds) {
-            const input = document.getElementById(inputId);
-            const dropdown = document.getElementById(dropdownId);
-            
-            // 渲染選單內容 (含過濾邏輯)
-            const renderOptions = (filterText = '') => {
-                const allTags = getSortedGlobalTags();
-                
-                // 1. 取得「其他輸入框」目前的值 (做成排除清單)
-                const excludedValues = otherInputIds.map(id => document.getElementById(id).value.trim()).filter(v => v);
-                
-                // 2. 過濾：(符合搜尋文字) AND (不在排除清單中)
-                const filteredTags = allTags.filter(tag => {
-                    const matchText = tag.toLowerCase().includes(filterText.toLowerCase());
-                    const notExcluded = !excludedValues.includes(tag);
-                    return matchText && notExcluded;
-                });
-
-                dropdown.innerHTML = '';
-                if (filteredTags.length === 0) {
-                    dropdown.innerHTML = '<div class="dropdown-option text-gray-500 cursor-default">無符合標籤</div>';
-                } else {
-                    filteredTags.forEach(tag => {
-                        const div = document.createElement('div');
-                        div.className = 'dropdown-option';
-                        div.textContent = tag;
-                        div.onclick = () => {
-                            input.value = tag;
-                            dropdown.classList.remove('show');
-                        };
-                        dropdown.appendChild(div);
-                    });
-                }
-            };
-
-            // 事件監聽
-            input.onfocus = () => {
-                renderOptions(input.value);
-                dropdown.classList.add('show');
-            };
-            
-            input.oninput = () => {
-                renderOptions(input.value);
-                dropdown.classList.add('show');
-            };
-
-            // 點擊外部關閉
-            document.addEventListener('click', (e) => {
-                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-                    dropdown.classList.remove('show');
+                if (!p.is_obsolete) {
+                    if(p.country) uniqueCountries.add(p.country);
+                    if(p.region) uniqueRegions.add(p.region);
+                    if(p.area) uniqueAreas.add(p.area);
                 }
             });
+            
+            // 填入篩選器下拉選單
+            fillSelect('filter-country', uniqueCountries, '全部國家');
+            fillSelect('filter-region', uniqueRegions, '全部地區');
+            fillSelect('filter-area', uniqueAreas, '全部細項');
+            
+            // 更新 Modal 輸入框的自動完成
+            updateInputDropdowns();
         }
 
-        // ★ 新增：一次初始化所有三個輸入框
-        function initTagDropdowns() {
-            setupTagDropdown('tag-1', 'dropdown-1', ['tag-2', 'tag-3']);
-            setupTagDropdown('tag-2', 'dropdown-2', ['tag-1', 'tag-3']);
-            setupTagDropdown('tag-3', 'dropdown-3', ['tag-1', 'tag-2']);
+        function createTagButton(tag, count, parent) {
+            const btn = document.createElement('button');
+            btn.className = `filter-tag ${activeTag===tag?'active':''}`;
+            btn.textContent = `#${tag} (${count})`;
+            btn.onclick = () => setTag(tag);
+            parent.appendChild(btn);
         }
 
+        function setTag(tag) {
+            activeTag = tag;
+            updateFilters();
+            renderGrid();
+        }
+
+        function fillSelect(id, set, defaultTxt) {
+            const el = document.getElementById(id);
+            if(!el) return;
+            const oldVal = el.value;
+            el.innerHTML = `<option value="all">${defaultTxt}</option>`;
+            Array.from(set).sort().forEach(v => el.add(new Option(v, v)));
+            if(set.has(oldVal)) el.value = oldVal;
+            el.onchange = renderGrid;
+        }
+
+        // --- 畫面渲染 (Grid) ★★★ 這裡修正了卡片顯示樣式 ---
         function renderGrid() {
             const grid = document.getElementById('postcard-grid');
+            const cVal = document.getElementById('filter-country') ? document.getElementById('filter-country').value : 'all';
+            const rVal = document.getElementById('filter-region') ? document.getElementById('filter-region').value : 'all';
+            const aVal = document.getElementById('filter-area') ? document.getElementById('filter-area').value : 'all';
             
-            // ★ 修改過濾邏輯 ★
             const filtered = allPostcards.filter(p => {
-                // 1. 如果目前在「絕版區」，只顯示已絕版的
-                if (activeTag === 'obsolete') {
-                    return p.is_obsolete === true;
-                }
-                // 2. 如果在其他區域 (全部 or 標籤)，只顯示「未絕版」的
+                if (activeTag === 'obsolete') return p.is_obsolete === true;
                 if (p.is_obsolete === true) return false;
-
-                // 3. 接著執行原本的標籤過濾
-                if (activeTag === 'all') return true;
-                return p.tags && p.tags.includes(activeTag);
+                if (activeTag !== 'all' && (!p.tags || !p.tags.includes(activeTag))) return false;
+                if (cVal !== 'all' && p.country !== cVal) return false;
+                if (rVal !== 'all' && p.region !== rVal) return false;
+                if (aVal !== 'all' && p.area !== aVal) return false;
+                return true;
             });
 
             if (filtered.length === 0) {
@@ -463,22 +423,23 @@
                 const cleanName = (p.uploader_nickname || '').trim().replace(/[\s\uFEFF\xA0]*\d{12}$/, '');
                 const tagsHtml = (p.tags || []).map(t => `<span class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full mr-1 mb-1 inline-block border border-gray-600">#${t}</span>`).join('');
                 
-                // 權限判斷 (編輯/刪除)
                 const canEdit = (p.uploader_id === currentUser.id) || (currentUser.role === '管理者');
                 const controlsHtml = canEdit ? `
                     <div class="absolute top-2 right-2 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition duration-200 z-10">
                         <button onclick="editCard(${p.id}, event)" class="text-gray-300 hover:text-white p-1.5 hover:bg-gray-700 rounded" title="編輯">✏️</button>
                         <button onclick="deleteCard(${p.id}, event)" class="text-red-400 hover:text-red-300 p-1.5 hover:bg-gray-700 rounded" title="刪除">🗑️</button>
-                    </div>
-                ` : '';
+                    </div>` : '';
 
                 const heartClass = p.isLiked ? 'liked' : 'text-gray-500 hover:text-pink-400';
                 const heartIcon = p.isLiked ? '❤️' : '🤍';
+                
+                // ★ 組合地點字串 (比照藝廊)
+                const locationParts = [p.country, p.region, p.area].filter(Boolean);
+                const fullLocation = locationParts.length > 0 ? locationParts.join(' · ') : null;
 
-                // ★ 絕版按鈕樣式判斷
-                // 如果在絕版區，按鈕變成「恢復」樣式；否則為「回報」樣式
+                // 絕版樣式
                 const isObsoleteView = activeTag === 'obsolete';
-                const obsBtnIcon = isObsoleteView ? '✅上架' : '🚫'; // 絕版區顯示回收符號(恢復)，一般區顯示枯萎花朵(回報)
+                const obsBtnIcon = isObsoleteView ? '✅上架' : '🚫'; 
                 const obsBtnTitle = isObsoleteView ? '恢復上架' : '回報絕版';
                 const obsBtnClass = isObsoleteView ? 'text-green-500 hover:text-green-300' : 'text-gray-500 hover:text-red-500';
 
@@ -496,73 +457,36 @@
                                         <span class="text-xs text-gray-400 flex-shrink-0">By</span>
                                         <span class="font-bold text-gray-200 truncate" title="${cleanName}">${cleanName}</span>
                                     </div>
-                                    
                                     <div class="flex items-center gap-2">
                                         <button onclick="toggleObsolete(${p.id}, '${cleanName}')" class="flex items-center justify-center w-7 h-7 rounded-full bg-gray-800/50 ${obsBtnClass} transition transform active:scale-90" title="${obsBtnTitle}">
                                             <span class="text-sm filter drop-shadow-md">${obsBtnIcon}</span>
                                         </button>
-
                                         <button onclick="toggleLike(${p.id}, this)" class="like-btn flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-full ${heartClass}">
                                             <span class="text-base icon filter drop-shadow-md">${heartIcon}</span>
                                             <span class="text-xs font-bold count">${p.likes}</span>
                                         </button>
                                     </div>
                                 </div>
-                                <div class="bg-gray-800/50 rounded-lg p-2 flex justify-between items-center mb-3 border border-gray-700 group-hover:border-gray-600 transition">
+                                <div class="bg-gray-800/50 rounded-lg p-2 flex justify-between items-center mb-3 border border-gray-700">
                                     <span class="text-xs font-mono text-gray-400 truncate select-all flex-1 mr-2">${p.coordinate || '未知座標'}</span>
-                                    <button onclick="copyText('${p.coordinate}')" class="text-xs bg-gray-700 hover:bg-gray-600 text-green-400 px-2 py-1.5 rounded transition flex-shrink-0 font-bold flex items-center gap-1">📋 複製</button>
+                                    <button onclick="copyText('${p.coordinate}')" class="text-xs bg-gray-700 hover:bg-gray-600 text-green-400 px-2 py-1.5 rounded flex-shrink-0 font-bold flex items-center gap-1">📋 複製</button>
                                 </div>
                             </div>
-                            <div class="flex flex-wrap content-end">${tagsHtml}</div>
+                            <div class="flex flex-wrap content-end mb-2 min-h-[1.5rem]">${tagsHtml}</div>
+                            
+                            ${fullLocation ? `
+                            <div class="pt-2 border-t border-gray-700/50 text-[11px] text-gray-400 flex items-center gap-1">
+                                <span>🌍</span>
+                                <span class="truncate" title="${fullLocation}">${fullLocation}</span>
+                            </div>` : ''}
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
         }
 
-        // --- 互動功能 ---
+        // --- 表單提交 (含失敗回滾與座標重複檢查) ---
         const modal = document.getElementById('postcard-modal');
         const form = document.getElementById('postcard-form');
-        
-        document.getElementById('add-postcard-btn').onclick = () => {
-            form.reset();
-            document.getElementById('edit-id').value = '';
-            document.getElementById('modal-title').textContent = '分享新美片';
-            
-            // ★ 修改：還原 label 文字
-            const uploadSection = document.getElementById('image-upload-section');
-            uploadSection.classList.remove('hidden');
-            uploadSection.querySelector('label').textContent = '上傳圖片';
-            
-            document.getElementById('preview-image').src = '';
-            document.getElementById('preview-section').classList.add('hidden');
-            document.getElementById('submit-btn').textContent = '發布';
-            modal.classList.remove('hidden');
-        };
-        
-        const closeModal = () => modal.classList.add('hidden');
-        document.getElementById('close-modal-btn').onclick = closeModal;
-        document.getElementById('close-modal-x').onclick = closeModal;
-        
-        document.getElementById('paste-coord-btn').onclick = async () => {
-            try {
-                const text = await navigator.clipboard.readText();
-                if(text) {
-                    // ★ 修改這裡：貼上後直接進行格式化
-                    const formatted = formatCoordinateString(text);
-                    document.getElementById('coordinate-input').value = formatted;
-                    
-                    if (formatted !== text) {
-                        showToast('已自動轉換座標格式', false);
-                    } else {
-                        showToast('已貼上座標', false);
-                    }
-                }
-                else showToast('剪貼簿是空的', true);
-            } catch(e) { showToast('無法讀取剪貼簿，請手動貼上', true); }
-        };
-
-        // 修改 postcard.html 中的 form.onsubmit 部分
 
         form.onsubmit = async (e) => {
             e.preventDefault();
@@ -571,110 +495,239 @@
             const originalText = btn.textContent;
             btn.textContent = '處理中...';
 
-            let uploadedFileName = null; // 用於回滾
+            let uploadedFileName = null;
 
             try {
                 const editId = document.getElementById('edit-id').value;
                 const coords = document.getElementById('coordinate-input').value.trim();
-                const t1 = document.getElementById('tag-1').value.trim();
-                const t2 = document.getElementById('tag-2').value.trim();
-                const t3 = document.getElementById('tag-3').value.trim();
-                const tags = [t1, t2, t3].filter(t => t.length > 0);
+                const tags = [1,2,3].map(i => document.getElementById(`tag-${i}`).value.trim()).filter(Boolean);
+                
+                const country = document.getElementById('input-country').value.trim();
+                const region = document.getElementById('input-region').value.trim();
+                const area = document.getElementById('input-area').value.trim();
 
                 let imageUrl = null;
                 const fileInput = document.getElementById('image-upload');
 
-                // ★ 判斷是否需要上傳圖片
-                // 情況A: 新增模式 (必須上傳)
-                // 情況B: 編輯模式 且 使用者有選新檔案 (選擇性上傳)
-                // 加入壓縮邏輯
                 if (!editId || (editId && fileInput.files.length > 0)) {
-                    if (fileInput.files.length === 0) throw new Error('請選擇圖片');
-
-                    // 1. 取得原始檔案
-                    const originalFile = fileInput.files[0];
-                    
-                    // 2. 執行壓縮 (顯示 Toast 讓使用者知道正在處理)
-                    showToast('正在壓縮圖片...', false);
-                    const compressedFile = await compressImage(originalFile);
-                    
-                    // (除錯用) 您可以在 Console 看到壓縮前後的大小差異
-                    console.log(`壓縮前: ${(originalFile.size/1024/1024).toFixed(2)}MB, 壓縮後: ${(compressedFile.size/1024/1024).toFixed(2)}MB`);
-
-                    // 3. 使用「壓縮後的檔案」產生檔名並上傳
-                    // 注意：這邊改用 compressedFile 來處理
-                    uploadedFileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`; // 統一存為 jpg
-                    
-                    const { error: upErr } = await supabaseClient.storage.from('postcard-images').upload(uploadedFileName, compressedFile);
-                    
-                    if (upErr) {
-                        uploadedFileName = null;
-                        throw upErr;
+                    if (fileInput.files.length === 0 && !editId) throw new Error('請選擇圖片');
+                    if (fileInput.files.length > 0) {
+                        showToast('正在壓縮圖片...', false);
+                        const compressedFile = await compressImage(fileInput.files[0]);
+                        uploadedFileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
+                        const { error: upErr } = await supabaseClient.storage.from('postcard-images').upload(uploadedFileName, compressedFile);
+                        if (upErr) { uploadedFileName = null; throw upErr; }
+                        const { data } = supabaseClient.storage.from('postcard-images').getPublicUrl(uploadedFileName);
+                        imageUrl = data.publicUrl;
                     }
-                    
-                    const { data: publicData } = supabaseClient.storage.from('postcard-images').getPublicUrl(uploadedFileName);
-                    imageUrl = publicData.publicUrl;
                 }
 
+                const payload = {
+                    coordinate: coords, tags,
+                    country, region, area,
+                    imageUrl 
+                };
+
+                let resData, resError;
                 if (!editId) {
-                    // === 新增模式 ===
-                    const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
-                        body: { 
-                            action: 'add-postcard', 
-                            payload: { 
-                                uploaderId: currentUser.id, 
-                                uploaderNickname: currentUser.nickname,
-                                coordinate: coords, 
-                                imageUrl: imageUrl, 
-                                tags: tags 
-                            } 
-                        }
+                    const result = await supabaseClient.functions.invoke('admin-actions', {
+                        body: { action: 'add-postcard', payload: { ...payload, uploaderId: currentUser.id, uploaderNickname: currentUser.nickname } }
                     });
-                    if (error) throw error;
-                    if (data && data.error) throw new Error(data.error);
-                    showToast('發布成功！', false);
-
+                    resData = result.data; resError = result.error;
                 } else {
-                    // === 編輯模式 ===
-                    // 如果 imageUrl 有值，代表有換圖；如果是 null，代表沒換圖 (後端會忽略更新)
-                    const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
-                        body: { 
-                            action: 'edit-postcard', 
-                            payload: { 
-                                postcardId: editId, 
-                                coordinate: coords, 
-                                tags: tags,
-                                imageUrl: imageUrl // 傳入新圖片網址 (或 null)
-                            } 
-                        }
+                    const result = await supabaseClient.functions.invoke('admin-actions', {
+                        body: { action: 'edit-postcard', payload: { ...payload, postcardId: editId } }
                     });
-                    
-                    if (error) throw error;
-                    if (data && data.error) throw new Error(data.error);
-                    showToast('更新成功！', false);
+                    resData = result.data; resError = result.error;
                 }
 
+                if (resError) throw resError;
+                if (resData && resData.success === false) throw new Error(resData.message || '操作失敗');
+                if (resData && resData.error) throw new Error(resData.error);
+
+                showToast(editId ? '更新成功！' : '發布成功！', false);
                 modal.classList.add('hidden');
                 loadPostcards();
 
             } catch (e) {
                 console.error(e);
-                
-                // ★ 回滾機制：如果剛剛有上傳新圖但失敗了，把新圖刪掉
-                if (uploadedFileName) {
-                    await supabaseClient.storage.from('postcard-images').remove([uploadedFileName]);
-                }
-
-                let msg = e.message;
-                if (msg === 'Edge Function returned a non-2xx status code') {
-                    msg = '後端連線錯誤 (請確認 index.ts 已重新部署)';
-                }
-                showToast(`操作失敗: ${msg}`, true);
+                if (uploadedFileName) await supabaseClient.storage.from('postcard-images').remove([uploadedFileName]);
+                showToast(`操作失敗: ${e.message}`, true);
             } finally {
                 btn.disabled = false; btn.textContent = originalText;
             }
         };
 
+        // --- 互動與工具函式 ---
+        document.getElementById('add-postcard-btn').onclick = () => {
+            form.reset();
+            document.getElementById('edit-id').value = '';
+            document.getElementById('modal-title').textContent = '分享新美片';
+            document.getElementById('image-upload-section').classList.remove('hidden');
+            document.getElementById('image-upload-section').querySelector('label').textContent = '上傳圖片';
+            document.getElementById('preview-section').classList.add('hidden');
+            document.getElementById('submit-btn').textContent = '發布';
+            modal.classList.remove('hidden');
+        };
+
+        window.editCard = (id, event) => {
+            event.stopPropagation();
+            const card = allPostcards.find(p => p.id === id);
+            if (!card) return;
+            
+            document.getElementById('edit-id').value = id;
+            document.getElementById('modal-title').textContent = '編輯美片資訊';
+            
+            const coordVal = card.coordinate || '';
+            document.getElementById('coordinate-input').value = coordVal;
+            
+            // 設定欄位值
+            const countryVal = card.country || '';
+            document.getElementById('input-country').value = countryVal;
+            document.getElementById('input-region').value = card.region || '';
+            document.getElementById('input-area').value = card.area || '';
+            
+            // 如果座標存在，但國家/地區是空的（代表是舊資料或上次沒存到），自動觸發反查
+            if (coordVal && !countryVal) {
+                const parts = formatCoordinateString(coordVal).split(',');
+                if (parts.length === 2) {
+                    // 稍微延遲一下讓 Modal 先打開，使用者才看得到「搜尋中...」的提示
+                    setTimeout(() => {
+                        autoFillLocation(parts[0].trim(), parts[1].trim());
+                    }, 500);
+                }
+            }
+
+            [1,2,3].forEach(i => document.getElementById(`tag-${i}`).value = (card.tags && card.tags[i-1]) || '');
+
+            const uploadSection = document.getElementById('image-upload-section');
+            uploadSection.classList.remove('hidden');
+            uploadSection.querySelector('label').textContent = '更換圖片 (若不修改請留空)';
+            document.getElementById('image-upload').value = '';
+            document.getElementById('preview-image').src = card.image_url;
+            document.getElementById('preview-section').classList.remove('hidden');
+            document.getElementById('submit-btn').textContent = '儲存變更';
+            modal.classList.remove('hidden');
+        };
+
+        const closeModal = () => modal.classList.add('hidden');
+        document.getElementById('close-modal-btn').onclick = closeModal;
+        document.getElementById('close-modal-x').onclick = closeModal;
+
+        // --- 座標處理與反查 ---
+        function formatCoordinateString(val) {
+            if (!val) return "";
+            let str = val.trim();
+            let match = str.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (match) return `${parseFloat(match[1]).toFixed(7)}, ${parseFloat(match[2]).toFixed(7)}`;
+            match = str.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (match) return `${parseFloat(match[1]).toFixed(7)}, ${parseFloat(match[2]).toFixed(7)}`;
+            match = str.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+            if (match) return `${parseFloat(match[1]).toFixed(7)}, ${parseFloat(match[2]).toFixed(7)}`;
+
+            let tempStr = str.replace(/，/g, ',');
+            const isDMS = tempStr.includes('°') && (tempStr.includes("'") || tempStr.includes('"'));
+            let lat = 0, lng = 0, success = false;
+
+            if (isDMS) {
+                const numbers = tempStr.match(/(\d+(\.\d+)?)/g);
+                const directions = tempStr.match(/[NSEW北南東西]/gi) || [];
+                if (numbers && numbers.length >= 6) {
+                    const d1 = parseFloat(numbers[0]), m1 = parseFloat(numbers[1]), s1 = parseFloat(numbers[2]);
+                    const d2 = parseFloat(numbers[3]), m2 = parseFloat(numbers[4]), s2 = parseFloat(numbers[5]);
+                    lat = d1 + m1/60 + s1/3600; lng = d2 + m2/60 + s2/3600;
+                    const dirStr = directions.join('');
+                    if (/[S南]/.test(dirStr)) lat = -lat; 
+                    if (/[W西]/.test(dirStr)) lng = -lng;
+                    success = true;
+                }
+            } else {
+                const numbers = tempStr.match(/(-?\d+(\.\d+)?)/g);
+                if (numbers && numbers.length >= 2) {
+                    lat = parseFloat(numbers[0]); lng = parseFloat(numbers[1]);
+                    if (/[S南]/.test(tempStr) && lat > 0) lat = -lat;
+                    if (/[W西]/.test(tempStr) && lng > 0) lng = -lng;
+                    success = true;
+                }
+            }
+            return success ? `${lat.toFixed(7)}, ${lng.toFixed(7)}` : val;
+        }
+
+        async function autoFillLocation(lat, lng) {
+            const countryInput = document.getElementById('input-country');
+            const regionInput = document.getElementById('input-region');
+            const areaInput = document.getElementById('input-area');
+
+            countryInput.placeholder = '🔍 搜尋中...';
+            try {
+                const { data: resData, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'reverse-geocode', payload: { lat, lng } })
+                });
+                if (error) throw error;
+                const data = resData.data;
+
+                if (data && data.address) {
+                    if (data.address.country) countryInput.value = data.address.country;
+                    const region = data.address.city || data.address.county || '';
+                    if (region) regionInput.value = region.replace(/臺/g, '台');
+                    const area = data.address.suburb || data.address.district || '';
+                    if (area) areaInput.value = area;
+                    
+                    [countryInput, regionInput, areaInput].forEach(el => el.classList.add('ring-2', 'ring-green-500'));
+                    setTimeout(() => document.querySelectorAll('.ring-2').forEach(el=>el.classList.remove('ring-2', 'ring-green-500')), 1000);
+                }
+            } catch (e) { console.error('反查失敗', e); countryInput.placeholder = '輸入或選擇'; }
+        }
+
+        const coordInput = document.getElementById('coordinate-input');
+        if (coordInput) {
+            document.getElementById('paste-coord-btn').onclick = async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if(text) handleCoordInput(text);
+                    else showToast('剪貼簿是空的', true);
+                } catch(e) { showToast('無法讀取剪貼簿', true); }
+            };
+            
+            coordInput.addEventListener('blur', function() { handleCoordInput(this.value); });
+            coordInput.addEventListener('keydown', function(e) { if(e.key==='Enter') { e.preventDefault(); this.blur(); }});
+            
+            async function handleCoordInput(raw) {
+                const formatted = formatCoordinateString(raw);
+                coordInput.value = formatted;
+                if (formatted !== raw) showToast('已格式化座標', false);
+                const parts = formatted.split(',');
+                if(parts.length === 2) await autoFillLocation(parts[0].trim(), parts[1].trim());
+            }
+        }
+
+        // --- Dropdown (下拉選單邏輯) ---
+        function setupDropdown(inputId, dropdownId, getSet) {
+            const input = document.getElementById(inputId), dd = document.getElementById(dropdownId);
+            const render = () => {
+                const opts = Array.from(getSet()).sort().filter(x => x.toLowerCase().includes(input.value.toLowerCase()));
+                dd.innerHTML = opts.map(x => `<div class="dropdown-option">${x}</div>`).join('') || '<div class="p-2 text-gray-500 text-xs">無選項</div>';
+                Array.from(dd.children).forEach(div => div.onclick = () => { 
+                    input.value = div.textContent; 
+                    dd.classList.remove('show'); 
+                });
+            };
+            input.onfocus = () => { render(); dd.classList.add('show'); };
+            input.oninput = () => { render(); dd.classList.add('show'); };
+            // 點擊外部關閉的邏輯已移至 init() 中的全域監聽器
+        }
+
+        function updateInputDropdowns() {
+            const allTags = new Set(); 
+            allPostcards.forEach(c => !c.is_obsolete && c.tags && c.tags.forEach(t => allTags.add(t)));
+            [1,2,3].forEach(i => setupDropdown(`tag-${i}`, `dropdown-${i}`, () => allTags));
+            setupDropdown('input-country', 'dropdown-country', () => uniqueCountries);
+            setupDropdown('input-region', 'dropdown-region', () => uniqueRegions);
+            setupDropdown('input-area', 'dropdown-area', () => uniqueAreas);
+        }
+        function initDropdowns() { updateInputDropdowns(); }
+
+        // --- 其他工具 ---
         window.deleteCard = async (id, event) => {
             event.stopPropagation();
             if (!confirm('【警告】確定要刪除這張美片嗎？此操作無法復原。')) return;
@@ -688,289 +741,70 @@
             } catch (e) { showToast('刪除失敗', true); console.error(e); }
         };
 
-        window.editCard = (id, event) => {
-            event.stopPropagation();
-            const card = allPostcards.find(p => p.id === id);
-            if (!card) return;
-            
-            document.getElementById('edit-id').value = id;
-            document.getElementById('modal-title').textContent = '編輯美片資訊';
-            document.getElementById('coordinate-input').value = card.coordinate || '';
-            
-            // 填入舊標籤
-            const oldTags = card.tags || [];
-            document.getElementById('tag-1').value = oldTags[0] || '';
-            document.getElementById('tag-2').value = oldTags[1] || '';
-            document.getElementById('tag-3').value = oldTags[2] || '';
-            
-            // ★ 修改：編輯模式也要顯示上傳區塊，但修改文字提示
-            const uploadSection = document.getElementById('image-upload-section');
-            uploadSection.classList.remove('hidden');
-            // 改變 label 文字提醒使用者
-            uploadSection.querySelector('label').textContent = '更換圖片 (若不修改請留空)';
-            // 清空 file input 防止誤傳
-            document.getElementById('image-upload').value = '';
-
-            // 顯示目前的圖片預覽
-            const preview = document.getElementById('preview-image');
-            preview.src = card.image_url;
-            document.getElementById('preview-section').classList.remove('hidden');
-            
-            document.getElementById('submit-btn').textContent = '儲存變更';
-            modal.classList.remove('hidden');
-        };
-
         window.toggleLike = async (id, btn) => {
             const card = allPostcards.find(p => p.id === id);
             if (!card) return;
             const iconSpan = btn.querySelector('.icon');
             const countSpan = btn.querySelector('.count');
             const wasLiked = card.isLiked;
-
             card.isLiked = !wasLiked;
             card.likes += (wasLiked ? -1 : 1);
-            
             iconSpan.textContent = card.isLiked ? '❤️' : '🤍';
             countSpan.textContent = card.likes;
             btn.className = `like-btn flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-full ${card.isLiked ? 'liked' : 'text-gray-500 hover:text-pink-400'}`;
-
             try {
-                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                const { data } = await supabaseClient.functions.invoke('admin-actions', {
                     body: { action: 'toggle-postcard-like', payload: { postcardId: id } }
                 });
-                if (error) throw error;
-                if (data.data) {
-                    card.likes = data.data.likes;
-                    countSpan.textContent = card.likes;
-                }
-            } catch (e) {
-                card.isLiked = wasLiked;
-                card.likes += (wasLiked ? 1 : -1);
-                iconSpan.textContent = card.isLiked ? '❤️' : '🤍';
-                countSpan.textContent = card.likes;
-                console.error('Like failed', e);
-            }
+                if(data.data) { card.likes = data.data.likes; countSpan.textContent = card.likes; }
+            } catch (e) { console.error('Like failed', e); }
         };
 
-        // ★ 回報/切換絕版狀態
         window.toggleObsolete = async (id, uploaderName) => {
-            // 防止點擊穿透
             if (event) event.stopPropagation();
-
             const card = allPostcards.find(p => p.id === id);
             if (!card) return;
-
             const isCurrentlyObsolete = card.is_obsolete;
-            const actionText = isCurrentlyObsolete ? '恢復上架' : '回報絕版';
-            
-            // 確認對話框 (防止誤觸)
-            const confirmMsg = isCurrentlyObsolete 
-                ? `確定要將這張美片「${actionText}」嗎？\n恢復後它將重新出現在列表中。`
-                : `您確定要回報這張美片為「絕版/失效」嗎？\n\n回報後：\n1. 此卡片將從一般列表中隱藏\n2. 移動至「絕版區」歸檔\n3. 建議您確認該座標確實已消失或改版`;
-
+            const confirmMsg = isCurrentlyObsolete ? '確定要恢復上架嗎？' : '確定要回報絕版嗎？';
             if (!confirm(confirmMsg)) return;
-
             try {
-                // 1. 樂觀 UI 更新 (立刻從畫面移除或切換狀態)
                 card.is_obsolete = !isCurrentlyObsolete;
-                renderGrid(); // 重新渲染，卡片會依照新狀態移動位置
-
-                // 2. 呼叫後端 API
-                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                renderGrid();
+                await supabaseClient.functions.invoke('admin-actions', {
                     body: { action: 'toggle-postcard-obsolete', payload: { postcardId: id } }
                 });
-
-                if (error) throw error;
-                if (data && data.error) throw new Error(data.error);
-
-                showToast(`已${data.data.message}`, false);
-
-            } catch (e) {
-                console.error(e);
-                // 失敗回滾
-                card.is_obsolete = isCurrentlyObsolete;
-                renderGrid();
-                showToast(`操作失敗: ${e.message}`, true);
-            }
+                showToast('狀態已更新', false);
+            } catch (e) { console.error(e); card.is_obsolete = isCurrentlyObsolete; renderGrid(); showToast('操作失敗', true); }
         };
 
         window.copyText = (text) => {
-            // 確保文本不為空
-            if (!text || text.trim() === '' || text.includes('未知座標')) {
-                showToast('座標資料為空或無效，無法複製', true);
-                return;
-            }
-
-            navigator.clipboard.writeText(text)
-                .then(() => {
-                    // 複製成功
-                    showToast('已複製座標', false);
-                })
-                .catch(err => {
-                    // 複製失敗 (可能是權限問題或瀏覽器限制)
-                    console.error('複製失敗:', err);
-                    showToast('複製失敗，請檢查權限設定', true);
-                });
+            if (!text || text.includes('未知')) return showToast('無效座標', true);
+            navigator.clipboard.writeText(text).then(() => showToast('已複製座標', false));
         };
 
-        // ★ 工具函式：座標格式標準化
-        // 支援格式：
-        // 1. 標準: 22.123, 120.456
-        // 2. 中文: 北29.963° 東31.121°
-        // 3. 度分秒: 23°20'12.8"N 120°08'17.3"E
-        function formatCoordinateString(input) {
-            if (!input) return "";
-            let str = input.trim();
-            
-            // 嘗試找出分隔點 (逗號或空格)，將經緯度分開
-            // 先把全形逗號轉半形
-            str = str.replace(/，/g, ',');
-            
-            // 簡單判斷是否為度分秒 (含有 ° 且含有 ' 或 " )
-            const isDMS = str.includes('°') && (str.includes("'") || str.includes('"') || str.includes('’'));
-
-            let lat = 0, lng = 0;
-            let success = false;
-
-            if (isDMS) {
-                // === 處理度分秒 (DMS) ===
-                // 格式範例: 23°20'12.8"N 120°08'17.3"E
-                // 利用正則表達式抓出所有數字群組
-                const numbers = str.match(/(\d+(\.\d+)?)/g);
-                const directions = str.match(/[NSEW北南東西]/gi) || [];
-                
-                if (numbers && numbers.length >= 6) {
-                    // 假設前三個是緯度(D,M,S)，後三個是經度(D,M,S)
-                    const d1 = parseFloat(numbers[0]), m1 = parseFloat(numbers[1]), s1 = parseFloat(numbers[2]);
-                    const d2 = parseFloat(numbers[3]), m2 = parseFloat(numbers[4]), s2 = parseFloat(numbers[5]);
-
-                    lat = d1 + (m1 / 60) + (s1 / 3600);
-                    lng = d2 + (m2 / 60) + (s2 / 3600);
-
-                    // 判斷方向 (S或南 為負, W或西 為負)
-                    const dirStr = directions.join('');
-                    if (/[S南]/.test(dirStr) && lat > 0) lat = -lat; // 如果有S或南，緯度轉負
-                    // 注意：通常緯度在前，但需防止誤判，這裡簡單假設第一組方向對應緯度(若混亂則難解)
-                    // 若字串包含 W 或 西，且經度位置在後，通常經度轉負
-                    if (/[W西]/.test(dirStr) && lng > 0) lng = -lng;
-
-                    success = true;
-                }
-            } else {
-                // === 處理一般小數格式 (DD) 含文字 ===
-                // 格式範例: 北29.96316° 東31.12104°
-                // 1. 移除非數字字符 (保留 . , - )
-                // 先判斷方向負號
-                let isLatNeg = /[S南]/.test(str);
-                let isLngNeg = /[W西]/.test(str);
-
-                // 抓出所有浮點數
-                const numbers = str.match(/(-?\d+(\.\d+)?)/g);
-                
-                if (numbers && numbers.length >= 2) {
-                    lat = parseFloat(numbers[0]);
-                    lng = parseFloat(numbers[1]);
-                    
-                    if (isLatNeg && lat > 0) lat = -lat;
-                    if (isLngNeg && lng > 0) lng = -lng;
-                    
-                    success = true;
-                }
-            }
-
-            if (success) {
-                // 格式化輸出：小數點後 7 位 (足夠精確)
-                return `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
-            } else {
-                // 解析失敗回傳原字串 (避免破壞使用者的輸入)
-                return input;
-            }
-        }
-
-        // ★ 修改：開啟圖片檢視器 (不再另開視窗)
-        window.viewImage = function(url) {
-            const modal = document.getElementById('image-viewer-modal');
-            const img = document.getElementById('viewer-image');
-            
-            if(modal && img) {
-                img.src = url;
-                modal.classList.remove('hidden');
-                // 禁止背景捲動
-                document.body.style.overflow = 'hidden';
-            }
+        window.viewImage = (url) => {
+            const m = document.getElementById('image-viewer-modal');
+            const i = document.getElementById('viewer-image');
+            if(m && i) { i.src = url; m.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
         };
-
-        // ★ 新增：關閉圖片檢視器
-        window.closeImageViewer = function() {
-            const modal = document.getElementById('image-viewer-modal');
-            const img = document.getElementById('viewer-image');
-            
-            if(modal) {
-                modal.classList.add('hidden');
-                // 恢復背景捲動
-                document.body.style.overflow = '';
-                // 延遲清空圖片，避免閃爍
-                setTimeout(() => { if(img) img.src = ''; }, 300);
-            }
+        window.closeImageViewer = () => {
+            const m = document.getElementById('image-viewer-modal');
+            if(m) { m.classList.add('hidden'); document.body.style.overflow = ''; setTimeout(() => document.getElementById('viewer-image').src='', 300); }
         };
+        document.addEventListener('keydown', (e) => { if(e.key==='Escape') window.closeImageViewer(); });
 
-        // 綁定 ESC 鍵關閉視窗
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                const modal = document.getElementById('image-viewer-modal');
-                if (modal && !modal.classList.contains('hidden')) {
-                    window.closeImageViewer();
-                }
-            }
-        });
-
-        // ★ 補回遺失的 Toast 訊息顯示函式
         function showToast(msg, isErr) {
             const el = document.getElementById('toast-message');
-            // 設定圖示與文字
             el.innerHTML = `${isErr ? '❌' : '✅'} ${msg}`;
-            
-            // 設定顏色與樣式
             el.className = `fixed top-5 right-5 text-white py-3 px-6 rounded-xl shadow-2xl z-[70] font-bold flex items-center gap-2 transform transition-all duration-300 ${isErr ? 'bg-red-600/95' : 'bg-green-600/95'} translate-y-0`;
-            
-            // 顯示
             el.classList.remove('hidden');
-            
-            // 3秒後自動消失動畫
             setTimeout(() => {
                 el.classList.add('translate-y-[-20px]', 'opacity-0');
-                setTimeout(() => {
-                    el.classList.add('hidden');
-                    el.classList.remove('translate-y-[-20px]', 'opacity-0');
-                }, 300);
+                setTimeout(() => { el.classList.add('hidden'); el.classList.remove('translate-y-[-20px]', 'opacity-0'); }, 300);
             }, 3000);
         }
 
         document.addEventListener('DOMContentLoaded', init);
-
-        // 監聽座標輸入框的 blur 事件 (離開焦點時自動轉換)
-        const coordInput = document.getElementById('coordinate-input');
-        if (coordInput) {
-            coordInput.addEventListener('blur', function() {
-                const original = this.value;
-                const formatted = formatCoordinateString(original);
-                if (original !== formatted) {
-                    this.value = formatted;
-                    // 可選：轉換成功閃爍一下提示
-                    this.classList.add('ring-2', 'ring-green-500');
-                    setTimeout(() => this.classList.remove('ring-2', 'ring-green-500'), 500);
-                }
-            });
-            
-            // 額外增加：按下 Enter 鍵也觸發轉換
-            coordInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault(); // 防止送出表單
-                    this.blur(); // 觸發 blur 事件
-                }
-            });
-        }
-
     </script>
 </body>
 </html>

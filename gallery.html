@@ -55,14 +55,18 @@
     
     <div class="max-w-7xl mx-auto">
         <header class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4 border-b border-gray-700 pb-6">
-            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 flex items-center gap-2 cursor-pointer" onclick="window.location.reload()">
-                <span>🎨</span> 美片藝廊
+            <h1 class="text-3xl font-bold flex items-center gap-2 cursor-pointer" onclick="window.location.reload()">
+                <span>🎨</span>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                    美片藝廊
+                </span>
             </h1>
+
             <div class="flex items-center gap-4">
                 <button id="add-postcard-btn" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transition flex items-center gap-2 transform hover:scale-105">
                     <span>➕</span> 分享美片
                 </button>
-                <a href="javascript:history.back()" class="text-gray-400 hover:text-white transition cursor-pointer">← 返回大廳</a>
+                <a href="javascript:history.back()" class="text-gray-400 hover:text-white transition cursor-pointer">← 返回</a>
             </div>
             <div id="user-display" class="w-full md:w-auto text-center md:text-right text-xs text-gray-500 font-mono"></div>
         </header>
@@ -652,11 +656,12 @@
 
                             <div class="flex flex-wrap content-end">${tagsHtml}</div>
 
+                            ${fullLocation ? `
                             <div class="mt-auto pt-2 border-t border-gray-700/50">
                                 <p class="text-xs text-gray-400 flex items-center gap-1">
-                                    <span class="text-violet-400">🌍</span> ${fullLocation || '無地區資訊'}
+                                    <span class="text-violet-400">🌍</span> ${fullLocation}
                                 </p>
-                            </div>
+                            </div>` : ''}
                         </div>
                     </div>`;
             }).join('');
@@ -805,7 +810,7 @@
                 console.error('Submit Error:', err);
                 showToast(`失敗：${err.message}`, true);
 
-                // 完美回滾機制 (Rollback)
+                // 回滾機制 (Rollback)
                 // 如果剛剛有上傳新圖片 (`uploadedFileName` 存在)，但流程失敗了 (進入 catch)
                 // 必須立刻刪除該圖片，避免成為垃圾檔案
                 if (uploadedFileName) {
@@ -831,10 +836,30 @@
             
             document.getElementById('edit-id').value = id;
             document.getElementById('modal-title').textContent = '編輯美片';
+            
+            // 填入既有資料
             document.getElementById('coordinate-input').value = c.coordinate;
             document.getElementById('input-country').value = c.country || '';
             document.getElementById('input-region').value = c.region || '';
             document.getElementById('input-area').value = c.area || '';
+    
+            // 自我修復機制 (移植自美片圖書館)
+            // 如果座標存在，但國家/地區是空的（代表是舊資料或上次沒存到），自動觸發反查
+            const coordVal = c.coordinate;
+            const countryVal = c.country;
+
+            if (coordVal && !countryVal) {
+                // 呼叫現有的 formatCoordinateString 確保格式正確
+                const formatted = formatCoordinateString(coordVal); 
+                const parts = formatted.split(',');
+                
+                if (parts.length === 2) {
+                    // 稍微延遲一下讓 Modal 先打開，使用者才看得到「搜尋中...」的提示
+                    setTimeout(() => {
+                        autoFillLocation(parts[0].trim(), parts[1].trim());
+                    }, 500);
+                }
+            }
             
             [1,2,3].forEach(i => document.getElementById(`tag-${i}`).value = c.tags[i-1] || '');
             
