@@ -441,7 +441,10 @@
             // 2. 建立「全部顯示」按鈕
             const allBtn = document.createElement('button');
             allBtn.className = `category-tab ${activeTag==='all'?'active':''}`;
-            allBtn.textContent = '全部顯示';
+            
+            // 加入 (${allCards.length}) 顯示總數量，比照美片圖書館
+            allBtn.textContent = `全部顯示 (${allCards.length})`;
+            
             allBtn.dataset.tag = 'all'; // 加入 data 屬性
             allBtn.onclick = () => setTag('all');
             tagContainer.appendChild(allBtn);
