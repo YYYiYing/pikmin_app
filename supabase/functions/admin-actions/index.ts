@@ -1929,12 +1929,13 @@ serve(async (req) => {
     }
 
     // --- 美片圖書館 Actions ---
-    // 4. 發布新美片 (含計數更新 + 座標重複檢查) [已修復: 加入地區欄位]
+    // 4. 發布新美片
     if (action === 'add-postcard') {
         const { uploaderId, uploaderNickname, coordinate, imageUrl, tags, country, region, area } = payload;
+        
         if (user.id !== uploaderId) throw new Error('身分驗證失敗');
 
-        // 檢查座標是否重複
+        // 1. 檢查座標重複
         const { data: existing } = await adminSupabaseClient
             .from('postcards')
             .select('id')
@@ -1942,16 +1943,10 @@ serve(async (req) => {
             .maybeSingle();
 
         if (existing) {
-            return new Response(JSON.stringify({ 
-                success: false, 
-                message: '此座標已經被登錄過了！請勿重複發布。' 
-            }), { 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 200 
-            });
+            return new Response(JSON.stringify({ success: false, message: '此座標已經被登錄過了！' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
 
-        // A. 寫入 postcards 表 (加入 country, region, area)
+        // 2. 寫入 postcards 表
         const { data: newCard, error: insertErr } = await adminSupabaseClient
             .from('postcards')
             .insert({
@@ -1961,7 +1956,7 @@ serve(async (req) => {
                 image_url: imageUrl,
                 tags: tags,
                 country: country || '', 
-                region: region || '',  
+                region: region || '',   
                 area: area || '',       
                 likes: 0
             })
@@ -1970,8 +1965,25 @@ serve(async (req) => {
 
         if (insertErr) throw insertErr;
 
-        // B. 更新該使用者的計數
-        await adminSupabaseClient.rpc('increment_postcard_count', { user_id: uploaderId });
+        // 3. 手動更新 profiles 的「本週」與「本月」欄位 (+1)
+        try {
+            const { data: p, error: getErr } = await adminSupabaseClient
+                .from('profiles')
+                .select('weekly_postcard_count, monthly_postcard_count')
+                .eq('id', uploaderId)
+                .single();
+            
+            if (p) {
+                const { error: upErr } = await adminSupabaseClient.from('profiles').update({
+                    weekly_postcard_count: (p.weekly_postcard_count || 0) + 1,
+                    monthly_postcard_count: (p.monthly_postcard_count || 0) + 1
+                }).eq('id', uploaderId);
+
+                if (upErr) console.error('[Add Postcard] 更新計數失敗:', upErr);
+            }
+        } catch (e) {
+            console.error('[Add Postcard] 計數邏輯異常:', e);
+        }
         
         return new Response(JSON.stringify({ success: true, data: newCard }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
@@ -1980,32 +1992,52 @@ serve(async (req) => {
     if (action === 'delete-postcard') {
         const { postcardId } = payload;
         
-        // 查驗權限
+        // 1. 查驗權限
         const { data: card } = await adminSupabaseClient.from('postcards').select('uploader_id, image_url').eq('id', postcardId).single();
         if (!card) throw new Error('找不到該美片');
         
         const { data: operatorProfile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
         const isAdmin = operatorProfile?.role === '管理者';
         
-        if (card.uploader_id !== user.id && !isAdmin) {
-            throw new Error('權限不足，您不是發現者也不是管理員');
-        }
+        if (card.uploader_id !== user.id && !isAdmin) throw new Error('權限不足');
 
-        // A. 刪除圖片 (Storage)(濾除 URL 參數)
+        // 2. 刪除圖片 (Storage)
         if (card.image_url) {
             try {
+                // 修正：先濾掉 ?token 參數再抓檔名
                 const fileName = card.image_url.split('/').pop()?.split('?')[0];
                 if (fileName) await adminSupabaseClient.storage.from('postcard-images').remove([fileName]);
             } catch (e) { console.error('圖片刪除失敗', e); }
         }
 
-        // B. 刪除資料庫紀錄
+        // 3. 刪除資料庫紀錄
         const { error: delErr } = await adminSupabaseClient.from('postcards').delete().eq('id', postcardId);
         if (delErr) throw delErr;
 
-        // C. 扣除計數 (僅當該卡片有歸屬者時)
+        // 4. 更新 profiles 的「本週」與「本月」欄位 (-1)
         if (card.uploader_id) {
-            await adminSupabaseClient.rpc('decrement_postcard_count', { user_id: card.uploader_id });
+            try {
+                const { data: p, error: getErr } = await adminSupabaseClient
+                    .from('profiles')
+                    .select('weekly_postcard_count, monthly_postcard_count')
+                    .eq('id', card.uploader_id)
+                    .single();
+                
+                if (p) {
+                    // 防呆：確保不會扣成負數
+                    const newWeek = (p.weekly_postcard_count || 0) > 0 ? (p.weekly_postcard_count - 1) : 0;
+                    const newMonth = (p.monthly_postcard_count || 0) > 0 ? (p.monthly_postcard_count - 1) : 0;
+
+                    const { error: upErr } = await adminSupabaseClient.from('profiles').update({
+                        weekly_postcard_count: newWeek,
+                        monthly_postcard_count: newMonth
+                    }).eq('id', card.uploader_id);
+
+                    if (upErr) console.error('[Delete Postcard] 扣除計數失敗:', upErr);
+                }
+            } catch (e) {
+                console.error('[Delete Postcard] 計數扣除異常:', e);
+            }
         }
 
         return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
