@@ -806,18 +806,84 @@
             modal.classList.remove('hidden');
         }
 
+        // 直接呼叫 openShareModal 統一處理
         function editPost(post) {
-            isEditing = true;
-            document.getElementById('modal-title').textContent = '編輯純點';
-            document.getElementById('post-id').value = post.id; 
+            // 將貼文資料傳遞給共用的開啟視窗函式
+            openShareModal(post);
+        }
+
+        // 開啟分享/編輯視窗 (修正版：支援自動帶入分類與缺漏反查)
+        async function openShareModal(editPost = null) {
+            const modal = document.getElementById('share-modal');
+            const form = document.getElementById('share-form');
+            const title = document.getElementById('modal-title');
+            const btn = document.getElementById('submit-btn');
+            const catSelect = document.getElementById('input-category-select');
+
+            // 1. 重置表單與狀態
+            form.reset();
+            isEditing = false;
+            document.getElementById('post-id').value = '';
             
-            document.getElementById('input-coords').value = post.coordinates;
-            document.getElementById('input-country').value = post.country;
-            document.getElementById('input-region').value = post.region;
-            document.getElementById('input-area').value = post.area || ''; 
+            // 2. 填入類別選項 (從 allCategories 產生)
+            catSelect.innerHTML = '<option value="" disabled selected>請選擇飾品種類...</option>';
+            const sortedCats = [...allCategories].sort((a,b) => a.name.localeCompare(b.name, 'zh-Hant'));
             
-            document.getElementById('submit-btn').textContent = '更新';
-            document.getElementById('share-modal').classList.remove('hidden');
+            sortedCats.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.id; // value 是分類的 ID
+                opt.textContent = cat.name;
+                catSelect.appendChild(opt);
+            });
+
+            // 3. 處理「編輯」或「新增」模式
+            if (editPost) {
+                // === 編輯模式 ===
+                isEditing = true;
+                title.textContent = '編輯純點';
+                btn.textContent = '更新';
+                
+                // 填入基本資料
+                document.getElementById('post-id').value = editPost.id;
+                document.getElementById('input-coords').value = editPost.coordinates;
+                document.getElementById('input-country').value = editPost.country || '';
+                document.getElementById('input-region').value = editPost.region || '';
+                document.getElementById('input-area').value = editPost.area || '';
+
+                // ★ 修正 1：自動選取該貼文原本的分類
+                // 檢查 editPost 是否有 category_id，有的話直接設定給 select
+                if (editPost.category_id) {
+                    catSelect.value = editPost.category_id;
+                }
+
+                // ★ 修正 2：如果「國家」或「地區」是空的，自動觸發反查
+                const isLocationEmpty = !editPost.country || !editPost.region;
+                if (isLocationEmpty && editPost.coordinates) {
+                    // 解析座標
+                    const parts = editPost.coordinates.split(',');
+                    if (parts.length === 2) {
+                        const lat = parts[0].trim();
+                        const lng = parts[1].trim();
+                        // 呼叫自動填寫 (不需 await，讓它在背景執行即可，避免卡住視窗開啟)
+                        console.log('偵測到地點資料缺失，正在自動反查...');
+                        autoFillLocation(lat, lng);
+                    }
+                }
+
+            } else {
+                // === 新增模式 ===
+                title.textContent = '分享雷達點';
+                btn.textContent = '發布';
+                
+                // 預設分類邏輯：如果在特定分類頁面，就預設選該分類
+                if (currentCategory) {
+                    catSelect.value = currentCategory.id;
+                } else {
+                    catSelect.value = "";
+                }
+            }
+
+            modal.classList.remove('hidden');
         }
 
         function closeShareModal() {

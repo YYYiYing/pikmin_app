@@ -7,35 +7,137 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { background-color: #111827; color: #d1d5db; font-family: sans-serif; }
-        .card-group { background-color: #1f2937; border: 1px solid #374151; border-radius: 0.75rem; overflow: hidden; margin-bottom: 2rem; }
-        .card-header { background-color: #374151; padding: 0.75rem 1rem; font-weight: bold; color: white; display: flex; justify-content: space-between; align-items: center; }
-        .card-item { display: flex; gap: 1rem; padding: 1rem; border-bottom: 1px solid #374151; align-items: center; }
-        .card-item:last-child { border-bottom: none; }
-        .tag { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
-        .tag-lib { background-color: #db2777; color: white; } /* 粉紅: 圖書館 */
-        .tag-gal { background-color: #7c3aed; color: white; } /* 紫色: 藝廊 */
+        body { background-color: #111827; color: #d1d5db; font-family: 'Inter', sans-serif; padding-bottom: 40px; }
         
-        .modal-backdrop { background-color: rgba(0, 0, 0, 0.9); backdrop-filter: blur(4px); }
+        /* 優化後的卡片群組 */
+        .card-group { 
+            background-color: #1f2937; 
+            border: 1px solid #374151; 
+            border-radius: 0.75rem; 
+            overflow: hidden; 
+            margin-bottom: 1.5rem; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 群組標題：手機版垂直排列，平板以上水平排列 */
+        .card-header { 
+            background-color: #374151; 
+            padding: 0.75rem 1rem; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.5rem;
+        }
+        @media (min-width: 768px) {
+            .card-header { flex-direction: row; justify-content: space-between; align-items: center; }
+        }
+
+        /* 單一卡片項目 */
+        .card-item { 
+            display: flex; 
+            gap: 0.75rem; 
+            padding: 1rem; 
+            border-bottom: 1px solid #374151; 
+            align-items: flex-start; /* 頂對齊，讓長內容更好看 */
+            position: relative;
+        }
+        .card-item:last-child { border-bottom: none; }
+
+        /* 標籤樣式 */
+        .tag { 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            font-size: 0.7rem; 
+            font-weight: bold; 
+            white-space: nowrap;
+            display: inline-block;
+        }
+        .tag-lib { background-color: #db2777; color: white; }
+        .tag-gal { background-color: #7c3aed; color: white; }
+
+        /* 分頁按鈕優化 */
+        .tab-btn { 
+            flex: 1; 
+            text-align: center; 
+            padding: 0.75rem 0.5rem; 
+            cursor: pointer; 
+            border-bottom: 2px solid transparent; 
+            transition: all 0.3s; 
+            font-size: 0.9rem;
+            color: #9ca3af;
+        }
+        .tab-btn.active { 
+            color: #60a5fa; 
+            border-bottom-color: #60a5fa; 
+            font-weight: bold; 
+            background-color: rgba(31, 41, 55, 0.5);
+        }
+
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.95); backdrop-filter: blur(4px); }
+
+        /* 修改 .card-group 讓它在列表模式下更緊湊 */
+        .card-group {
+            background-color: #1f2937; /* Gray-800 */
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 列表項目的新樣式 */
+        .list-row {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #374151;
+            background-color: #1f2937; /* 與背景同色，減少框線感 */
+            transition: background-color 0.2s;
+        }
+        .list-row:last-child {
+            border-bottom: none;
+        }
+        .list-row:hover {
+            background-color: #2d3748; /* Gray-750 hover */
+        }
     </style>
 </head>
-<body class="p-6">
+<body class="px-4">
 
-    <div class="max-w-4xl mx-auto">
-        <header class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
-            <h1 class="text-2xl font-bold text-white">🧹 重複美片清理工具</h1>
-            <a href="javascript:history.back()" class="text-gray-400 hover:text-white transition cursor-pointer">← 返回</a>
+    <div class="max-w-3xl mx-auto">
+        <header class="sticky top-0 z-40 bg-[#111827]/95 backdrop-blur-sm border-b border-gray-700 py-4 mb-6 shadow-md -mx-4 px-4 flex justify-between items-center">
+            <div class="flex flex-col">
+                <h1 class="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                    🧹 美片清理小工具
+                    <span class="text-[10px] bg-blue-600/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded whitespace-nowrap hidden md:inline-block">管理員</span>
+                </h1>
+                <span class="text-xs text-gray-500 md:hidden">重複美片管理</span>
+            </div>
+            
+            <a href="javascript:history.back()" class="flex items-center gap-1 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg border border-gray-600 transition">
+                <span>↩</span> 返回
+            </a>
         </header>
 
-        <div id="status-bar" class="mb-6 text-center text-gray-400">正在檢查權限...</div>
+        <div id="status-bar" class="mb-4 text-center text-gray-400 text-sm animate-pulse">正在初始化...</div>
 
-        <div id="duplicate-list" class="space-y-6"></div>
+        <div class="flex border-b border-gray-700 mb-6 bg-gray-800 rounded-t-lg overflow-hidden sticky top-[73px] z-30 shadow-lg">
+            <div id="tab-exact" class="tab-btn active" onclick="switchTab('exact')">
+                完全重複 <span id="count-exact" class="text-xs bg-gray-700 px-1.5 py-0.5 rounded-full ml-1">0</span>
+            </div>
+            <div id="tab-fuzzy" class="tab-btn" onclick="switchTab('fuzzy')">
+                鄰近偵測 <span id="count-fuzzy" class="text-xs bg-gray-700 px-1.5 py-0.5 rounded-full ml-1">0</span>
+            </div>
+        </div>
+
+        <div id="list-container" class="space-y-6 pb-20">
+            </div>
     </div>
 
-    <div id="image-viewer-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 modal-backdrop transition-opacity duration-300" onclick="closeImageViewer()">
-        <div class="relative max-w-5xl w-full max-h-[95vh] flex justify-center items-center p-2" onclick="event.stopPropagation()">
-            <button type="button" onclick="closeImageViewer()" class="absolute -top-12 right-0 md:top-4 md:right-4 text-white text-4xl hover:text-gray-300 font-bold bg-black/50 hover:bg-black/70 rounded-full w-12 h-12 flex items-center justify-center transition z-50">&times;</button>
-            <img id="viewer-image" src="" alt="美片大圖" class="rounded-lg shadow-2xl max-h-[85vh] md:max-h-[90vh] w-auto object-contain bg-gray-900 border border-gray-800">
+    <div id="image-viewer-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 modal-backdrop" onclick="closeImageViewer()">
+        <div class="relative max-w-5xl w-full max-h-[95vh] flex justify-center items-center" onclick="event.stopPropagation()">
+            <button type="button" onclick="closeImageViewer()" class="absolute -top-12 right-0 text-white text-4xl bg-black/50 rounded-full w-10 h-10 flex items-center justify-center">&times;</button>
+            <img id="viewer-image" src="" class="rounded-lg shadow-2xl max-h-[80vh] w-auto object-contain bg-gray-900 border border-gray-800">
         </div>
     </div>
 
@@ -44,245 +146,264 @@
         const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ'; 
         const supabaseClient = supabase.createClient(SUPABASE_URL, PUBLIC_KEY);
 
+        let currentTabData = { exact: [], fuzzy: [] };
+        let activeTab = 'exact';
+
         async function init() {
-            // 1. 檢查管理員權限
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) {
-                alert('請先登入管理員帳號');
-                window.location.href = './index.html';
-                return;
-            }
+            if (!session) { alert('請先登入管理員帳號'); window.location.href = './index.html'; return; }
 
-            document.getElementById('status-bar').textContent = '正在讀取資料庫並進行本地比對...';
-
-            // 2. 改為直接在前端抓取資料並比對 (這樣修改邏輯最快，不用動後端)
+            document.getElementById('status-bar').textContent = '正在掃描重複資料...';
             try {
                 await scanLocalDuplicates();
             } catch (err) {
-                console.error(err);
-                document.getElementById('status-bar').innerHTML = `<span class="text-red-500">發生錯誤: ${err.message}</span>`;
+                document.getElementById('status-bar').innerHTML = `<span class="text-red-500">錯誤: ${err.message}</span>`;
             }
         }
 
-        // 核心邏輯：本地掃描重複
-        // 核心邏輯：本地掃描重複 (修正版：僅比對單一來源內部的重複)
+        const getCoordKey = (coord, precision = 6) => {
+            if (!coord) return 'unknown';
+            const parts = coord.split(',').map(s => {
+                const num = parseFloat(s.trim());
+                return isNaN(num) ? 0 : num.toFixed(precision);
+            });
+            return parts.join(',');
+        };
+
         async function scanLocalDuplicates() {
             const [libRes, galRes] = await Promise.all([
-                supabaseClient.from('postcards').select('id, coordinate, created_at, image_url, uploader_nickname'),
-                supabaseClient.from('guest_postcards').select('id, coordinate, created_at, image_url, nickname, friend_code, tags')
+                supabaseClient.from('postcards').select('*'),
+                supabaseClient.from('guest_postcards').select('*')
             ]);
-
-            if (libRes.error) throw libRes.error;
-            if (galRes.error) throw galRes.error;
 
             const libraryItems = libRes.data || [];
             const galleryItems = galRes.data || [];
 
-            const coordMap = new Map();
-
-            // 座標標準化 (取小數點後 3 位)
-            const normalize = (coord) => {
-                if (!coord) return 'unknown';
-                const parts = coord.split(',').map(s => parseFloat(s.trim()));
-                if (parts.length < 2 || isNaN(parts[0])) return coord;
-                return `${parts[0].toFixed(3)},${parts[1].toFixed(3)}`;
-            };
-
-            // 歸戶資料
-            libraryItems.forEach(item => {
-                const key = normalize(item.coordinate);
-                if (!coordMap.has(key)) coordMap.set(key, []);
-                coordMap.get(key).push({
-                    id: item.id,
-                    coordinate: item.coordinate,
-                    image_url: item.image_url,
-                    created_at: item.created_at,
-                    source: 'library',
-                    sourceLabel: '📚 圖書館',
-                    name: item.uploader_nickname,
-                    tags: []
-                });
-            });
-
-            galleryItems.forEach(item => {
-                const key = normalize(item.coordinate);
-                if (!coordMap.has(key)) coordMap.set(key, []);
-                coordMap.get(key).push({
-                    id: item.id,
-                    coordinate: item.coordinate,
-                    image_url: item.image_url,
-                    created_at: item.created_at,
-                    source: 'gallery',
-                    sourceLabel: '🎨 藝廊',
-                    name: item.nickname,
-                    friend_code: item.friend_code,
-                    tags: item.tags || []
-                });
-            });
-
-            const duplicates = [];
-
-            for (const [key, items] of coordMap.entries()) {
-                if (key === 'unknown') continue;
-
-                // 分別計算該座標在各表的筆數
-                const libs = items.filter(i => i.source === 'library');
-                const gals = items.filter(i => i.source === 'gallery');
-
-                // --- 判斷邏輯 ---
-                // 條件 A：圖書館內部有重複 (>=2 筆)
-                // 條件 B：藝廊內部有重複 (>=2 筆)
-                // 只要符合其中一個，這組座標就要顯示出來
-                if (libs.length >= 2 || gals.length >= 2) {
-                    // 為了方便清理，我們依然把該座標的所有資料都顯示出來 (包含對應的搬家檔)
-                    // 這樣您才能決定要刪除哪一邊
-                    duplicates.push({ coordinateKey: key, items: items });
+            const allItems = [
+                ...libraryItems.map(i => ({...i, source: 'library', name: i.uploader_nickname, label: '圖書館'})),
+                ...galleryItems.map(i => ({...i, source: 'gallery', name: i.nickname, label: '藝廊'}))
+            ];
+            
+            // 需求：排除「系統轉移 (system_import)」且「圖書館已有原始檔」的合法共用資料
+            const filteredItems = allItems.filter(item => {
+                // 1. 鎖定藝廊來源，且 ip_fingerprint 標記為 'system_import'
+                if (item.source === 'gallery' && item.ip_fingerprint === 'system_import') {
+                    
+                    // 2. 檢查圖書館是否已存在「完全相同座標」的原始檔
+                    // 使用 getCoordKey(..., 6) 確保比對精度一致
+                    const existsInLib = libraryItems.some(lib => 
+                        getCoordKey(lib.coordinate, 6) === getCoordKey(item.coordinate, 6)
+                    );
+                    
+                    // 3. 如果圖書館有原始檔，代表這是合法的共用空間，不視為重複，予以【隱藏】
+                    if (existsInLib) return false; 
                 }
-            }
+                return true; // 其他情況都保留在檢查列表中
+            });
 
-            duplicates.sort((a, b) => b.items.length - a.items.length);
+            const exactGroups = new Map();
+            const fuzzyGroups = new Map();
 
-            renderList(duplicates);
-            document.getElementById('status-bar').textContent = `掃描完成！發現 ${duplicates.length} 組重複資料。`;
+            filteredItems.forEach(item => {
+                const eKey = getCoordKey(item.coordinate, 6);
+                const fKey = getCoordKey(item.coordinate, 3);
+
+                if (!exactGroups.has(eKey)) exactGroups.set(eKey, []);
+                exactGroups.get(eKey).push(item);
+
+                if (!fuzzyGroups.has(fKey)) fuzzyGroups.set(fKey, []);
+                fuzzyGroups.get(fKey).push(item);
+            });
+
+            currentTabData.exact = Array.from(exactGroups.entries())
+                .filter(([_, items]) => items.length > 1)
+                .map(([key, items]) => ({ key, items }));
+
+            currentTabData.fuzzy = Array.from(fuzzyGroups.entries())
+                .filter(([fKey, items]) => {
+                    const uniquePoints = new Set(items.map(i => getCoordKey(i.coordinate, 6)));
+                    return items.length > 1 && uniquePoints.size > 1; 
+                })
+                .map(([key, items]) => ({ key, items }));
+
+            document.getElementById('count-exact').textContent = currentTabData.exact.length;
+            document.getElementById('count-fuzzy').textContent = currentTabData.fuzzy.length;
+            document.getElementById('status-bar').textContent = ''; 
+            
+            renderActiveTab();
         }
 
-        function renderList(duplicates) {
-            const container = document.getElementById('duplicate-list');
+        function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById('tab-exact').className = `tab-btn ${tab === 'exact' ? 'active' : ''}`;
+            document.getElementById('tab-fuzzy').className = `tab-btn ${tab === 'fuzzy' ? 'active' : ''}`;
+            renderActiveTab();
+        }
+
+        function renderActiveTab() {
+            const container = document.getElementById('list-container');
+            const data = currentTabData[activeTab];
             container.innerHTML = '';
 
-            if (duplicates.length === 0) {
-                container.innerHTML = '<div class="text-center text-green-400 py-10 text-xl">🎉 太棒了！目前沒有發現重複的資料。</div>';
+            if (data.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-24 px-4 text-center border-2 border-dashed border-gray-700 rounded-xl bg-gray-800/50">
+                        <div class="text-4xl mb-4 opacity-80">🎉</div>
+                        <h3 class="text-xl font-bold text-gray-300 mb-2">乾淨溜溜！</h3>
+                        <p class="text-gray-500">沒有發現此類型的重複資料。</p>
+                    </div>`;
                 return;
             }
 
-            duplicates.forEach((group) => {
+            data.forEach(group => {
                 const groupEl = document.createElement('div');
+                // 群組容器
                 groupEl.className = 'card-group';
-                
-                // 計算群組內的分類數量
-                const libCount = group.items.filter(i => i.source === 'library').length;
-                const galCount = group.items.filter(i => i.source === 'gallery').length;
 
-                // 群組標題
-                groupEl.innerHTML = `
-                    <div class="card-header">
-                        <div class="flex flex-col md:flex-row md:items-center gap-2">
-                            <span>📍 座標: ${group.coordinateKey}</span>
-                            <span class="text-xs font-normal text-gray-400">(圖書館: ${libCount}, 藝廊: ${galCount})</span>
+                // 1. 群組標題 (維持原樣，但微調顏色)
+                let htmlContent = `
+                    <div class="card-header bg-gray-900/80 p-3 flex flex-wrap md:flex-nowrap justify-between items-center gap-3 border-b border-gray-700">
+                        <div class="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
+                            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-red-500/10 text-red-400 text-sm flex-shrink-0">📍</span>
+                            <h2 class="font-mono text-sm md:text-base text-gray-200 truncate font-bold tracking-wide select-all" title="${group.key}">
+                                ${group.key}
+                            </h2>
                         </div>
-                        <span class="text-sm bg-gray-600 px-2 py-1 rounded whitespace-nowrap">共 ${group.items.length} 筆</span>
-                    </div>
-                `;
+                        <span class="text-xs font-mono bg-gray-800 text-gray-400 px-2 py-1 rounded border border-gray-700 whitespace-nowrap">
+                            ${group.items.length} 筆
+                        </span>
+                    </div>`;
 
-                // 列表項目
-                group.items.forEach(item => {
+                // 2. 內容列表容器 (改為 flex column)
+                htmlContent += `<div class="flex flex-col">`;
+
+                group.items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).forEach((item) => {
                     const isLib = item.source === 'library';
-                    const tagClass = isLib ? 'tag-lib' : 'tag-gal';
-                    const dateStr = new Date(item.created_at).toLocaleString('zh-TW', { hour12: false });
-                    
-                    // 檢查是否為系統搬移的卡片
-                    const isSystemImport = !isLib && item.tags && item.tags.includes('system_import');
-                    const systemBadge = isSystemImport 
-                        ? `<span class="ml-2 text-[10px] border border-blue-500 text-blue-400 px-1 rounded">系統轉移</span>` 
-                        : '';
+                    const locStr = [item.country, item.region, item.area].filter(Boolean).join(' · ');
 
-                    const itemEl = document.createElement('div');
-                    itemEl.className = 'card-item bg-gray-800 hover:bg-gray-750 transition';
-                    itemEl.id = `item-${item.source}-${item.id}`; 
-                    
-                    itemEl.innerHTML = `
-                        <div class="w-24 h-16 flex-shrink-0 bg-gray-900 rounded overflow-hidden border border-gray-700 cursor-pointer hover:opacity-80 transition" onclick="viewImage('${item.image_url}')">
-                            <img src="${item.image_url}" class="w-full h-full object-cover" title="點擊查看大圖">
+                    // 日期格式化
+                    const dateObj = new Date(item.created_at);
+                    const dateStr = dateObj.toLocaleDateString('zh-TW', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    });
+
+                    // 名稱處理
+                    let displayName = (item.name || '未命名').replace(/\d{12}/g, '').trim();
+                    if (!displayName) displayName = item.name || '未命名';
+
+                    // 標籤樣式 (改為 Pill 形狀)
+                    const badgeClass = isLib 
+                        ? 'bg-pink-900/30 text-pink-300 border-pink-700/50' 
+                        : 'bg-violet-900/30 text-violet-300 border-violet-700/50';
+                    const badgeText = isLib ? '圖書館' : '藝廊';
+
+                    // 列表項目 HTML
+                    htmlContent += `
+                    <div class="list-row group" id="item-${item.source}-${item.id}">
+                        
+                        <div class="relative w-20 h-20 md:w-24 md:h-24 shrink-0 cursor-zoom-in overflow-hidden rounded-lg bg-gray-900 border border-gray-700" onclick="viewImage('${item.image_url}')">
+                            <img src="${item.image_url}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy">
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
                         </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="tag ${tagClass}">${item.sourceLabel}</span>
-                                <span class="font-bold text-white truncate text-sm md:text-base">${item.name}</span>
-                                <span class="text-xs text-gray-500">#${item.id}</span>
-                                ${systemBadge}
+
+                        <div class="flex-1 min-w-0 ml-4 flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
+                            
+                            <div class="flex flex-col md:flex-row md:items-center gap-2 md:w-1/3">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded border ${badgeClass} whitespace-nowrap">
+                                        ${badgeText}
+                                    </span>
+                                    <span class="font-bold text-gray-200 text-sm md:text-base truncate" title="${item.name}">
+                                        ${displayName}
+                                    </span>
+                                </div>
                             </div>
-                            <div class="text-xs text-gray-400">📅 ${dateStr}</div>
-                            <div class="text-xs text-gray-500 truncate font-mono">${item.coordinate}</div>
+
+                            <div class="flex flex-col gap-1 md:w-1/3">
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    <span class="w-4 text-center opacity-50">📅</span>
+                                    <span class="font-mono">${dateStr}</span>
+                                </div>
+                                ${locStr ? `
+                                <div class="flex items-center gap-2 text-xs text-blue-300/80" title="${locStr}">
+                                    <span class="w-4 text-center opacity-50">🌍</span>
+                                    <span class="truncate">${locStr}</span>
+                                </div>` : ''}
+                            </div>
+
+                            <div class="hidden md:flex items-center gap-2 text-[10px] text-gray-500 font-mono md:w-1/4">
+                                <span class="w-4 text-center">📍</span>
+                                <span class="truncate opacity-50">${item.coordinate}</span>
+                            </div>
+
                         </div>
-                        <button onclick="deleteItem('${item.source}', '${item.id}', '${item.name}', '${item.friend_code || ''}')" 
-                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded text-xs md:text-sm font-bold transition shadow whitespace-nowrap">
-                            🗑️ 刪除
-                        </button>
-                    `;
-                    groupEl.appendChild(itemEl);
+
+                        <div class="ml-auto pl-3">
+                            <button onclick="deleteItem('${item.source}', '${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.friend_code || ''}')" 
+                                class="flex flex-col md:flex-row items-center justify-center gap-1 w-10 h-10 md:w-auto md:h-auto md:px-3 md:py-2 bg-transparent hover:bg-red-500/10 text-gray-500 hover:text-red-400 border border-transparent hover:border-red-500/30 rounded-lg transition-all duration-200 group-hover:text-gray-400"
+                                title="刪除此項目">
+                                
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                <span class="hidden md:inline text-xs font-medium">刪除</span>
+                            </button>
+                        </div>
+
+                    </div>`;
                 });
 
+                htmlContent += `</div>`; // 關閉 flex-col
+                groupEl.innerHTML = htmlContent;
                 container.appendChild(groupEl);
             });
         }
 
-        // 刪除函式 (維持不變，呼叫後端 Action)
         window.deleteItem = async (source, id, nickname, friendCode) => {
-            if (!confirm('確定要刪除這張卡片嗎？此操作無法復原。')) return;
-
+            if (!confirm('確定要執行刪除嗎？此操作無法撤銷')) return;
             const btn = event.target;
-            const originalText = btn.textContent;
-            btn.textContent = '...';
             btn.disabled = true;
+            btn.textContent = '...';
+            btn.classList.add('opacity-50');
 
             try {
-                let action = '';
-                let payload = {};
-
-                if (source === 'library') {
-                    action = 'delete-postcard'; 
-                    payload = { postcardId: id };
-                } else {
-                    action = 'delete-guest-postcard'; 
-                    payload = { id: id, nickname: nickname, friendCode: friendCode };
-                }
+                let action = source === 'library' ? 'delete-postcard' : 'delete-guest-postcard';
+                let payload = source === 'library' ? { postcardId: id } : { id: id, nickname, friendCode };
 
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
                     body: JSON.stringify({ action, payload })
                 });
 
                 if (error) throw error;
-                if (data && data.error) throw new Error(data.error);
-
-                // 移除畫面上的該列
+                
+                // 刪除動畫
                 const row = document.getElementById(`item-${source}-${id}`);
                 if(row) {
+                    row.style.transition = 'all 0.5s';
                     row.style.opacity = '0';
-                    setTimeout(() => row.remove(), 300);
+                    row.style.transform = 'translateX(20px)';
+                    setTimeout(() => {
+                        // 如果該群組只剩一個項目，連群組一起刪除 (因為不重複了)
+                        const parentGroup = row.parentElement;
+                        row.remove();
+                        if(parentGroup.children.length <= 1) { // 1 是因為還有 header
+                            parentGroup.style.display = 'none';
+                        }
+                    }, 500);
                 }
-
+                
             } catch (e) {
-                console.error(e);
                 alert(`刪除失敗: ${e.message}`);
-                btn.textContent = originalText;
                 btn.disabled = false;
+                btn.textContent = '🗑️ 刪除';
+                btn.classList.remove('opacity-50');
             }
         };
 
-        // 圖片檢視器邏輯
-        window.viewImage = (url) => {
-            const m = document.getElementById('image-viewer-modal');
-            const i = document.getElementById('viewer-image');
-            if(m && i) { 
-                i.src = url; 
-                m.classList.remove('hidden'); 
-                document.body.style.overflow = 'hidden'; 
-            }
-        };
-        
-        window.closeImageViewer = () => {
-            const m = document.getElementById('image-viewer-modal');
-            if(m) { 
-                m.classList.add('hidden'); 
-                document.body.style.overflow = ''; 
-                setTimeout(() => document.getElementById('viewer-image').src='', 300); 
-            }
-        };
-        
-        document.addEventListener('keydown', (e) => { 
-            if(e.key==='Escape') window.closeImageViewer(); 
-        });
-
+        window.viewImage = (url) => { document.getElementById('viewer-image').src = url; document.getElementById('image-viewer-modal').classList.remove('hidden'); };
+        window.closeImageViewer = () => { document.getElementById('image-viewer-modal').classList.add('hidden'); };
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
