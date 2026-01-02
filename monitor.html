@@ -10,10 +10,15 @@
         body { background-color: #111827; color: #d1d5db; font-family: sans-serif; }
         .monitor-card { background-color: #1f2937; border: 1px solid #374151; border-radius: 1rem; padding: 1.5rem; }
         .bar-transition { transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s; }
+        
+        /* 表格樣式優化 */
+        th { font-weight: 600; color: #9ca3af; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        td { font-size: 0.85rem; border-bottom: 1px solid #374151; }
+        tr:last-child td { border-bottom: none; }
     </style>
 </head>
 <body class="p-6 md:p-12">
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-5xl mx-auto">
         <header class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
             <h1 class="text-2xl font-bold text-white flex items-center gap-2">📊 系統資源監控</h1>
             <div class="flex gap-3">
@@ -24,38 +29,61 @@
 
         <div id="loading" class="text-center py-20 text-gray-500">正在讀取資源數據...</div>
 
-        <div id="stats-grid" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="monitor-card">
+        <div id="stats-grid" class="hidden grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+            
+            <div class="monitor-card flex flex-col h-full">
                 <div class="flex justify-between items-end mb-2">
-                    <h3 class="font-bold">數據庫空間 (DB Size)</h3>
-                    <span id="db-size-text" class="text-xs font-mono">0 / 500 MB</span>
+                    <span class="text-gray-400 text-sm font-bold">數據庫空間 (DB Size)</span>
+                    <span class="text-2xl font-bold text-white"><span id="db-size-text">0</span> <span class="text-sm text-gray-500">/ 500 MB</span></span>
                 </div>
-                <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden border border-gray-700">
-                    <div id="db-size-bar" class="bar-transition h-full w-0"></div>
+                <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
+                    <div id="db-size-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
                 </div>
-                <p id="db-size-percent" class="text-[10px] mt-2 text-right text-gray-500">0%</p>
+                <div class="text-right text-xs text-gray-500 mb-0" id="db-size-percent">0%</div>
+
+                <div class="mt-6 bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                    <p class="text-xs text-gray-400 mb-3 font-bold flex items-center gap-1">📂 佔用排行 (Top 10)</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr>
+                                    <th class="pb-2">資料表</th>
+                                    <th class="pb-2 text-right">總佔用</th>
+                                    <th class="pb-2 text-right">索引</th>
+                                    <th class="pb-2 text-right">筆數</th>
+                                </tr>
+                            </thead>
+                            <tbody id="db-details-body"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
-            <div class="monitor-card">
+            <div class="monitor-card flex flex-col h-full">
                 <div class="flex justify-between items-end mb-2">
-                    <h3 class="font-bold">總行數 (Rows)</h3>
-                    <span id="db-rows-text" class="text-xs font-mono">0 / 10,000</span>
+                    <span class="text-gray-400 text-sm font-bold">文件儲存 (Storage)</span>
+                    <span class="text-2xl font-bold text-white"><span id="storage-text">0</span> <span class="text-sm text-gray-500">/ 1,024 MB</span></span>
                 </div>
-                <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden border border-gray-700">
-                    <div id="db-rows-bar" class="bar-transition h-full w-0"></div>
+                <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
+                    <div id="storage-bar" class="bg-purple-600 h-2.5 rounded-full" style="width: 0%"></div>
                 </div>
-                <p id="db-rows-percent" class="text-[10px] mt-2 text-right text-gray-500">0%</p>
-            </div>
+                <div class="text-right text-xs text-gray-500 mb-0" id="storage-percent">0%</div>
 
-            <div class="monitor-card">
-                <div class="flex justify-between items-end mb-2">
-                    <h3 class="font-bold">文件儲存 (Storage)</h3>
-                    <span id="storage-text" class="text-xs font-mono">0 / 1,024 MB</span>
+                <div class="mt-6 bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                    <p class="text-xs text-gray-400 mb-3 font-bold flex items-center gap-1">🪣 儲存桶細項 (Buckets)</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr>
+                                    <th class="pb-2">儲存桶名稱 (ID)</th>
+                                    <th class="pb-2 text-right">已使用</th>
+                                    <th class="pb-2 text-right">檔案數</th>
+                                </tr>
+                            </thead>
+                            <tbody id="storage-details-body"></tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden border border-gray-700">
-                    <div id="storage-bar" class="bar-transition h-full w-0"></div>
-                </div>
-                <p id="storage-percent" class="text-[10px] mt-2 text-right text-gray-500">0%</p>
             </div>
         </div>
     </div>
@@ -81,10 +109,17 @@
 
                 const stats = data.data;
 
-                // 更新三個進度條
+                // 1. 更新 DB 數據
                 updateVisual('db-size', stats.dbSizeMB, 500, 'MB');
-                updateVisual('db-rows', stats.totalRows, 10000, 'Rows');
+                if (stats.tableDetails) {
+                    renderDBDetails(stats.tableDetails);
+                }
+
+                // 2. 更新 Storage 數據
                 updateVisual('storage', stats.storageMB, 1024, 'MB');
+                if (stats.bucketDetails) {
+                    renderBucketDetails(stats.bucketDetails);
+                }
 
                 loading.classList.add('hidden');
                 grid.classList.remove('hidden');
@@ -93,16 +128,63 @@
             }
         }
 
+        // 渲染 DB 表格
+        function renderDBDetails(tables) {
+            const tbody = document.getElementById('db-details-body');
+            tbody.innerHTML = '';
+            tables.slice(0, 10).forEach(t => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-2 text-blue-300 font-mono text-xs truncate max-w-[100px]" title="${t.relname}">${t.relname}</td>
+                    <td class="py-2 text-right text-gray-200 text-xs font-bold">${formatBytes(t.total_size)}</td>
+                    <td class="py-2 text-right text-gray-500 text-xs">${formatBytes(t.index_size)}</td>
+                    <td class="py-2 text-right text-gray-400 text-xs font-mono">${parseInt(t.live_rows).toLocaleString()}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 渲染 Storage 表格
+        function renderBucketDetails(buckets) {
+            const tbody = document.getElementById('storage-details-body');
+            tbody.innerHTML = '';
+            
+            if (!buckets || buckets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-xs text-gray-500">無資料</td></tr>';
+                return;
+            }
+
+            buckets.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-2 text-purple-300 font-mono text-xs truncate max-w-[120px]" title="${b.bucket_id}">${b.bucket_id}</td>
+                    <td class="py-2 text-right text-gray-200 text-xs font-bold">${formatBytes(b.total_bytes)}</td>
+                    <td class="py-2 text-right text-gray-400 text-xs font-mono">${parseInt(b.file_count).toLocaleString()}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function formatBytes(bytes, decimals = 1) {
+            if (!+bytes) return '0 B';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
         function updateVisual(id, current, max, unit) {
             const percent = Math.min((current / max) * 100, 100);
             const bar = document.getElementById(`${id}-bar`);
             const text = document.getElementById(`${id}-text`);
             const percentText = document.getElementById(`${id}-percent`);
 
-            // 顏色邏輯
-            let colorClass = 'bg-green-500'; // 0-60% 綠色
-            if (percent > 90) colorClass = 'bg-red-500'; // 91-100% 紅色
-            else if (percent > 60) colorClass = 'bg-orange-500'; // 61-90% 橘色
+            let colorClass = id === 'db-size' ? 'bg-blue-600' : 'bg-purple-600'; // 預設顏色
+            
+            // 只有當用量過高時才變色警告
+            if (percent > 90) colorClass = 'bg-red-500';
+            else if (percent > 75) colorClass = 'bg-orange-500';
 
             bar.className = `bar-transition h-full ${colorClass}`;
             setTimeout(() => { bar.style.width = `${percent}%`; }, 100);

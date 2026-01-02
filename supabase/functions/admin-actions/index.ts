@@ -2484,34 +2484,29 @@ serve(async (req) => {
             break;
             
         case 'get-system-stats': {
-        // 1. 查詢資料庫大小 (需要先在 SQL Editor 執行下方的 SQL 建立 RPC)
-        const { data: dbBytes } = await adminSupabaseClient.rpc('get_database_size_bytes');
+            // 1. 查詢 DB 總容量
+            const { data: dbBytes } = await adminSupabaseClient.rpc('get_database_size_bytes');
 
-        // 2. 查詢總行數 (統計您主要的資料表)
-        const tables = ['profiles', 'postcards', 'guest_postcards', 'challenges', 'guest_messages', 'signups'];
-        let totalRows = 0;
-        for (const table of tables) {
-            const { count } = await adminSupabaseClient
-                .from(table)
-                .select('*', { count: 'exact', head: true });
-            totalRows += (count || 0);
+            // 2. 查詢 DB 資料表細項
+            const { data: tableStats, error: tableError } = await adminSupabaseClient.rpc('get_table_stats');
+            if (tableError) console.error('DB Stats Error:', tableError);
+
+            // 3. 查詢 Storage 儲存庫細項 (取代原本只查單一 Bucket 的做法)
+            const { data: bucketStats, error: storageError } = await adminSupabaseClient.rpc('get_storage_stats');
+            if (storageError) console.error('Storage Stats Error:', storageError);
+
+            // 計算 Storage 總容量
+            const totalStorageBytes = bucketStats?.reduce((acc: number, b: any) => acc + (b.total_bytes || 0), 0) || 0;
+
+            data = {
+                dbSizeMB: parseFloat((dbBytes / 1024 / 1024).toFixed(2)),
+                tableDetails: tableStats || [],
+                storageMB: parseFloat((totalStorageBytes / 1024 / 1024).toFixed(2)),
+                bucketDetails: bucketStats || [] // 回傳 Bucket 細項
+            };
+            break;
         }
-
-        // 3. 查詢 Storage 使用量 (以 guest-postcard-images 為例)
-        const { data: files } = await adminSupabaseClient
-            .storage
-            .from('guest-postcard-images')
-            .list();
-        const storageBytes = files?.reduce((acc: number, file: any) => acc + (file.metadata?.size || 0), 0) || 0;
-
-        data = {
-            dbSizeMB: parseFloat((dbBytes / 1024 / 1024).toFixed(2)),
-            totalRows: totalRows,
-            storageMB: parseFloat((storageBytes / 1024 / 1024).toFixed(2))
-        };
-        break;
-    }
-
+     
         default: throw new Error(`未知的操作: ${action}`);
 
     }
