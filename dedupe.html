@@ -333,18 +333,27 @@
                                 </div>` : ''}
                             </div>
 
-                            <div class="hidden md:flex items-center gap-2 text-[10px] text-gray-500 font-mono md:w-1/4">
+                            <div class="hidden md:flex items-center gap-2 text-[10px] text-gray-500 font-mono md:w-1/4 select-all">
                                 <span class="w-4 text-center">📍</span>
                                 <span class="truncate opacity-50">${item.coordinate}</span>
                             </div>
 
                         </div>
 
-                        <div class="ml-auto pl-3">
+                        <div class="ml-auto pl-3 flex items-center gap-2">
+                            
+                            <button onclick="copyToClipboard('${item.coordinate}', this)" 
+                                class="flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-3 md:py-2 bg-transparent hover:bg-blue-500/10 text-gray-500 hover:text-blue-400 border border-transparent hover:border-blue-500/30 rounded-lg transition-all duration-200"
+                                title="複製座標">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                </svg>
+                                <span class="hidden md:inline text-xs font-medium">複製</span>
+                            </button>
+
                             <button onclick="deleteItem('${item.source}', '${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.friend_code || ''}')" 
                                 class="flex flex-col md:flex-row items-center justify-center gap-1 w-10 h-10 md:w-auto md:h-auto md:px-3 md:py-2 bg-transparent hover:bg-red-500/10 text-gray-500 hover:text-red-400 border border-transparent hover:border-red-500/30 rounded-lg transition-all duration-200 group-hover:text-gray-400"
                                 title="刪除此項目">
-                                
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
@@ -363,11 +372,11 @@
 
         window.deleteItem = async (source, id, nickname, friendCode) => {
             if (!confirm('確定要執行刪除嗎？此操作無法撤銷')) return;
-            const btn = event.target;
+            
+            const btn = event.currentTarget; // 使用 currentTarget 確保抓到 button 元素
             btn.disabled = true;
-            btn.textContent = '...';
-            btn.classList.add('opacity-50');
-
+            btn.innerHTML = '<span class="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full"></span>';
+            
             try {
                 let action = source === 'library' ? 'delete-postcard' : 'delete-guest-postcard';
                 let payload = source === 'library' ? { postcardId: id } : { id: id, nickname, friendCode };
@@ -377,29 +386,94 @@
                 });
 
                 if (error) throw error;
-                
-                // 刪除動畫
+
+                // --- 成功後的 UI 與資料更新邏輯 ---
+
+                // 1. 找到 DOM 元素
                 const row = document.getElementById(`item-${source}-${id}`);
-                if(row) {
-                    row.style.transition = 'all 0.5s';
-                    row.style.opacity = '0';
-                    row.style.transform = 'translateX(20px)';
-                    setTimeout(() => {
-                        // 如果該群組只剩一個項目，連群組一起刪除 (因為不重複了)
-                        const parentGroup = row.parentElement;
-                        row.remove();
-                        if(parentGroup.children.length <= 1) { // 1 是因為還有 header
-                            parentGroup.style.display = 'none';
-                        }
-                    }, 500);
+                if (!row) return;
+
+                // 2. 更新全域資料變數 (currentTabData)
+                // 這是為了確保切換 Tab 時，資料也是最新的
+                const groupData = currentTabData[activeTab].find(g => g.items.some(i => i.id == id && i.source == source));
+                if (groupData) {
+                    groupData.items = groupData.items.filter(i => !(i.id == id && i.source == source));
                 }
-                
+
+                // 3. UI 動畫：移除該項目
+                row.style.transition = 'all 0.3s ease-out';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+
+                setTimeout(() => {
+                    const listWrapper = row.parentElement; // .flex-col 容器
+                    const cardGroup = listWrapper.parentElement; // .card-group 容器
+                    
+                    row.remove(); // 移除 DOM
+
+                    // 4. 檢查該群組剩餘數量
+                    // listWrapper.children 包含了剩下的 .list-row
+                    const remainingCount = listWrapper.children.length;
+
+                    if (remainingCount < 2) {
+                        // 如果剩餘數量小於 2 (只剩 1 個或 0 個)，代表不再是「重複群組」
+                        // 將整個群組卡片移除
+                        cardGroup.style.transition = 'all 0.5s ease';
+                        cardGroup.style.opacity = '0';
+                        cardGroup.style.maxHeight = '0';
+                        cardGroup.style.marginBottom = '0';
+                        
+                        setTimeout(() => cardGroup.remove(), 500);
+
+                        // 從全域資料中移除該群組 (因為它不再算是一組重複資料)
+                        if (groupData) {
+                            currentTabData[activeTab] = currentTabData[activeTab].filter(g => g !== groupData);
+                        }
+                    } else {
+                        // 如果群組還存在，更新群組標題上的 "N 筆"
+                        const countBadge = cardGroup.querySelector('.card-header span:last-child');
+                        if (countBadge) countBadge.textContent = `${remainingCount} 筆`;
+                    }
+                    
+                    document.getElementById(`count-${activeTab}`).textContent = currentTabData[activeTab].length;
+
+                }, 300);
+
             } catch (e) {
+                console.error(e);
                 alert(`刪除失敗: ${e.message}`);
                 btn.disabled = false;
-                btn.textContent = '🗑️ 刪除';
-                btn.classList.remove('opacity-50');
+                btn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span class="hidden md:inline text-xs font-medium">刪除</span>`;
             }
+        };
+
+        // 點擊複製座標功能
+        window.copyToClipboard = (text, el) => {
+            // 防止事件冒泡 (雖然目前外層沒有點擊事件，但保持好習慣)
+            event.stopPropagation();
+
+            navigator.clipboard.writeText(text).then(() => {
+                // 視覺回饋：暫時顯示 "已複製"
+                const originalContent = el.innerHTML;
+                // 鎖定寬度避免跳動 (選用)
+                const width = el.offsetWidth;
+                
+                el.innerHTML = `
+                    <span class="w-4 text-center text-green-400">✓</span>
+                    <span class="text-green-400 font-bold">已複製!</span>
+                `;
+                
+                setTimeout(() => {
+                    el.innerHTML = originalContent;
+                }, 1000);
+            }).catch(err => {
+                console.error('複製失敗:', err);
+                alert('複製失敗，請手動複製');
+            });
         };
 
         window.viewImage = (url) => { document.getElementById('viewer-image').src = url; document.getElementById('image-viewer-modal').classList.remove('hidden'); };
