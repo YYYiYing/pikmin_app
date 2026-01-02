@@ -234,6 +234,7 @@
         let allCategories = [];
         let allPosts = [];
         let isEditing = false;
+        let isImpureMode = false;
         let uniqueAreas = new Set();
         let uniqueCountries = new Set();
         let uniqueRegions = new Set(); 
@@ -389,6 +390,7 @@
 
         async function loadHomeData() {
             currentCategory = null; 
+            isImpureMode = false;
             
             document.getElementById('category-info-section').classList.add('hidden');
             document.getElementById('share-section').classList.add('hidden'); 
@@ -424,6 +426,64 @@
                 listEl.innerHTML = `<p class="text-center text-red-400">讀取失敗: ${e.message}</p>`;
             }
         }
+        
+        async function loadImpureData() {
+            // 1. 設定狀態
+            currentCategory = null;
+            isImpureMode = true;
+
+            // 2. 隱藏不必要的區塊
+            document.getElementById('category-info-section').classList.add('hidden');
+            document.getElementById('share-section').classList.add('hidden');
+            
+            // 3. UI 顯示掃描中
+            const listEl = document.getElementById('radar-list');
+            listEl.innerHTML = '<p class="text-center py-10 text-gray-500 animate-pulse">正在掃描異常訊號...</p>';
+
+            // 重置分類按鈕樣式 (讓「不純」按鈕亮起)
+            renderCategoryTabs();
+
+            try {
+                // 4. 重新抓取全域資料 (確保拿到最新的計數)
+                const session = (await supabaseClient.auth.getSession()).data.session;
+                const options = {
+                    body: JSON.stringify({ action: 'get-radar-home-data' })
+                };
+                if (session) options.headers = { Authorization: `Bearer ${session.access_token}` };
+
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', options);
+                if (error) throw error;
+                
+                allPosts = data.data; // 更新全域資料
+
+                // 5. 前端篩選：只保留 impure_count > 0 的項目
+                // (註：雖然您提到「大於1」，但通常大於 0 就代表有紀錄，若需嚴格大於1請改為 > 1)
+                const impurePosts = allPosts
+                    .filter(p => (p.impure_count || 0) > 0)
+                    .sort((a, b) => (b.impure_count || 0) - (a.impure_count || 0)); // 依照嚴重程度排序
+
+                // 6. 更新 UI
+                updateFilters(); // 更新下拉選單
+                
+                if (impurePosts.length === 0) {
+                    listEl.innerHTML = `
+                        <div class="text-center py-12">
+                            <div class="text-4xl mb-2">🎉</div>
+                            <p class="text-gray-400 font-bold">目前沒有發現任何不純訊號</p>
+                            <p class="text-gray-600 text-sm mt-1">全境狀態良好</p>
+                        </div>`;
+                } else {
+                    renderPosts(impurePosts);
+                }
+
+            } catch (e) {
+                console.error(e);
+                listEl.innerHTML = `<p class="text-center text-red-400">掃描失敗: ${e.message}</p>`;
+                // 發生錯誤時重置狀態
+                isImpureMode = false;
+                renderCategoryTabs();
+            }
+        }
 
         function renderCategoryTabs() {
             const listEl = document.getElementById('category-list');
@@ -436,17 +496,38 @@
 
             // 1. 全類別按鈕
             const allSpan = document.createElement('span');
-            allSpan.dataset.id = 'all'; // ★ 新增：設定 ID
-            // 判斷是否為全類別狀態 (currentCategory 為 null)
-            allSpan.className = `category-tab ${!currentCategory ? 'active' : ''}`; 
+            allSpan.dataset.id = 'all';
+            // 判斷邏輯：沒有選分類 且 不是不純模式
+            allSpan.className = `category-tab ${(!currentCategory && !isImpureMode) ? 'active' : ''}`; 
             allSpan.innerHTML = `全類別 <span class="text-[10px] ml-1 opacity-70">(${totalCount})</span>`;
             allSpan.onclick = () => loadHomeData();
             listEl.appendChild(allSpan);
 
+            // --- 修改：不純區按鈕 (精簡文字) ---
+            const impureCount = allPosts.filter(p => p.impure_count > 0).length;
+            
+            const impureSpan = document.createElement('span');
+            impureSpan.dataset.id = 'impure';
+            
+            if (isImpureMode) {
+                // 啟用狀態 (紅底白字)
+                impureSpan.className = 'category-tab active bg-red-600 text-white border-red-600 shadow-[0_0_10px_rgba(220,38,38,0.5)]';
+                // 啟用時：顯示數量
+                impureSpan.innerHTML = `⚠️不純 <span class="text-[10px] ml-1 opacity-70">(${impureCount})</span>`;
+            } else {
+                // 待機狀態 (紅框文字)
+                impureSpan.className = 'category-tab text-red-400 border-red-900/50 hover:bg-red-900/30';
+                // 待機時：只顯示標題，移除 "(監控)"
+                impureSpan.innerHTML = `⚠️不純`;
+            }
+            
+            impureSpan.onclick = () => loadImpureData();
+            listEl.appendChild(impureSpan);
+
             // 2. 其他分類按鈕
             allCategories.forEach(cat => {
                 const span = document.createElement('span');
-                span.dataset.id = cat.id; // ★ 新增：設定 ID
+                span.dataset.id = cat.id;
                 
                 // 判斷是否為當前選中分類
                 const isActive = currentCategory && currentCategory.id === cat.id;
@@ -472,6 +553,7 @@
                 return; 
             }
             currentCategory = cat;
+            isImpureMode = false;
             
             // 改用 dataset.id 進行精準比對
             document.querySelectorAll('.category-tab').forEach(el => {
