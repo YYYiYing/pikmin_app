@@ -213,17 +213,23 @@
                         .eq('id', session.user.id)
                         .single();
                     
+                    // 將查到的暱稱存入 currentUser 物件中，供發布時使用
+                    if (profile) {
+                        currentUser.nickname = profile.nickname; 
+                        currentUser.role = profile.role;
+                    }
+                    
                     // 設定顯示名稱 (優先使用會員暱稱)
                     const displayName = profile?.nickname || '會員';
                     
                     // 判斷是否為管理員
                     if (profile?.role === '管理者') {
                         isAdmin = true;
-                        // 顯示：[管理員模式] 暱稱
-                        userDisplay.innerHTML = `<span class="text-orange-400 font-bold border border-orange-500/50 px-2 py-0.5 rounded mr-2 text-xs">管理員模式</span><span class="text-gray-300">${displayName}</span>`;
+                        // 顯示：[管理員] 暱稱
+                        userDisplay.innerHTML = `<span class="text-orange-400 font-bold border border-orange-500/50 px-2 py-0.5 rounded mr-2 text-xs">管理員</span><span class="text-gray-300">${displayName}</span>`;
                     } else {
-                        // 顯示：[會員] 暱稱
-                        userDisplay.innerHTML = `<span class="text-indigo-400 font-bold border border-indigo-500/50 px-2 py-0.5 rounded mr-2 text-xs">會員</span><span class="text-gray-300">${displayName}</span>`;
+                        // 顯示：[村民] 暱稱
+                        userDisplay.innerHTML = `<span class="text-indigo-400 font-bold border border-indigo-500/50 px-2 py-0.5 rounded mr-2 text-xs">村民</span><span class="text-gray-300">${displayName}</span>`;
                     }
                     
                 } else {
@@ -715,21 +721,22 @@
 
                     // 偵測並拆解「暱稱+12碼數字」格式
                     // Regex 說明：
-                    // ^(.*?)   -> 抓取開頭的所有字元 (非貪婪模式)，存入 match[1]
-                    // (\d{12})$ -> 抓取結尾的 12 位數字，存入 match[2]
-                    const match = rawNick.match(/^(.*?)(\d{12})$/);
+                    // ^(.*?)   -> 抓取前方所有字元 (包含圖示 Emoji)
+                    // \s* -> 容許中間有空白 (選用)
+                    // (\d{12})$ -> 抓取結尾的 12 位數字
+                    const match = rawNick.match(/^(.*?)[\s]*(\d{12})$/);
 
                     if (match) {
-                        // 命中！例如 "Ying✈️539445948533"
-                        finalNickname = match[1]; // 取出 "Ying✈️"
-                        finalFriendCode = match[2]; // 取出 "539445948533"
+                        // 命中！例如 "Miffy🐤134232970460"
+                        finalNickname = match[1]; // 取出 "Miffy🐤"
+                        finalFriendCode = match[2]; // 取出 "134232970460"
                     } else {
                         // 未命中 (例如純文字暱稱 "小明")
                         // 使用原暱稱，並給予一組預設的全 0 好友碼以通過資料庫驗證
                         finalNickname = rawNick;
                         finalFriendCode = '000000000000'; 
                     }
-                } 
+                }
                 else {
                     throw new Error('請先登入會員，或前往大廳設定訪客身分後再發布。');
                 }
