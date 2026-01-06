@@ -1072,28 +1072,48 @@
             const formattedCoords = formatCoordinateString(rawCoords);
             document.getElementById('input-coords').value = formattedCoords;
 
+            // ★★★ 新增：前端必填檢查 (防止空資料發送) ★★★
+            const selectedCatId = document.getElementById('input-category-select').value;
+            const inputCoords = document.getElementById('input-coords').value;
+
+            if (!selectedCatId) {
+                alert("請選擇飾品類別！");
+                return;
+            }
+            if (!inputCoords) {
+                alert("請輸入座標！");
+                return;
+            }
+
             // 2. 鎖定按鈕
             btn.disabled = true; 
             const originalText = btn.textContent;
             btn.textContent = isEditing ? '更新中...' : '發送中...';
 
             try {
+                // ★★★ 新增：身分判定邏輯 (Logic #3) ★★★
+                const currentGuestNick = localStorage.getItem('guest_nick');
+                let finalNickname = null;
+
+                // 邏輯：有訪客暱稱就用訪客，否則看有沒有登入會員，都沒有就擋下
+                if (currentGuestNick) {
+                    finalNickname = currentGuestNick;
+                } else if (currentUser && currentUser.nickname) {
+                    finalNickname = currentUser.nickname;
+                } else {
+                    throw new Error('請先登入會員，或前往大廳設定訪客身分後再發布。');
+                }
+                // ★★★ 結束身分判定 ★★★
+
                 const postId = document.getElementById('post-id').value;
                 
-                // ★ 修改處：從下拉選單取得類別 ID，而非全域變數
-                const selectedCatId = document.getElementById('input-category-select').value;
-                
-                if (!selectedCatId) {
-                    throw new Error("請選擇飾品類別！");
-                }
-
                 const payload = {
-                    categoryId: selectedCatId, // 使用選單的值
-                    coordinates: document.getElementById('input-coords').value,
+                    categoryId: selectedCatId, 
+                    coordinates: inputCoords,
                     country: document.getElementById('input-country').value || '',
                     region: document.getElementById('input-region').value || '',
                     area: document.getElementById('input-area').value || '',
-                    nickname: currentUser ? currentUser.nickname : (localStorage.getItem('guest_nick') || '匿名訪客')
+                    nickname: finalNickname // ★ 使用判定後的暱稱
                 };
 
                 const action = isEditing ? 'update-radar-post' : 'create-radar-post';
@@ -1119,19 +1139,14 @@
                 alert(isEditing ? '更新成功！' : '發布成功！');
                 closeShareModal(); 
                 
-                // ★ 刷新邏輯優化
-                // 無論目前在哪，如果選的類別跟當前頁面一樣，就刷新列表
-                // 如果在首頁，也刷新首頁數據
+                // 刷新邏輯
                 if (currentCategory && currentCategory.id == selectedCatId) {
                     loadRadarPosts(selectedCatId);
                 } else if (!currentCategory) {
                     loadHomeData(); 
-                } else {
-                    // 如果我在「公園」發布了「麵包店」，發布後雖然成功，但列表不會出現(因為在看公園)
-                    // 可以選擇跳轉，或僅提示成功 (目前僅提示成功)
                 }
                 
-                // 重新載入分類統計 (因為數量變了)
+                // 重新載入分類統計
                 loadCategories(); 
 
             } catch (err) {

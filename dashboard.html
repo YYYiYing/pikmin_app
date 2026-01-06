@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>菇菇宅配網 Pikmin Bloom 蘑菇報名表5.5</title>
+    <title>菇菇宅配網 Pikmin Bloom 蘑菇報名表6.0</title>
     <link rel="icon" href="./mashroom_s.png" type="image/png">
     <link rel="apple-touch-icon" href="./mashroom_s.png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -38,7 +38,7 @@
             font-weight: bold;
             font-size: 0.8rem;
             text-transform: uppercase;
-            white-space: nowrap; /* ★ 新增這行：強制標籤內文字不換行 */
+            white-space: nowrap; /* 強制標籤內文字不換行 */
         }
 
         .status-open { background-color: #10b981; color: white; }
@@ -126,25 +126,25 @@
             background-color: #4b5563;
         }
 
-        /* ★ 新增：隱藏捲動條但保留捲動功能 */
+        /* 隱藏捲動條但保留捲動功能 */
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
 
-        /* 修改：跑馬燈動畫 (改為由 JS 控制重播) */
+        /* 跑馬燈動畫 (改為由 JS 控制重播) */
         @keyframes marquee {
             0% { transform: translateX(100%); }
             100% { transform: translateX(-100%); }
         }
         .animate-marquee {
-            /* 修改：將 forwards 改為 infinite，實現無限循環 */
+            /* 將 forwards 改為 infinite，實現無限循環 */
             animation: marquee 20s linear infinite; 
             padding-left: 0;
             display: inline-block;
             white-space: nowrap;
         }
 
-        /* 新增：冷卻中的按鈕樣式 */
+        /* 冷卻中的按鈕樣式 */
         .btn-cooldown {
             background-color: #4b5563 !important; /* 灰色 */
             cursor: not-allowed !important;
@@ -1050,7 +1050,6 @@
             return;
         }
 
-        // 修改重點：
         // 1. 移除 aspect-square (避免手機版高度塌陷)
         // 2. 加入 h-40 md:h-48 (設定固定高度，手機版較矮，電腦版較高)
         // 3. 確保 w-full (寬度填滿格子)
@@ -1071,7 +1070,7 @@
         `).join('');
     }
 
-    // ★ 核心邏輯：深層複製 (Deep Copy)
+    // 核心邏輯：深層複製 (Deep Copy)
     // 下載圖片 -> 轉成 File 物件 -> 塞入 Input
     window.selectLibImage = async function(imageUrl, element) {
         // UI 回饋：標示選取中
@@ -1223,7 +1222,7 @@
         
         // 依序啟動各功能
         displayUserInfo();
-        initWishingWell();          // ★ 啟動許願池 (現在函式已定義，不會報錯)
+        initWishingWell();          // 啟動許願池
         await fetchUserSignups();
         await fetchChallenges();
         
@@ -1301,9 +1300,9 @@
             segment.style.width = `${percentage}%`;
             segment.title = `${item.mushroom_type}: ${item.count}票 (${percentage.toFixed(1)}%)`;
 
-            // ★ 修改重點 1：門檻從 12% 降為 6% (讓更多色塊能顯示內容)
+            // 門檻從 12% 降為 6% (讓更多色塊能顯示內容)
             if (percentage > 6) {
-                // ★ 修改重點 2：移除 'hidden sm:flex' (讓手機版也能顯示)
+                // 移除 'hidden sm:flex' (讓手機版也能顯示)
                 // 加入 drop-shadow 讓文字在淺色背景(如白色/黃色)上更清晰
                 segment.innerHTML = `
                     <div class="w-full h-full flex items-center justify-center text-[10px] md:text-xs font-bold leading-none whitespace-nowrap px-1 drop-shadow-md">
@@ -1317,7 +1316,7 @@
         });
     }
 
-    /** [許願] 更新按鈕狀態 (邏輯修改：計數 < 3 都顯示) */
+    /** [許願] 更新按鈕狀態 (計數 < 3 都顯示) */
     function updateWishButtonState() {
         if (!currentUserProfile) return;
         
@@ -1372,7 +1371,7 @@
                 // 重置勾選
                 if (wishCheckboxes) wishCheckboxes.forEach(cb => cb.checked = false);
                 
-                // ★ 修改：更新 Modal 標題顯示進度
+                // 更新 Modal 標題顯示進度
                 const modalTitle = document.querySelector('#wish-modal h3');
                 if(modalTitle) modalTitle.textContent = `✨ 許願池 (${currentCount}/3)`;
 
@@ -1426,7 +1425,7 @@
                     showToast(`✨ 成功投下 ${count} 票！`, false);
                     if (wishModal) wishModal.classList.add('hidden');
                     
-                    // ★ 關鍵：立即更新本地狀態並刷新 UI
+                    // 立即更新本地狀態並刷新 UI
                     currentUserProfile.daily_wish_count = (currentUserProfile.daily_wish_count || 0) + count;
                     updateWishButtonState(); // 這裡會立即觸發「明日再來」的切換
                     
@@ -1452,9 +1451,9 @@
     // 1. 處理顯示名稱 (保留既有名稱清洗邏輯)
     const displayName = (currentUserProfile.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s!?.~_+\-]/)[0];
 
-    // =========================================================
-    // ★★★ 新增：顯示個人缺席愛睏值 (保留這段新功能) ★★★
-    // =========================================================
+    // =================
+    // 顯示個人缺席愛睏值
+    // =================
     const absScore = currentUserProfile.absent_score || 0;
     let absDisplay = '';
 
@@ -1513,7 +1512,7 @@
         // 清除本地暫存
         localStorage.removeItem('sb-' + SUPABASE_ANON_KEY + '-auth-token');
         
-        // ★ 修改：使用 replace 來跳轉，通常比 reload 更乾淨，且不會產生 unload 警告
+        // 使用 replace 來跳轉，通常比 reload 更乾淨，且不會產生 unload 警告
         window.location.replace('./index.html');
     });
 
@@ -1565,11 +1564,11 @@
         challengesListEl.innerHTML = '';
         Object.values(challengesData).forEach(challenge => renderChallenge(challenge));
         applyFilter();
-        // ★ 新增：更新紅點
+        // 更新紅點
         updateFilterBadges();
     }
 
-        // ★ 新增：計算當前使用者正在排幾個備取
+        // 計算當前使用者正在排幾個備取
     function calculateUserWaitlistCount() {
         let count = 0;
         if (!currentUserProfile || !userSignedUpChallengeIds) return 0;
@@ -1595,7 +1594,7 @@
         return count;
     }
 
-    // ★ 核心渲染邏輯 (含分身顯示功能優化版)
+    // 核心渲染邏輯 (含分身顯示功能優化版)
     /** [核心] 渲染單張挑戰卡片 (修復版：統一變數名稱 + 時段轉換) */
     function renderChallenge(challenge) {
         if (!challenge) return;
@@ -1689,15 +1688,20 @@
                 actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default">您是發菇者</button>`;
             }
         } else if (isSignedUp) {
-            actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名</button>`;
+            // 加入判斷，若已發車則顯示鎖定狀態，否則顯示取消按鈕
+            if (dispatchStatus === '已發') {
+                actionButtonHtml = `<button class="w-full bg-gray-600 text-gray-300 font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-gray-500" disabled>🚗 已發車 (請聯繫機長)</button>`;
+            } else {
+                actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名</button>`;
+            }
         } else if (challenge.status === '預計開放') {
             actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>尚未開放</button>`;
         } 
-        // ★ 修改：只有當「人數 >= 名額 + 2」時，才真正顯示已額滿並鎖定
+        // 只有當「人數 >= 名額 + 2」時，才真正顯示已額滿並鎖定
         else if (challenge.status === '已額滿' && signupCount >= (challenge.slots + 2)) {
             actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>已額滿</button>`;
         } else {
-            // ★ 判斷目前是否屬於備取階段 (人數已達標，但未滿 +2)
+            // 判斷目前是否屬於備取階段 (人數已達標，但未滿 +2)
             const isWaitlist = signupCount >= challenge.slots;
 
             // 1. 正取檢查：如果「不是」備取，且「每日額度已滿」，則鎖定 (訪客菇除外)
@@ -1716,7 +1720,7 @@
                     if (cooldownLeft > 0) {
                         actionButtonHtml = `<button class="signup-button w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
                     } else {
-                        // ★ 根據是否為備取，顯示不同按鈕樣式
+                        // 根據是否為備取，顯示不同按鈕樣式
                         if (isWaitlist) {
                             const waitRank = signupCount - challenge.slots + 1;
                             // 備取按鈕 (橘色)
@@ -1743,7 +1747,7 @@
             const isCurrentUserHost = (challenge.host && challenge.host.id === currentUserProfile.id);
 
             const list = sortedSignups.map((signup, index) => {
-                // ★ 新增：備取分隔線邏輯
+                // 備取分隔線邏輯
                 let separatorHtml = '';
                 if (index === challenge.slots) {
                     separatorHtml = `
@@ -1755,7 +1759,7 @@
                     `;
                 }
 
-                // ★ 新增：排名顯示邏輯 (正取顯示 1st, 2nd... / 備取顯示 備1, 備2...)
+                // 排名顯示邏輯 (正取顯示 1st, 2nd... / 備取顯示 備1, 備2...)
                 let rankText;
                 if (index >= challenge.slots) {
                     const waitRank = index - challenge.slots + 1;
@@ -1842,7 +1846,7 @@
 
                 const time = formatSignupTime(signup.signed_up_at);
                 
-                // ★ 5. 組合 HTML (調整排版：左側資訊流 + 右側操作區)
+                // 5. 組合 HTML (調整排版：左側資訊流 + 右側操作區)
                 return `
                     ${separatorHtml}
                     <div class="participant-item group py-1 flex justify-between items-center">
@@ -1973,7 +1977,7 @@
     // =========================================================================
 
     /** [發布] 開啟發布視窗 */
-    // ★ 修正：這裡加上了 async
+    // 這裡加上了 async
     postChallengeButton.addEventListener('click', async () => {
         // 1. 重置表單與預設值 (保留既有功能)
         challengeForm.reset();
@@ -1987,7 +1991,7 @@
         const remNotes = localStorage.getItem('rememberedNotes');
 
         const now = new Date();
-        // ★ 修改這行：使用 toLocalISOString 取得正確的本地日期字串，避免 UTC 落差
+        // 使用 toLocalISOString 取得正確的本地日期字串，避免 UTC 落差
         const datePart = toLocalISOString(now).split('T')[0];
 
         if (remTime) {
@@ -1999,7 +2003,7 @@
             if(remNotes) document.getElementById('challenge-notes').value = remNotes;
             document.getElementById('remember-time-checkbox').checked = true;
         } else {
-            // ★ 修改：使用新的工具函式，精準帶入現在時間
+            // 使用新的工具函式，精準帶入現在時間
             challengeForm['start-time'].value = toLocalISOString(now);
             
             document.getElementById('remember-time-checkbox').checked = false;
@@ -2007,7 +2011,7 @@
         }
         document.getElementById('challenge-image').value = '';
 
-        // ★ 新增功能：載入身分選單邏輯
+        // 載入身分選單邏輯
         const identitySelect = document.getElementById('post-identity');
         
         // A. 先重置為「主帳號」
@@ -2046,7 +2050,7 @@
         challengeModal.classList.remove('hidden');
     });
 
-    // ★ 修復：編輯視窗的取消按鈕邏輯
+    // 編輯視窗的取消按鈕邏輯
     // ---------------------------------------------------------
     const cancelEditBtn = document.getElementById('cancel-edit-modal-button');
     if (cancelEditBtn) {
@@ -2089,7 +2093,7 @@
             localStorage.setItem('rememberedChallengeDetails', form['details'].value);
             localStorage.setItem('rememberedCookingStyle', styleVal);
             
-            // ★ 新增：記憶身分與備註
+            // 記憶身分與備註
             localStorage.setItem('rememberedIdentity', form['post-identity'].value);
             localStorage.setItem('rememberedNotes', document.getElementById('challenge-notes').value);
         } else {
@@ -2097,7 +2101,7 @@
             localStorage.removeItem('rememberedChallengeDetails');
             localStorage.removeItem('rememberedCookingStyle');
             
-            // ★ 新增：移除身分與備註記憶
+            // 移除身分與備註記憶
             localStorage.removeItem('rememberedIdentity');
             localStorage.removeItem('rememberedNotes');
         }
@@ -2110,7 +2114,7 @@
         let publicImageUrl = null;
         const fileInput = document.getElementById('challenge-image');
         
-        // ★ 新增：取得備註內容
+        // 取得備註內容
         const notesVal = document.getElementById('challenge-notes').value.trim();
 
         // 2. 圖片上傳邏輯
@@ -2133,7 +2137,7 @@
         // 3. 寫入資料庫
         const { data: newChal, error } = await supabaseClient.from('challenges').insert({
             host_id: currentUserProfile.id,
-            display_host_name: displayHostName, // ★ 現在這裡可以讀取到正確變數了
+            display_host_name: displayHostName, 
             mushroom_type: form['mushroom-type'].value,
             slots: parseInt(form['slots'].value),
             start_time: startTime.toISOString(),
@@ -2141,7 +2145,7 @@
             status: startTime > new Date() ? '預計開放' : '開放報名中',
             cooking_style: styleVal,
             image_url: publicImageUrl,
-            notes: notesVal // ★ 寫入備註
+            notes: notesVal // 寫入備註
         }).select().single();
 
         if (error) {
@@ -2151,7 +2155,7 @@
             challengeModal.classList.add('hidden');
             
             // 4. 前端渲染更新
-            // ★這裡建議明確帶入 display_host_name，確保剛發布完卡片上就立刻顯示正確的分身名字
+            // 這裡建議明確帶入 display_host_name，確保剛發布完卡片上就立刻顯示正確的分身名字
             const fullObj = { 
                 ...newChal, 
                 host: { id: currentUserProfile.id, nickname: currentUserProfile.nickname }, 
@@ -2179,7 +2183,7 @@
         document.getElementById('edit-mushroom-type').value = c.mushroom_type;
         document.getElementById('edit-slots').value = c.slots;
         
-        // ★ 修改：時間處理 (將 UTC 資料庫時間轉為本地 Input 格式)
+        // 時間處理 (將 UTC 資料庫時間轉為本地 Input 格式)
         if (c.start_time) {
             document.getElementById('edit-start-time').value = toLocalISOString(new Date(c.start_time));
         }
@@ -2187,10 +2191,10 @@
         document.getElementById('edit-details').value = c.details;
         document.getElementById('edit-cooking-style').value = c.cooking_style || '大火快炒（戰力全開）';
 
-        // ★ 新增：填入備註 (若無則為空字串)
+        // 填入備註 (若無則為空字串)
         document.getElementById('edit-challenge-notes').value = c.notes || '';
 
-        // --- 2. ★ 新增：載入與設定「發布身分」 ---
+        // --- 2. 載入與設定「發布身分」 ---
         const identitySelect = document.getElementById('edit-post-identity');
         
         // 重置選單，先放入主帳號
@@ -2212,7 +2216,7 @@
             });
         }
 
-        // ★ 設定當前選中的值
+        // 設定當前選中的值
         // 如果資料庫欄位是空的，或是等於主帳號暱稱，就選 'main'
         // 否則選對應的分身字串
         if (!c.display_host_name || c.display_host_name === currentUserProfile.nickname) {
@@ -2240,14 +2244,14 @@
         // 取得暫存的舊圖網址 (用於垃圾清理)
         const oldImageUrl = editChallengeForm.dataset.originalImage;
 
-        // ★ 新增：取得備註
+        // 取得備註
         const notesVal = document.getElementById('edit-challenge-notes').value.trim();
         
         // 計算狀態 (保留您原本的邏輯)
         const curSignups = challengesData[id]?.signups?.length || 0;
         let status = (newTime > new Date()) ? '預計開放' : (curSignups >= newSlots ? '已額滿' : '開放報名中');
 
-        // ★ 修正點：這裡是編輯視窗，ID 必須是 edit-post-identity，不能用 post-identity
+        // 這裡是編輯視窗，ID 必須是 edit-post-identity，不能用 post-identity
         const selectedIdentity = document.getElementById('edit-post-identity').value;
         const displayHostName = selectedIdentity === 'main' ? currentUserProfile.nickname : selectedIdentity;
 
@@ -2258,8 +2262,8 @@
             details: document.getElementById('edit-details').value,
             status: status,
             cooking_style: document.getElementById('edit-cooking-style').value,
-            display_host_name: displayHostName, // ★ 寫入新的顯示名稱
-            notes: notesVal // ★ 更新備註
+            display_host_name: displayHostName, // 寫入新的顯示名稱
+            notes: notesVal // 更新備註
         };
 
         const fileInput = document.getElementById('edit-challenge-image');
@@ -2343,7 +2347,7 @@
     cancelDeleteButton.addEventListener('click', hideDeleteConfirmModal);
     confirmDeleteButton.addEventListener('click', () => { if(challengeToDeleteId) deleteChallenge(challengeToDeleteId); });
 
-    // ★ 新增：用來鎖定/解鎖所有報名按鈕的工具函式
+    // 用來鎖定/解鎖所有報名按鈕的工具函式
     function setAllButtonsLoading(isLoading) {
         // 選取所有帶有 .signup-button class 的按鈕
         const btns = document.querySelectorAll('.signup-button');
@@ -2372,7 +2376,7 @@
 
     /** [報名] */
     async function handleSignUp(challengeId, buttonEl) {
-        // ★ 1. 按下的瞬間，立刻鎖定「全場」按鈕！防止使用者在等待期間去點別張
+        // 1. 按下的瞬間，立刻鎖定「全場」按鈕！防止使用者在等待期間去點別張
         setAllButtonsLoading(true); 
         
         // 更改當前按鈕文字，提供視覺回饋
@@ -2383,19 +2387,19 @@
         const { error } = await supabaseClient.rpc('signup_for_challenge', { challenge_id_to_signup: nid });
 
         if (error) {
-            // ★ 2a. 報名失敗 (例如：手速慢了被搶光、或額度不足)
+            // 2a. 報名失敗 (例如：手速慢了被搶光、或額度不足)
             showToast(`報名失敗: ${error.message.includes('limit') ? '本日額度已滿' : error.message}`, true);
             
             // 恢復當前按鈕的文字
             buttonEl.textContent = '報名'; 
             
-            // ★ 關鍵：失敗了要「解鎖全場」，讓使用者可以趕快去搶別張！
+            // 失敗了要「解鎖全場」，讓使用者可以趕快去搶別張！
             setAllButtonsLoading(false);
             
             // 重新整理這張卡片 (例如更新顯示為已額滿)
             reloadChallengeCard(challengeId);
         } else {
-            // ★ 2b. 報名成功！
+            // 2b. 報名成功！
             showToast('報名成功！', false);
             
             // 注意：這裡「不需要」呼叫 setAllButtonsLoading(false)
@@ -2466,7 +2470,7 @@
         reloadChallengeCard(challengeId);
     }
 
-    // ★★★ 事件委派：所有卡片按鈕操作都在這裡統一處理 ★★★
+    // 事件委派：所有卡片按鈕操作都在這裡統一處理
     challengesListEl.addEventListener('click', (e) => {
         const target = e.target;
         
@@ -2649,7 +2653,7 @@
         let func;
         if (type === 'count') func = 'get_leaderboard_from_profiles';
         else if (type === 'speed') func = 'get_speed_leaderboard_from_profiles';
-        else if (type === 'postcard') func = 'get_postcard_leaderboard'; // 新增
+        else if (type === 'postcard') func = 'get_postcard_leaderboard'; 
         else func = 'get_host_leaderboard';
         
         try {
@@ -2658,7 +2662,7 @@
             
             if (type === 'count') renderCountLeaderboard(data);
             else if (type === 'speed') renderSpeedLeaderboard(data);
-            else if (type === 'postcard') renderPostcardLeaderboard(data); // 新增渲染函式
+            else if (type === 'postcard') renderPostcardLeaderboard(data); // 渲染函式
             else renderHostLeaderboard(data);
         } catch (e) { leaderboardContent.innerHTML = '<p class="text-center text-red-400">載入失敗</p>'; }
     }
@@ -2727,7 +2731,7 @@
 
             let parts = [];
             
-            // ★ 修改：為每一項冠軍加上對應的顏色與粗體 class
+            // 為每一項冠軍加上對應的顏色與粗體 class
             
             // 1. 發菇王 (綠色)
             if(hData.data?.[0]) {
@@ -2774,7 +2778,7 @@
     /** [訂閱] */
     function checkSubscriptionStatus() {
         if(!currentUserProfile) return;
-        // 修改：讀取新的 is_subscribed_... 欄位
+        // 讀取新的 is_subscribed_... 欄位
         updateSubBtn(signupSubButton, signupIcon, signupText, currentUserProfile.is_subscribed_signup, 'text-green-500', '報名通知', 'signup');
         updateSubBtn(fullSubButton, fullIcon, fullText, currentUserProfile.is_subscribed_full, 'text-pink-500', '額滿通知', 'full');
     }
@@ -2895,7 +2899,7 @@
                     window.location.href = groupUrl;
                 }, 500);
             } else {
-                // === ★ 修改：退訂成功 (加入提示與轉址) ===
+                // === 退訂成功 (加入提示與轉址) ===
                 showToast('已取消訂閱', false);
                 setTimeout(() => {
                     alert('【⚠️ 重要提醒】\n\n系統已清除您的信箱紀錄，但您仍需手動退出 Google 群組。\n\n點擊確定後將轉往群組頁面，請找到「退出群組」按鈕以完成退訂。');
@@ -2918,7 +2922,7 @@
                 if (payload.eventType === 'DELETE') {
                     const el = document.getElementById(`challenge-${payload.old.id}`);
                     if (el) el.remove();
-                    // ★ 新增：同步刪除本地快取資料，並更新紅點
+                    // 同步刪除本地快取資料，並更新紅點
                     if (challengesData[payload.old.id]) {
                         delete challengesData[payload.old.id];
                         updateFilterBadges();
@@ -2932,7 +2936,7 @@
                 // 1. 嘗試直接取得 (新增/修改會有 new.challenge_id，刪除若有開 Full 會有 old.challenge_id)
                 let cid = payload.new?.challenge_id || payload.old?.challenge_id;
 
-                // 2. ★ 關鍵補救：如果是刪除 (DELETE) 且資料庫沒給 challenge_id，我們自己查表！
+                // 2. 如果是刪除 (DELETE) 且資料庫沒給 challenge_id，我們自己查表！
                 if (!cid && payload.eventType === 'DELETE' && payload.old?.id) {
                     const deletedSignupId = payload.old.id;
                     cid = signupIdToChallengeMap[deletedSignupId];
@@ -2957,7 +2961,7 @@
         if (!currentUserProfile) return; // 防呆
         const myIdentity = currentUserProfile.nickname;
         
-        // 2. ★ 關鍵修正：使用獨立的 'online-users' 頻道
+        // 2. 使用獨立的 'online-users' 頻道
         // 這與 guest.html 的 'guest-room' 完全分開，互不干擾
         const ch = supabaseClient.channel('online-users', { 
             config: { presence: { key: myIdentity } } 
@@ -3047,7 +3051,7 @@
         }, 3000);
     }
 
-    // ★ 工具函式：取得本地時間字串 (格式：YYYY-MM-DDTHH:mm)
+    // 工具函式：取得本地時間字串 (格式：YYYY-MM-DDTHH:mm)
     // 這能確保輸入框顯示的時間完全等於您的系統時間，不會有時差
     function toLocalISOString(date) {
         const pad = (n) => n.toString().padStart(2, '0');
@@ -3190,9 +3194,9 @@
         });
     }
 
-    // ==========================================
-    // ▼▼▼ 【新增】使用者改暱稱邏輯 ▼▼▼
-    // ==========================================
+    // =======================
+    // ▼▼▼ 使用者改暱稱邏輯 ▼▼▼
+    // =======================
     const changeNicknameBtn = document.getElementById('change-nickname-button');
     const changeNicknameBtnMob = document.getElementById('change-nickname-button-mobile');
     const nicknameModal = document.getElementById('nickname-modal');
@@ -3381,7 +3385,7 @@
         }
     };
 
-    // ★ 工具函式：更新畫面上所有卡片中，特定使用者的缺席分數與按鈕狀態
+    // 工具函式：更新畫面上所有卡片中，特定使用者的缺席分數與按鈕狀態
     async function syncUserStatusOnAllCards(targetUserId) {
         // 1. 先去資料庫抓這個人「最新」的分數 (確保數據絕對正確)
         const { data: userData, error } = await supabaseClient
@@ -3434,7 +3438,7 @@
             } else {
                 showToast(`已標記 ${userName} 缺席`, false);
 
-                // ★ 關鍵 1：手動更新本地快取，讓按鈕立刻變色 (解決 409 問題)
+                // 關鍵 1：手動更新本地快取，讓按鈕立刻變色 (解決 409 問題)
                 const c = challengesData[challengeId];
                 if (c) {
                     if (!c.absent_records) c.absent_records = [];
@@ -3445,7 +3449,7 @@
                     });
                 }
 
-                // ★ 關鍵 2：觸發全域同步，更新所有卡片上的分數
+                // 關鍵 2：觸發全域同步，更新所有卡片上的分數
                 await syncUserStatusOnAllCards(userId);
             }
         } catch (e) {
@@ -3468,7 +3472,7 @@
             
             showToast(`已撤銷檢舉`, false);
 
-            // ★ 關鍵 1：手動移除本地快取中的檢舉紀錄
+            // 關鍵 1：手動移除本地快取中的檢舉紀錄
             const c = challengesData[challengeId];
             if (c && c.absent_records) {
                 c.absent_records = c.absent_records.filter(
@@ -3476,7 +3480,7 @@
                 );
             }
 
-            // ★ 關鍵 2：觸發全域同步，更新所有卡片上的分數
+            // 關鍵 2：觸發全域同步，更新所有卡片上的分數
             await syncUserStatusOnAllCards(userId);
 
         } catch (e) {
@@ -3484,7 +3488,7 @@
         }
     }
 
-    // ★ 新增：複製發菇者好友碼的專用函式
+    // 複製發菇者好友碼的專用函式
     function copyHostFriendCode(fullString) {
         // 1. 嘗試提取 12 位數字
         const match = fullString.match(/(\d{12})/);
@@ -3510,7 +3514,7 @@
         }
     }
 
-    // ★ 全能版：更新所有分類的通知紅點
+    // 更新所有分類的通知紅點
     function updateFilterBadges() {
         // 定義計數器
         let counts = {
@@ -3619,12 +3623,12 @@
             if (total) document.getElementById('music-progress').max = Math.floor(total);
         }, 1000);
 
-        // ★ 1. 讀取使用者上次的靜音偏好
+        // 1. 讀取使用者上次的靜音偏好
         const isUserMuted = localStorage.getItem('bg_music_muted') === 'true';
         const volBtn = document.getElementById('music-volume-btn');
 
         if (isUserMuted) {
-            // ★ 2. 如果使用者上次是靜音，直接靜音播放
+            // 2. 如果使用者上次是靜音，直接靜音播放
             console.log("依照使用者偏好：靜音播放");
             musicPlayer.mute();
             musicPlayer.playVideoAt(0);
@@ -3636,7 +3640,7 @@
                 volBtn.classList.add('text-red-500');
             }
         } else {
-            // ★ 3. 如果使用者想要有聲，執行您原本的嘗試播放邏輯
+            // 3. 如果使用者想要有聲，執行您原本的嘗試播放邏輯
             const attemptPlay = () => {
                 musicPlayer.setVolume(50);
                 musicPlayer.unMute(); 
@@ -3696,7 +3700,7 @@
         }
     });
 
-    // ★ 新增：下一首按鈕
+    // 下一首按鈕
     document.getElementById('music-next-btn').addEventListener('click', function() {
         if (musicPlayer && musicPlayer.nextVideo) {
             musicPlayer.nextVideo();
@@ -3727,7 +3731,7 @@
             // 注意：dashboard 原本這裡寫 text-gray-600，建議改回 text-gray-300 比較亮
             this.classList.add('text-gray-300'); 
             
-            // ★ 記憶：有聲
+            // 記憶：有聲
             localStorage.setItem('bg_music_muted', 'false');
         } else {
             // 關閉聲音
@@ -3735,7 +3739,7 @@
             this.classList.remove('text-gray-300'); // 移除亮灰色
             this.classList.add('text-red-500'); 
             
-            // ★ 記憶：靜音
+            // 記憶：靜音
             localStorage.setItem('bg_music_muted', 'true');
         }
     });
@@ -3829,7 +3833,7 @@
         });
     }
 
-    // ★★★ Dashboard 專用：查看留言 ★★★
+    // Dashboard 專用：查看留言
     window.openDashboardComment = (text, event) => {
         if (event) event.stopPropagation();
         const modal = document.getElementById('comment-viewer-modal');
@@ -3840,7 +3844,7 @@
         }
     };
 
-    // ★★★ Dashboard 專用：編輯留言 (修復版：呼叫後端 API) ★★★
+    // Dashboard 專用：編輯留言 (修復版：呼叫後端 API) 
     window.editUserSignupComment = async (challengeId, currentVal, event) => {
         if (event) event.stopPropagation();
 

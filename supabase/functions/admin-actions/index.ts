@@ -1182,10 +1182,28 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: newSignup }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 訪客取消報名 (Cancel) - 強化人數計算安全性
+    // 訪客取消報名 (Cancel) - 強化人數計算安全性 + 已發車檢核
     if (action === 'guest-cancel-signup') {
         const { challengeId, nickname, friendCode } = payload;
         const guestName = `${nickname}💪${friendCode}`;
+
+        // 檢查是否已發車 (防止發車後跳車) 
+        // 先查詢該挑戰目前的發送狀態
+        const { data: targetMushroom, error: checkErr } = await adminSupabaseClient
+            .from('challenges')
+            .select('dispatch_status')
+            .eq('id', challengeId)
+            .single();
+
+        // 如果找不到挑戰，先不報錯，讓後面的刪除邏輯去處理(或直接擋下亦可)，這裡選擇擋下
+        if (checkErr || !targetMushroom) {
+            throw new Error('找不到該挑戰或資料讀取失敗');
+        }
+
+        // 核心判斷：如果狀態是「已發」，禁止取消
+        if (targetMushroom.dispatch_status === '已發') {
+            throw new Error('取消失敗：車長已經發車囉！無法取消報名。');
+        }
 
         // 1. 執行刪除
         const { error, count } = await adminSupabaseClient
@@ -1589,6 +1607,11 @@ serve(async (req) => {
         const { categoryId, coordinates, country, region, area, nickname } = payload;
         const authHeader = req.headers.get('Authorization');
         
+        // ★★★ 新增：後端強制檢查必填欄位 (防止空資料寫入) ★★★
+        if (!categoryId || !coordinates || coordinates.trim() === '') {
+            throw new Error('資料不完整：類別與座標為必填項目。');
+        }
+
         // 檢查座標是否重複 (改為回傳 200 + success: false)
         const { data: existing } = await adminSupabaseClient
             .from('radar_posts')
