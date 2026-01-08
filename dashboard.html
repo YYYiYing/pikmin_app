@@ -1613,6 +1613,24 @@
 
         // --- 2. 基本變數設定 ---
         const dailyLimitReached = currentUserProfile && currentUserProfile.daily_signup_count >= window.dailySignupLimit;
+        
+        // 預先計算排名與身分 (為了判斷下方按鈕權限)
+        let amIWaitlist = false;
+        let amICheckedIn = false;
+        
+        if (challenge.signups && challenge.signups.length > 0) {
+            // 必須先依照報名時間排序，才能算出正確排名
+            const sortedForRank = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
+            const myIndex = sortedForRank.findIndex(s => s.user_id === currentUserProfile.id);
+            
+            if (myIndex !== -1) {
+                // 如果排名數值 (Index+1) 大於 名額 (slots)，就是備取
+                amIWaitlist = (myIndex + 1) > challenge.slots;
+                // 順便取得是否已入 (供後續鎖定判斷)
+                amICheckedIn = sortedForRank[myIndex].is_checked_in === true;
+            }
+        }
+
         const card = document.createElement('div');
         card.className = 'challenge-card bg-gray-800 rounded-xl shadow-md overflow-hidden p-6 flex flex-col justify-between';
         card.id = `challenge-${challenge.id}`;
@@ -1688,18 +1706,20 @@
                 actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default">您是發菇者</button>`;
             }
         } else if (isSignedUp) {
-            // 加入「已入」狀態判斷
+            // 操作按鈕邏輯 (已入鎖定 > 備取豁免 > 已發鎖定)
             
-            // 找出我自己的報名資料以判斷 is_checked_in
-            const mySignupData = challenge.signups ? challenge.signups.find(s => s.user_id === currentUserProfile.id) : null;
-            const amICheckedIn = mySignupData?.is_checked_in === true;
-
             if (amICheckedIn) {
                 // 狀況 A: 被點名已入 -> 顯示「已上車」並鎖定 (優先權最高)
                 actionButtonHtml = `<button class="w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-green-500 shadow-inner" disabled>🚗 已上車</button>`;
             } else if (dispatchStatus === '已發') {
-                // 狀況 B: 已發車 (且未被點名已入) -> 顯示鎖定
-                actionButtonHtml = `<button class="w-full bg-gray-600 text-gray-300 font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-gray-500" disabled>🚗 已發車 (請聯繫機長)</button>`;
+                // 狀況 B: 已發車
+                if (amIWaitlist) {
+                    // 如果是「備取」，即使已發車，也允許取消 (因為正取滿了，備取沒望了)
+                    actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名 (備取)</button>`;
+                } else {
+                    // 如果是「正取」，已發車則鎖定 (因為可能正在打怪中)
+                    actionButtonHtml = `<button class="w-full bg-gray-600 text-gray-300 font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-gray-500" disabled>🚗 已發車 (請聯繫機長)</button>`;
+                }
             } else {
                 // 狀況 C: 未發車且未被點名 -> 允許取消
                 actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名</button>`;
