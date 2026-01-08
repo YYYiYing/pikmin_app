@@ -1688,10 +1688,20 @@
                 actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default">您是發菇者</button>`;
             }
         } else if (isSignedUp) {
-            // 加入判斷，若已發車則顯示鎖定狀態，否則顯示取消按鈕
-            if (dispatchStatus === '已發') {
+            // 加入「已入」狀態判斷
+            
+            // 找出我自己的報名資料以判斷 is_checked_in
+            const mySignupData = challenge.signups ? challenge.signups.find(s => s.user_id === currentUserProfile.id) : null;
+            const amICheckedIn = mySignupData?.is_checked_in === true;
+
+            if (amICheckedIn) {
+                // 狀況 A: 被點名已入 -> 顯示「已上車」並鎖定 (優先權最高)
+                actionButtonHtml = `<button class="w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-green-500 shadow-inner" disabled>🚗 已上車</button>`;
+            } else if (dispatchStatus === '已發') {
+                // 狀況 B: 已發車 (且未被點名已入) -> 顯示鎖定
                 actionButtonHtml = `<button class="w-full bg-gray-600 text-gray-300 font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-gray-500" disabled>🚗 已發車 (請聯繫機長)</button>`;
             } else {
+                // 狀況 C: 未發車且未被點名 -> 允許取消
                 actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名</button>`;
             }
         } else if (challenge.status === '預計開放') {
@@ -1759,7 +1769,7 @@
                     `;
                 }
 
-                // 排名顯示邏輯 (正取顯示 1st, 2nd... / 備取顯示 備1, 備2...)
+                // 排名顯示邏輯
                 let rankText;
                 if (index >= challenge.slots) {
                     const waitRank = index - challenge.slots + 1;
@@ -1770,12 +1780,7 @@
                 
                 // 1. 處理暱稱
                 let rawNickname = signup.profile ? signup.profile.nickname : (signup.guest_name || '未知');
-                
-                // 讀取今日報名次數 (N)
-                // 只有當 profile 存在且 daily_signup_count 有值時才顯示
                 const dailyCount = signup.profile?.daily_signup_count;
-                
-                // 設定顯示 HTML，例如 (3)，樣式為灰色小字
                 const dailyCountHtml = (dailyCount !== undefined && dailyCount !== null) 
                     ? `<span class="text-xs text-gray-400 font-normal select-none" title="今日已報名 ${dailyCount} 次">(${dailyCount})</span>` 
                     : '';
@@ -1791,62 +1796,77 @@
                     displayNameDisplay = cleanName;
                 }
                 
-                // 2. 處理愛睏值 (保留前台既有邏輯)
+                // 2. 處理愛睏值
                 const absScore = signup.profile?.absent_score || 0;
                 let statusIcon = absScore > 0 ? `<span class="text-xs text-red-400 border border-red-500/50 rounded px-1 ml-1 flex-shrink-0 cursor-help" title="累積缺席點數">💤+${absScore}</span>` : '';
+
+                // 1. 處理「已入」靜態標記 (預設邏輯)
+                // 邏輯：如果是發菇者，我們用按鈕來顯示狀態，所以不顯示靜態標籤，避免重複雜亂
+                let checkedInIcon = '';
+                const showStaticIcon = signup.is_checked_in && !isCurrentUserHost; 
+
+                if (showStaticIcon) {
+                    checkedInIcon = `<span class="text-[10px] bg-green-600/20 text-green-400 border border-green-500/50 rounded px-1.5 py-0.5 ml-1 font-bold flex-shrink-0 select-none cursor-default" title="發菇者確認已入場">✅已入</span>`;
+                }
 
                 // 3. 處理留言按鈕
                 const commentVal = signup.comment || '';
                 const isMe = signup.user_id === currentUserProfile.id;
                 let commentBlock = '';
-
                 if (isMe) {
                     const hasComment = commentVal && commentVal.trim() !== '';
                     const bgClass = 'bg-gray-700 hover:bg-gray-600';
                     const textClass = hasComment ? 'text-cyan-300' : 'text-gray-400 hover:text-white';
                     const borderClass = hasComment ? 'border-gray-500' : 'border-gray-500 border-dashed';
-                    
                     const icon = hasComment ? '📝' : '✏️';
                     const title = hasComment ? '編輯留言' : '新增留言';
-
-                    commentBlock = `
-                        <button onclick="window.editUserSignupComment(${challenge.id}, '${commentVal.replace(/'/g, "\\'")}', event)" 
-                            class="ml-1 relative z-10 text-xs border ${borderClass} ${bgClass} ${textClass} px-1.5 py-0.5 rounded transition flex items-center justify-center h-5 min-w-[24px] flex-shrink-0" 
-                            title="${title}">
-                            ${icon}
-                        </button>`;
+                    commentBlock = `<button onclick="window.editUserSignupComment(${challenge.id}, '${commentVal.replace(/'/g, "\\'")}', event)" class="ml-1 relative z-10 text-xs border ${borderClass} ${bgClass} ${textClass} px-1.5 py-0.5 rounded transition flex items-center justify-center h-5 min-w-[24px] flex-shrink-0" title="${title}">${icon}</button>`;
                 } else {
                     if (commentVal) {
                         const safeComment = commentVal.replace(/'/g, "\\'");
-                        commentBlock = `
-                            <button onclick="window.openDashboardComment('${safeComment}', event)" 
-                                class="ml-1 relative z-10 text-xs text-cyan-300 bg-gray-700 px-1.5 py-0.5 rounded cursor-pointer border border-gray-600 hover:bg-gray-600 hover:border-cyan-400 transition select-none shadow-sm flex items-center justify-center h-5 min-w-[24px] flex-shrink-0"
-                                title="查看完整留言">
-                                📝
-                            </button>`;
+                        commentBlock = `<button onclick="window.openDashboardComment('${safeComment}', event)" class="ml-1 relative z-10 text-xs text-cyan-300 bg-gray-700 px-1.5 py-0.5 rounded cursor-pointer border border-gray-600 hover:bg-gray-600 hover:border-cyan-400 transition select-none shadow-sm flex items-center justify-center h-5 min-w-[24px] flex-shrink-0" title="查看完整留言">📝</button>`;
                     }
                 }
 
-                // 4. 處理操作按鈕 (缺席/撤銷)
+                // 4. 處理操作按鈕 (整合 已入/缺席 邏輯)
                 let actionBtn = '';
                 if (isCurrentUserHost) {
-                    const hasReported = challenge.absent_records && challenge.absent_records.some(r => r.reporter_id === currentUserProfile.id && r.absentee_id === signup.user_id);
-                    const baseBtnStyle = "mr-2 text-[10px] bg-gray-700 px-2 py-0.5 rounded transition whitespace-nowrap border";
+                    const baseBtnStyle = "mr-2 text-[10px] px-2 py-0.5 rounded transition whitespace-nowrap border";
                     
-                    if (hasReported) {
-                        actionBtn = `<button onclick="revokeAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
-                            class="${baseBtnStyle} text-gray-400 border-gray-600 hover:bg-gray-600 hover:text-white" 
-                            title="撤銷缺席標記">撤銷</button>`;
-                    } else {
-                        actionBtn = `<button onclick="reportAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
-                            class="${baseBtnStyle} text-red-400 border-red-900/30 hover:bg-gray-600 hover:text-red-300" 
-                            title="回報缺席">缺席</button>`;
+                    // A. 點名按鈕 (整合狀態顯示)
+                    // 狀態：已入 (亮綠色，帶勾勾) vs 未入 (灰色框，無勾勾)
+                    const checkInBtnText = signup.is_checked_in ? '✅已入' : '已入';
+                    const checkInBtnStyle = signup.is_checked_in 
+                        ? "bg-green-600 text-white border-green-500 hover:bg-green-700 shadow-md font-bold" // 已入樣式
+                        : "bg-transparent text-gray-400 border-gray-600 hover:bg-gray-700 hover:text-white"; // 未入樣式
+
+                    const checkInBtn = `<button onclick="window.toggleSignupCheckedIn(${challenge.id}, ${signup.id}, '${cleanName}', event)" 
+                        class="${baseBtnStyle} ${checkInBtnStyle}" 
+                        title="切換已入狀態">${checkInBtnText}</button>`;
+
+                    // B. 缺席按鈕 (邏輯：如果已入，則不顯示缺席按鈕)
+                    let absentBtn = '';
+                    if (!signup.is_checked_in) {
+                        const hasReported = challenge.absent_records && challenge.absent_records.some(r => r.reporter_id === currentUserProfile.id && r.absentee_id === signup.user_id);
+                        
+                        if (hasReported) {
+                            absentBtn = `<button onclick="revokeAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
+                                class="${baseBtnStyle} bg-gray-700 text-gray-400 border-gray-600 hover:bg-gray-600 hover:text-white" 
+                                title="撤銷缺席標記">撤銷</button>`;
+                        } else {
+                            absentBtn = `<button onclick="reportAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
+                                class="${baseBtnStyle} bg-transparent text-red-400 border-red-900/30 hover:bg-gray-700 hover:text-red-300" 
+                                title="回報缺席">缺席</button>`;
+                        }
                     }
+                    
+                    // 組合按鈕
+                    actionBtn = checkInBtn + absentBtn;
                 }
 
                 const time = formatSignupTime(signup.signed_up_at);
                 
-                // 5. 組合 HTML (調整排版：左側資訊流 + 右側操作區)
+                // 5. 組合 HTML (調整排版)
                 return `
                     ${separatorHtml}
                     <div class="participant-item group py-1 flex justify-between items-center">
@@ -1859,10 +1879,11 @@
                             
                             ${statusIcon}
                             ${commentBlock}
-                        </div>
+                            </div>
 
                         <div class="flex items-center flex-shrink-0 ml-2">
-                            ${actionBtn} 
+                            ${actionBtn}
+                            ${checkedInIcon}
                             <span class="text-xs text-gray-500 font-mono w-20 text-right whitespace-nowrap">${time}</span>
                         </div>
                     </div>`;
@@ -3878,7 +3899,41 @@
         }
     };
 
+    // Dashboard 專用：發菇者執行點名 (Toggle Checked In)
+    window.toggleSignupCheckedIn = async (challengeId, signupId, userName, event) => {
+        if (event) event.stopPropagation();
 
+        // 簡單的視覺回饋
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        try {
+            const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                body: { 
+                    action: 'toggle-signup-checked-in', 
+                    payload: { 
+                        challengeId: challengeId, 
+                        signupId: signupId
+                    } 
+                } 
+            });
+
+            if (error) throw error;
+            if (data && data.error) throw new Error(data.error);
+
+            // 成功後提示
+            showToast(`已更新 ${userName} 的點名狀態`, false);
+            // Realtime 會自動刷新畫面 (reloadChallengeCard)
+
+        } catch (e) {
+            console.error(e);
+            showToast(`操作失敗: ${e.message}`, true);
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    };
 </script>
 </body>
 </html>

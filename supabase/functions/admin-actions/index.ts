@@ -1182,30 +1182,55 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: newSignup }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 訪客取消報名 (Cancel) - 強化人數計算安全性 + 已發車檢核
+    // 訪客取消報名 (Cancel) - 強化人數計算安全性 + 已發車檢核 (v2: 備取可自由取消 / 已入者鎖定)
     if (action === 'guest-cancel-signup') {
         const { challengeId, nickname, friendCode } = payload;
         const guestName = `${nickname}💪${friendCode}`;
 
-        // 檢查是否已發車 (防止發車後跳車) 
-        // 先查詢該挑戰目前的發送狀態
-        const { data: targetMushroom, error: checkErr } = await adminSupabaseClient
+        // 1. 查詢該挑戰目前的狀態與「所有」報名名單 (為了計算排名)
+        // 必須選出 is_checked_in 欄位
+        const { data: challengeData, error: checkErr } = await adminSupabaseClient
             .from('challenges')
-            .select('dispatch_status')
+            .select('slots, status, dispatch_status, signups(guest_name, created_at, is_checked_in)')
             .eq('id', challengeId)
             .single();
 
-        // 如果找不到挑戰，先不報錯，讓後面的刪除邏輯去處理(或直接擋下亦可)，這裡選擇擋下
-        if (checkErr || !targetMushroom) {
+        if (checkErr || !challengeData) {
             throw new Error('找不到該挑戰或資料讀取失敗');
         }
 
-        // 核心判斷：如果狀態是「已發」，禁止取消
-        if (targetMushroom.dispatch_status === '已發') {
-            throw new Error('取消失敗：車長已經發車囉！無法取消報名。');
+        // 2. 找到使用者的報名紀錄與排名
+        const allSignups = challengeData.signups || [];
+        // 依報名時間排序 (早的在前)
+        allSignups.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+        const myIndex = allSignups.findIndex((s: any) => s.guest_name === guestName);
+        
+        if (myIndex === -1) {
+             throw new Error('取消失敗：找不到您的報名紀錄 (請確認暱稱與好友碼是否與報名時一致)');
         }
 
-        // 1. 執行刪除
+        const myRecord = allSignups[myIndex];
+        const myRank = myIndex + 1; // 排名從 1 開始
+        const isWaitlist = myRank > challengeData.slots; // 是否為備取
+
+        // --- 核心權限檢查 ---
+        
+        // 條件 A: 如果已經被標記為「已入」(Checked In)，絕對禁止取消 (防止領了獎勵又退掉)
+        if (myRecord.is_checked_in) {
+            throw new Error('取消失敗：發菇者確認您「已入場」，無法取消報名。');
+        }
+
+        // 條件 B: 如果狀態是「已發」，則只有「備取」可以取消，「正取」鎖定
+        if (challengeData.dispatch_status === '已發') {
+            if (!isWaitlist) {
+                // 如果是正取，且已發車 -> 禁止取消
+                throw new Error('取消失敗：車長已經發車囉！正取人員無法取消報名。');
+            }
+            // 如果是備取 (isWaitlist === true)，即使已發車也可以取消 (Pass)
+        }
+
+        // 3. 執行刪除
         const { error, count } = await adminSupabaseClient
             .from('signups')
             .delete({ count: 'exact' })
@@ -1213,9 +1238,8 @@ serve(async (req) => {
             .eq('guest_name', guestName);
 
         if (error) throw new Error(`取消失敗: ${error.message}`);
-        if (count === 0) throw new Error('取消失敗：找不到您的報名紀錄 (請確認暱稱與好友碼是否與報名時一致)');
-
-        // 2. 重新計算狀態 (解決取消後狀態沒變回來的問題)
+        
+        // 4. 重新計算狀態 (邏輯保持不變)
         const { data: challenge, error: getErr } = await adminSupabaseClient
             .from('challenges')
             .select('slots, start_time, status, signups(count)')
@@ -1223,27 +1247,21 @@ serve(async (req) => {
             .single();
 
         if (!getErr && challenge) {
-            // ★ 安全性修正：使用 Optional Chaining (?.) 避免當 count 為 0 時報錯
             const currentCount = challenge.signups?.[0]?.count ?? 0;
-            
             const slots = challenge.slots;
             const now = new Date();
             const startTime = new Date(challenge.start_time);
-
             let newStatus = challenge.status;
 
-            // 狀態判斷邏輯
             if (startTime > now) {
                 newStatus = '預計開放';
             } 
-            // ★ 修改：這裡也改回 >= slots，若取消後人數仍大於等於名額，維持已額滿
             else if (currentCount >= slots) {
                 newStatus = '已額滿';
             } else {
                 newStatus = '開放報名中';
             }
 
-            // 若狀態有變，執行更新
             if (newStatus !== challenge.status) {
                 await adminSupabaseClient
                     .from('challenges')
@@ -1858,6 +1876,52 @@ serve(async (req) => {
         if (error) throw new Error('更新失敗，找不到報名紀錄');
         
         return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 發菇者點名 (切換 已入/未入 狀態)
+    if (action === 'toggle-signup-checked-in') {
+        const { signupId, challengeId } = payload;
+
+        // 1. 驗證權限：確認當前操作者 (user.id) 是該挑戰的 Host
+        const { data: challenge, error: cErr } = await adminSupabaseClient
+            .from('challenges')
+            .select('host_id')
+            .eq('id', challengeId)
+            .single();
+
+        if (cErr || !challenge) throw new Error('找不到該挑戰');
+        
+        // 只有發菇者本人可以執行點名
+        if (challenge.host_id !== user.id) {
+            throw new Error('權限不足：只有發菇者可以執行點名');
+        }
+
+        // 2. 查詢目前的狀態
+        const { data: currentSignup, error: sErr } = await adminSupabaseClient
+            .from('signups')
+            .select('is_checked_in')
+            .eq('id', signupId)
+            .single();
+            
+        if (sErr || !currentSignup) throw new Error('找不到該報名資料');
+
+        // 3. 切換狀態 (True <-> False)
+        const newStatus = !currentSignup.is_checked_in;
+
+        const { data: updated, error: uErr } = await adminSupabaseClient
+            .from('signups')
+            .update({ is_checked_in: newStatus })
+            .eq('id', signupId)
+            .select()
+            .single();
+
+        if (uErr) throw uErr;
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: updated,
+            message: newStatus ? '已標記為已入' : '已取消已入標記'
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // 1. 更新訂閱狀態 (改為布林值切換)
