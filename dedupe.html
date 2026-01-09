@@ -6,6 +6,7 @@
     <title>重複美片清理工具</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
     <style>
         body { background-color: #111827; color: #d1d5db; font-family: 'Inter', sans-serif; padding-bottom: 40px; }
         
@@ -138,6 +139,67 @@
         <div class="relative max-w-5xl w-full max-h-[95vh] flex justify-center items-center" onclick="event.stopPropagation()">
             <button type="button" onclick="closeImageViewer()" class="absolute -top-12 right-0 text-white text-4xl bg-black/50 rounded-full w-10 h-10 flex items-center justify-center">&times;</button>
             <img id="viewer-image" src="" class="rounded-lg shadow-2xl max-h-[80vh] w-auto object-contain bg-gray-900 border border-gray-800">
+        </div>
+    </div>
+
+    <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="bg-gray-800 border border-gray-600 w-full max-w-lg rounded-2xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeEditModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">&times;</button>
+            <h2 class="text-2xl font-bold text-white mb-6">✏️ 編輯資料</h2>
+            
+            <form id="edit-form" class="space-y-4" onsubmit="handleEditSubmit(event)">
+                <input type="hidden" id="edit-source"> <input type="hidden" id="edit-id">
+                
+                <input type="hidden" id="edit-nickname"> 
+                <input type="hidden" id="edit-friendcode">
+
+                <div class="flex items-start gap-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
+                    <div class="relative w-24 h-24 shrink-0 bg-gray-900 rounded-lg overflow-hidden border border-gray-600 group">
+                        <img id="edit-image-preview" src="" alt="預覽" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors cursor-pointer" onclick="document.getElementById('edit-image-upload').click()"></div>
+                    </div>
+                    <div class="flex-1 min-w-0 py-1">
+                        <p class="text-xs text-gray-400 mb-2 break-all truncate" id="edit-image-filename">尚未選擇新圖片</p>
+                        <input type="file" id="edit-image-upload" accept="image/*" class="hidden" onchange="handleImagePreview(event)">
+                        <button type="button" onclick="document.getElementById('edit-image-upload').click()" 
+                            class="px-3 py-1.5 bg-blue-600/80 hover:bg-blue-600 text-white text-xs rounded transition flex items-center gap-1 font-bold">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                            </svg>
+                            更換圖片
+                        </button>
+                        <p class="text-[10px] text-gray-500 mt-1">* 上傳後系統將自動替換並清理舊檔。</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">座標</label>
+                    <div class="relative">
+                        <input type="text" id="edit-coord" required class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2.5 outline-none focus:border-blue-500 transition font-mono">
+                        <button type="button" id="paste-btn" class="absolute right-2 top-2 bg-gray-600 hover:bg-gray-500 text-green-400 px-2 py-1 rounded text-xs font-bold transition">📋 貼上</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div><label class="block text-xs text-gray-400 mb-1">國家</label><input type="text" id="edit-country" class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-2 text-sm"></div>
+                    <div><label class="block text-xs text-gray-400 mb-1">地區</label><input type="text" id="edit-region" class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-2 text-sm"></div>
+                    <div><label class="block text-xs text-gray-400 mb-1">細項</label><input type="text" id="edit-area" class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-2 text-sm"></div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">標籤 (Tags)</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="text" id="edit-tag-1" class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-2 text-sm text-center">
+                        <input type="text" id="edit-tag-2" class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-2 text-sm text-center">
+                        <input type="text" id="edit-tag-3" class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-2 text-sm text-center">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-600 text-gray-200 rounded-lg hover:bg-gray-500 transition font-bold text-sm">取消</button>
+                    <button type="submit" id="save-btn" class="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition font-bold text-sm shadow-lg">儲存變更</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -310,10 +372,8 @@
 
             data.forEach(group => {
                 const groupEl = document.createElement('div');
-                // 群組容器
                 groupEl.className = 'card-group';
 
-                // 1. 群組標題 (維持原樣，但微調顏色)
                 let htmlContent = `
                     <div class="card-header bg-gray-900/80 p-3 flex flex-wrap md:flex-nowrap justify-between items-center gap-3 border-b border-gray-700">
                         <div class="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
@@ -325,34 +385,27 @@
                         <span class="text-xs font-mono bg-gray-800 text-gray-400 px-2 py-1 rounded border border-gray-700 whitespace-nowrap">
                             ${group.items.length} 筆
                         </span>
-                    </div>`;
-
-                // 2. 內容列表容器 (改為 flex column)
-                htmlContent += `<div class="flex flex-col">`;
+                    </div>
+                    <div class="flex flex-col">`;
 
                 group.items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).forEach((item) => {
                     const isLib = item.source === 'library';
                     const locStr = [item.country, item.region, item.area].filter(Boolean).join(' · ');
-
-                    // 日期格式化
+                    
                     const dateObj = new Date(item.created_at);
-                    const dateStr = dateObj.toLocaleDateString('zh-TW', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit'
-                    });
+                    const dateStr = dateObj.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
 
-                    // 名稱處理
                     let displayName = (item.name || '未命名').replace(/\d{12}/g, '').trim();
                     if (!displayName) displayName = item.name || '未命名';
 
-                    // 標籤樣式 (改為 Pill 形狀)
-                    const badgeClass = isLib 
-                        ? 'bg-pink-900/30 text-pink-300 border-pink-700/50' 
-                        : 'bg-violet-900/30 text-violet-300 border-violet-700/50';
+                    const badgeClass = isLib ? 'bg-pink-900/30 text-pink-300 border-pink-700/50' : 'bg-violet-900/30 text-violet-300 border-violet-700/50';
                     const badgeText = isLib ? '圖書館' : '藝廊';
 
-                    // 列表項目 HTML
+                    // 標籤 HTML 生成
+                    const tagsHtml = (item.tags || []).map(t => 
+                        `<span class="text-[10px] bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded border border-gray-600 whitespace-nowrap">#${t}</span>`
+                    ).join('');
+
                     htmlContent += `
                     <div class="list-row group" id="item-${item.source}-${item.id}">
                         
@@ -365,16 +418,13 @@
                             
                             <div class="flex flex-col md:flex-row md:items-center gap-2 md:w-1/3">
                                 <div class="flex items-center gap-2">
-                                    <span class="text-[10px] px-1.5 py-0.5 rounded border ${badgeClass} whitespace-nowrap">
-                                        ${badgeText}
-                                    </span>
-                                    <span class="font-bold text-gray-200 text-sm md:text-base truncate" title="${item.name}">
-                                        ${displayName}
-                                    </span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded border ${badgeClass} whitespace-nowrap">${badgeText}</span>
+                                    <span class="font-bold text-gray-200 text-sm md:text-base truncate" title="${item.name}">${displayName}</span>
                                 </div>
                             </div>
 
-                            <div class="flex flex-col gap-1 md:w-1/2"> <div class="flex items-center gap-2 text-xs text-gray-400">
+                            <div class="flex flex-col gap-1 md:w-1/2">
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
                                     <span class="w-4 text-center opacity-50">📅</span>
                                     <span class="font-mono">${dateStr}</span>
                                 </div>
@@ -389,35 +439,34 @@
                                     <span class="w-4 text-center opacity-50">🌍</span>
                                     <span class="truncate">${locStr}</span>
                                 </div>` : ''}
+                                
+                                ${tagsHtml ? `
+                                <div class="flex flex-wrap gap-1 mt-0.5 pl-6">
+                                    ${tagsHtml}
+                                </div>` : ''}
                             </div>
-
-                            </div>
+                        </div>
 
                         <div class="ml-auto pl-2 flex flex-col justify-center gap-2 shrink-0">
-                            
                             <button onclick="copyToClipboard('${item.coordinate}', this)" 
-                                class="flex items-center justify-center w-9 h-9 md:w-auto md:h-8 md:px-3 bg-gray-800 hover:bg-blue-500/20 text-gray-500 hover:text-blue-400 border border-gray-700 hover:border-blue-500/50 rounded transition-all duration-200"
-                                title="複製座標">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                                </svg>
-                                <span class="hidden md:inline text-xs font-medium">複製</span>
+                                class="flex items-center justify-center w-9 h-9 md:w-auto md:h-8 md:px-3 bg-gray-800 hover:bg-blue-500/20 text-gray-500 hover:text-blue-400 border border-gray-700 hover:border-blue-500/50 rounded transition-all duration-200" title="複製座標">
+                                <span class="text-xs">📋</span>
+                            </button>
+
+                            <button onclick="openEditModal('${item.source}', '${item.id}')" 
+                                class="flex items-center justify-center w-9 h-9 md:w-auto md:h-8 md:px-3 bg-gray-800 hover:bg-yellow-500/20 text-gray-500 hover:text-yellow-400 border border-gray-700 hover:border-yellow-500/50 rounded transition-all duration-200" title="編輯">
+                                <span class="text-xs">✏️</span>
                             </button>
 
                             <button onclick="deleteItem('${item.source}', '${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.friend_code || ''}')" 
-                                class="flex items-center justify-center w-9 h-9 md:w-auto md:h-8 md:px-3 bg-gray-800 hover:bg-red-500/20 text-gray-500 hover:text-red-400 border border-gray-700 hover:border-red-500/50 rounded transition-all duration-200 group-hover:text-gray-400"
-                                title="刪除此項目">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                                <span class="hidden md:inline text-xs font-medium">刪除</span>
+                                class="flex items-center justify-center w-9 h-9 md:w-auto md:h-8 md:px-3 bg-gray-800 hover:bg-red-500/20 text-gray-500 hover:text-red-400 border border-gray-700 hover:border-red-500/50 rounded transition-all duration-200" title="刪除">
+                                <span class="text-xs">🗑️</span>
                             </button>
                         </div>
-
                     </div>`;
                 });
 
-                htmlContent += `</div>`; // 關閉 flex-col
+                htmlContent += `</div>`;
                 groupEl.innerHTML = htmlContent;
                 container.appendChild(groupEl);
             });
@@ -532,6 +581,225 @@
         window.viewImage = (url) => { document.getElementById('viewer-image').src = url; document.getElementById('image-viewer-modal').classList.remove('hidden'); };
         window.closeImageViewer = () => { document.getElementById('image-viewer-modal').classList.add('hidden'); };
         document.addEventListener('DOMContentLoaded', init);
+
+        // --- 編輯功能相關函式 ---
+        // --- 編輯功能與圖片處理 ---
+
+        // 1. 開啟編輯視窗
+        window.openEditModal = (source, id) => {
+            let targetItem = null;
+            // 搜尋目前顯示的資料
+            for (const group of currentTabData[activeTab]) {
+                const found = group.items.find(i => i.source === source && i.id == id);
+                if (found) { targetItem = found; break; }
+            }
+            if (!targetItem) return alert('找不到資料');
+
+            // 填入資料
+            document.getElementById('edit-source').value = source;
+            document.getElementById('edit-id').value = id;
+            document.getElementById('edit-coord').value = targetItem.coordinate || '';
+            document.getElementById('edit-country').value = targetItem.country || '';
+            document.getElementById('edit-region').value = targetItem.region || '';
+            document.getElementById('edit-area').value = targetItem.area || '';
+            
+            // 藝廊需要的驗證欄位
+            if (source === 'gallery') {
+                document.getElementById('edit-nickname').value = targetItem.name; 
+                document.getElementById('edit-friendcode').value = targetItem.friend_code;
+            }
+
+            const tags = targetItem.tags || [];
+            [1,2,3].forEach((n, i) => document.getElementById(`edit-tag-${n}`).value = tags[i] || '');
+
+            // 圖片重置
+            document.getElementById('edit-image-preview').src = targetItem.image_url;
+            document.getElementById('edit-image-filename').textContent = '尚未選擇新圖片 (保留原圖)';
+            document.getElementById('edit-image-filename').className = 'text-xs text-gray-400 mb-2 break-all truncate';
+            document.getElementById('edit-image-upload').value = '';
+
+            document.getElementById('edit-modal').classList.remove('hidden');
+        };
+
+        window.closeEditModal = () => document.getElementById('edit-modal').classList.add('hidden');
+
+        // 2. 圖片預覽 (只是預覽，不影響資料庫)
+        window.handleImagePreview = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('edit-image-preview').src = URL.createObjectURL(file);
+                const nameEl = document.getElementById('edit-image-filename');
+                nameEl.textContent = `準備上傳: ${file.name}`;
+                nameEl.className = 'text-xs text-blue-400 font-bold mb-2 break-all truncate';
+            }
+        };
+
+        // 3. 送出表單 (上傳新圖 -> 呼叫後端 API)
+        window.handleEditSubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('save-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true; btn.textContent = '處理中...';
+
+            const source = document.getElementById('edit-source').value;
+            const id = document.getElementById('edit-id').value;
+            const fileInput = document.getElementById('edit-image-upload');
+
+            try {
+                let newImageUrl = null;
+
+                // [Step 1] 如果有選新圖，先壓縮並上傳
+                if (fileInput.files.length > 0) {
+                    btn.textContent = '上傳圖片...';
+                    const compressedFile = await compressImage(fileInput.files[0]);
+                    
+                    // 根據來源決定 Bucket (參考您的後端邏輯)
+                    const bucket = source === 'library' ? 'postcard-images' : 'guest-postcard-images';
+                    newImageUrl = await uploadImageToStorage(bucket, compressedFile);
+                }
+
+                // [Step 2] 呼叫後端 API
+                btn.textContent = '儲存資料...';
+                
+                const payload = {
+                    coordinate: document.getElementById('edit-coord').value,
+                    country: document.getElementById('edit-country').value,
+                    region: document.getElementById('edit-region').value,
+                    area: document.getElementById('edit-area').value,
+                    tags: [1,2,3].map(i => document.getElementById(`edit-tag-${i}`).value.trim()).filter(Boolean)
+                };
+
+                // 若有新圖才放入 payload，後端 index.ts 會自動偵測並刪除舊圖
+                if (newImageUrl) payload.imageUrl = newImageUrl; // 注意參數名稱統一為 imageUrl
+
+                let action = '';
+                let bodyPayload = {};
+
+                if (source === 'library') {
+                    action = 'edit-postcard';
+                    bodyPayload = { ...payload, postcardId: id };
+                } else {
+                    action = 'edit-guest-postcard';
+                    bodyPayload = { 
+                        ...payload, 
+                        id: id,
+                        nickname: document.getElementById('edit-nickname').value,
+                        friendCode: document.getElementById('edit-friendcode').value
+                    };
+                }
+
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action, payload: bodyPayload })
+                });
+
+                if (error) throw error;
+                if (data && data.success === false) throw new Error(data.message);
+
+                // [Step 3] 更新成功，手動更新本地列表顯示
+                if (newImageUrl) payload.image_url = newImageUrl; // 轉為小寫 key 更新本地快取
+                updateLocalData(source, id, payload);
+
+                alert('更新成功！');
+                closeEditModal();
+                renderActiveTab(); // 重繪介面
+
+            } catch (err) {
+                console.error(err);
+                alert(`失敗: ${err.message}`);
+            } finally {
+                btn.disabled = false; btn.textContent = originalText;
+            }
+        };
+
+        // 輔助：更新本地資料 (避免重新整理)
+        function updateLocalData(source, id, newProps) {
+            const updateList = (list) => {
+                list.forEach(g => {
+                    const item = g.items.find(i => i.source === source && i.id == id);
+                    if (item) {
+                        item.coordinate = newProps.coordinate;
+                        item.country = newProps.country;
+                        item.region = newProps.region;
+                        item.area = newProps.area;
+                        item.tags = newProps.tags;
+                        if (newProps.image_url) item.image_url = newProps.image_url;
+                    }
+                });
+            };
+            updateList(currentTabData.exact);
+            updateList(currentTabData.fuzzy);
+        }
+
+        // 輔助：上傳圖片到 Storage
+        async function uploadImageToStorage(bucket, file) {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+            const { error } = await supabaseClient.storage.from(bucket).upload(fileName, file);
+            if (error) throw error;
+            const { data } = supabaseClient.storage.from(bucket).getPublicUrl(fileName);
+            return data.publicUrl;
+        }
+
+        // 輔助：圖片壓縮 (標準設定)
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                new Compressor(file, {
+                    quality: 0.6, maxWidth: 1600, maxHeight: 1600, mimeType: 'image/jpeg',
+                    success(result) { resolve(new File([result], file.name, { type: 'image/jpeg' })); },
+                    error(err) { reject(err); },
+                });
+            });
+        }
+
+        // 輔助：座標格式化 & 自動反查 (整合版)
+        function formatCoordinateString(val) {
+            if (!val) return "";
+            let str = val.trim();
+            let match = str.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (match) return `${parseFloat(match[1]).toFixed(7)}, ${parseFloat(match[2]).toFixed(7)}`;
+            match = str.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (match) return `${parseFloat(match[1]).toFixed(7)}, ${parseFloat(match[2]).toFixed(7)}`;
+            
+            // 處理一般座標
+            let tempStr = str.replace(/，/g, ',');
+            const numbers = tempStr.match(/(-?\d+(\.\d+)?)/g);
+            if (numbers && numbers.length >= 2) return `${parseFloat(numbers[0]).toFixed(7)}, ${parseFloat(numbers[1]).toFixed(7)}`;
+            return val;
+        }
+
+        async function autoFillLocation(lat, lng) {
+            const countryIn = document.getElementById('edit-country');
+            const regionIn = document.getElementById('edit-region');
+            const areaIn = document.getElementById('edit-area');
+            
+            countryIn.placeholder = '🔍...'; regionIn.placeholder = '🔍...';
+            try {
+                const { data: resData } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'reverse-geocode', payload: { lat, lng } })
+                });
+                if (resData?.data?.address) {
+                    const addr = resData.data.address;
+                    if (addr.country) countryIn.value = addr.country;
+                    if (addr.city || addr.county) regionIn.value = (addr.city || addr.county).replace(/臺/g, '台');
+                    if (addr.suburb || addr.district) areaIn.value = addr.suburb || addr.district;
+                }
+            } catch (e) { console.error(e); }
+            countryIn.placeholder = ''; regionIn.placeholder = '';
+        }
+
+        // 綁定工具事件
+        document.getElementById('paste-btn').onclick = async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    const fmt = formatCoordinateString(text);
+                    document.getElementById('edit-coord').value = fmt;
+                    const parts = fmt.split(',');
+                    if (parts.length === 2) await autoFillLocation(parts[0].trim(), parts[1].trim());
+                }
+            } catch(e) {}
+        };
+        document.getElementById('edit-coord').addEventListener('blur', function() { this.value = formatCoordinateString(this.value); });
     </script>
 </body>
 </html>
