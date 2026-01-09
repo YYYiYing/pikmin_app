@@ -379,7 +379,7 @@
                                     <span class="font-mono">${dateStr}</span>
                                 </div>
 
-                                <div class="flex items-center gap-2 text-xs text-gray-400 font-mono select-all">
+                                <div class="flex items-center gap-2 text-[10px] md:text-xs tracking-tighter md:tracking-normal text-gray-400 font-mono select-all">
                                     <span class="w-4 text-center opacity-50">📍</span>
                                     <span class="truncate text-gray-300">${item.coordinate}</span>
                                 </div>
@@ -393,10 +393,10 @@
 
                             </div>
 
-                        <div class="ml-auto pl-3 flex items-center gap-2">
+                        <div class="ml-auto pl-2 flex flex-col justify-center gap-2 shrink-0">
                             
                             <button onclick="copyToClipboard('${item.coordinate}', this)" 
-                                class="flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-3 md:py-2 bg-transparent hover:bg-blue-500/10 text-gray-500 hover:text-blue-400 border border-transparent hover:border-blue-500/30 rounded-lg transition-all duration-200"
+                                class="flex items-center justify-center w-9 h-9 md:w-auto md:h-8 md:px-3 bg-gray-800 hover:bg-blue-500/20 text-gray-500 hover:text-blue-400 border border-gray-700 hover:border-blue-500/50 rounded transition-all duration-200"
                                 title="複製座標">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
@@ -405,9 +405,9 @@
                             </button>
 
                             <button onclick="deleteItem('${item.source}', '${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.friend_code || ''}')" 
-                                class="flex flex-col md:flex-row items-center justify-center gap-1 w-10 h-10 md:w-auto md:h-auto md:px-3 md:py-2 bg-transparent hover:bg-red-500/10 text-gray-500 hover:text-red-400 border border-transparent hover:border-red-500/30 rounded-lg transition-all duration-200 group-hover:text-gray-400"
+                                class="flex items-center justify-center w-9 h-9 md:w-auto md:h-8 md:px-3 bg-gray-800 hover:bg-red-500/20 text-gray-500 hover:text-red-400 border border-gray-700 hover:border-red-500/50 rounded transition-all duration-200 group-hover:text-gray-400"
                                 title="刪除此項目">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                                 <span class="hidden md:inline text-xs font-medium">刪除</span>
