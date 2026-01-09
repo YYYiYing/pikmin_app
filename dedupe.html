@@ -170,7 +170,28 @@
             return parts.join(',');
         };
 
+        // 計算兩點座標距離 (單位: 公尺)
+        function calculateDistance(coord1, coord2) {
+            if (!coord1 || !coord2) return Infinity;
+            const [lat1, lon1] = coord1.split(',').map(n => parseFloat(n));
+            const [lat2, lon2] = coord2.split(',').map(n => parseFloat(n));
+            
+            const R = 6371e3; // 地球半徑 (公尺)
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c; // 回傳距離 (公尺)
+        }
+
         async function scanLocalDuplicates() {
+            // 1. 抓取資料
             const [libRes, galRes] = await Promise.all([
                 supabaseClient.from('postcards').select('*'),
                 supabaseClient.from('guest_postcards').select('*')
@@ -184,48 +205,80 @@
                 ...galleryItems.map(i => ({...i, source: 'gallery', name: i.nickname, label: '藝廊'}))
             ];
             
-            // 需求：排除「系統轉移 (system_import)」且「圖書館已有原始檔」的合法共用資料
+            // 2. 篩選：排除「系統轉移 (system_import)」且「圖書館已有原始檔」的合法共用資料
             const filteredItems = allItems.filter(item => {
-                // 1. 鎖定藝廊來源，且 ip_fingerprint 標記為 'system_import'
                 if (item.source === 'gallery' && item.ip_fingerprint === 'system_import') {
-                    
-                    // 2. 檢查圖書館是否已存在「完全相同座標」的原始檔
-                    // 使用 getCoordKey(..., 6) 確保比對精度一致
+                    // 檢查圖書館是否已存在「完全相同座標」的原始檔
                     const existsInLib = libraryItems.some(lib => 
                         getCoordKey(lib.coordinate, 6) === getCoordKey(item.coordinate, 6)
                     );
-                    
-                    // 3. 如果圖書館有原始檔，代表這是合法的共用空間，不視為重複，予以【隱藏】
+                    // 如果圖書館有原始檔，予以隱藏
                     if (existsInLib) return false; 
                 }
-                return true; // 其他情況都保留在檢查列表中
+                return true; 
             });
 
+            // 3. 處理完全重複 (邏輯維持不變)
             const exactGroups = new Map();
-            const fuzzyGroups = new Map();
-
             filteredItems.forEach(item => {
                 const eKey = getCoordKey(item.coordinate, 6);
-                const fKey = getCoordKey(item.coordinate, 3);
-
                 if (!exactGroups.has(eKey)) exactGroups.set(eKey, []);
                 exactGroups.get(eKey).push(item);
-
-                if (!fuzzyGroups.has(fKey)) fuzzyGroups.set(fKey, []);
-                fuzzyGroups.get(fKey).push(item);
             });
 
+            // 4. 處理鄰近偵測 (更新：改為距離演算法 1100m)
+            const fuzzyResults = [];
+            const visitedIds = new Set(); // 記錄已分組的項目 (避免重複列入)
+            const DISTANCE_LIMIT = 1200;  // 設定判定距離為 1200 公尺
+
+            // 複製一份陣列來進行比對
+            const pool = [...filteredItems];
+
+            for (let i = 0; i < pool.length; i++) {
+                const baseItem = pool[i];
+                // 產生唯一 ID key (source + id) 以防不同資料表 ID 重複
+                const baseIdKey = `${baseItem.source}_${baseItem.id}`;
+
+                if (visitedIds.has(baseIdKey)) continue; // 若已分組過則跳過
+
+                // 建立新群組，以 baseItem 為中心
+                const group = [baseItem];
+                visitedIds.add(baseIdKey);
+
+                // 往後尋找所有距離 1200m 內的點
+                for (let j = i + 1; j < pool.length; j++) {
+                    const candidate = pool[j];
+                    const candidateIdKey = `${candidate.source}_${candidate.id}`;
+
+                    if (visitedIds.has(candidateIdKey)) continue;
+
+                    // 使用您第一步驟加入的 calculateDistance 函式
+                    const dist = calculateDistance(baseItem.coordinate, candidate.coordinate);
+                    
+                    if (dist <= DISTANCE_LIMIT) {
+                        group.push(candidate);
+                        visitedIds.add(candidateIdKey);
+                    }
+                }
+
+                // 只有當群組內有 2 筆以上資料時才算重複群組
+                if (group.length > 1) {
+                    const centerCoord = getCoordKey(baseItem.coordinate, 4);
+                    fuzzyResults.push({
+                        key: `鄰近群組 (~${centerCoord})`, // 群組標題
+                        items: group
+                    });
+                }
+            }
+
+            // 5. 更新全域資料狀態
             currentTabData.exact = Array.from(exactGroups.entries())
                 .filter(([_, items]) => items.length > 1)
                 .map(([key, items]) => ({ key, items }));
 
-            currentTabData.fuzzy = Array.from(fuzzyGroups.entries())
-                .filter(([fKey, items]) => {
-                    const uniquePoints = new Set(items.map(i => getCoordKey(i.coordinate, 6)));
-                    return items.length > 1 && uniquePoints.size > 1; 
-                })
-                .map(([key, items]) => ({ key, items }));
+            currentTabData.fuzzy = fuzzyResults; // 使用新的距離演算結果
 
+            // 6. 更新介面數字與內容
             document.getElementById('count-exact').textContent = currentTabData.exact.length;
             document.getElementById('count-fuzzy').textContent = currentTabData.fuzzy.length;
             document.getElementById('status-bar').textContent = ''; 
@@ -321,11 +374,16 @@
                                 </div>
                             </div>
 
-                            <div class="flex flex-col gap-1 md:w-1/3">
-                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                            <div class="flex flex-col gap-1 md:w-1/2"> <div class="flex items-center gap-2 text-xs text-gray-400">
                                     <span class="w-4 text-center opacity-50">📅</span>
                                     <span class="font-mono">${dateStr}</span>
                                 </div>
+
+                                <div class="flex items-center gap-2 text-xs text-gray-400 font-mono select-all">
+                                    <span class="w-4 text-center opacity-50">📍</span>
+                                    <span class="truncate text-gray-300">${item.coordinate}</span>
+                                </div>
+
                                 ${locStr ? `
                                 <div class="flex items-center gap-2 text-xs text-blue-300/80" title="${locStr}">
                                     <span class="w-4 text-center opacity-50">🌍</span>
@@ -333,12 +391,7 @@
                                 </div>` : ''}
                             </div>
 
-                            <div class="hidden md:flex items-center gap-2 text-[10px] text-gray-500 font-mono md:w-1/4 select-all">
-                                <span class="w-4 text-center">📍</span>
-                                <span class="truncate opacity-50">${item.coordinate}</span>
                             </div>
-
-                        </div>
 
                         <div class="ml-auto pl-3 flex items-center gap-2">
                             
