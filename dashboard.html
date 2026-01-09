@@ -852,6 +852,12 @@
 
         <div id="toast-message" class="hidden fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg"></div>
 
+        <button id="back-to-top-btn" class="hidden fixed bottom-24 right-4 z-30 bg-gray-700/80 hover:bg-indigo-600 text-white p-3 rounded-full shadow-lg border border-gray-600 transition-all duration-300 backdrop-blur-sm group translate-y-4 opacity-0" title="回到頂部">
+            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="24" height="24" fill="currentColor" class="bi bi-arrow-up-short group-hover:-translate-y-1 transition-transform" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5z"/>
+            </svg>
+        </button>
+
 <div id="library-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 modal-backdrop">
     <div class="modal-content w-full max-w-4xl rounded-2xl shadow-xl p-6 bg-gray-800 border border-gray-600 flex flex-col max-h-[90vh]">
         <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
@@ -3954,6 +3960,73 @@
             btn.textContent = originalText;
         }
     };
+
+    // 返回頂端功能 (Back to Top) 
+    
+    // 1. 宣告變數
+    const backToTopBtn = document.getElementById('back-to-top-btn');
+    const headerTitle = document.querySelector('header h1'); // 抓取 LOGO 文字
+    const headerImg = document.querySelector('header img');  // 抓取 LOGO 圖片
+
+    // 2. 定義捲動行為 (加速 + 煞車修正版)
+    function scrollToTop() {
+        const currentScroll = window.scrollY;
+        
+        // ▼▼▼ 速度調整區 (數字越小越快) ▼▼▼
+        const speedFactor = 4; 
+
+        if (currentScroll > 0) {
+            // 煞車機制：如果距離頂部小於 10px，直接歸零並結束函式
+            // 這樣可以防止程式進入無限迴圈
+            if (currentScroll < 10) {
+                window.scrollTo(0, 0);
+                return; // 這裡最關鍵，讓程式「停下來」
+            }
+
+            // 否則繼續往上捲
+            window.requestAnimationFrame(scrollToTop);
+            window.scrollTo(0, currentScroll - (currentScroll / speedFactor));
+        }
+    }
+
+    // 3. 監聽畫面捲動：控制按鈕顯隱
+    window.addEventListener('scroll', () => {
+        if (!backToTopBtn) return;
+        
+        // 當捲動超過 300px 時顯示
+        if (window.scrollY > 300) {
+            backToTopBtn.classList.remove('hidden');
+            // 小延遲讓 display:block 生效後再執行動畫
+            requestAnimationFrame(() => {
+                backToTopBtn.classList.remove('opacity-0', 'translate-y-4');
+            });
+        } else {
+            backToTopBtn.classList.add('opacity-0', 'translate-y-4');
+            // 等動畫結束後再隱藏 (配合 duration-300)
+            setTimeout(() => {
+                if (window.scrollY <= 300) backToTopBtn.classList.add('hidden');
+            }, 300);
+        }
+    });
+
+    // 4. 綁定按鈕點擊
+    if (backToTopBtn) {
+        backToTopBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            scrollToTop();
+        });
+    }
+
+    // 5. (額外優化) 讓點擊 Header LOGO 也能回頂端，手機操作更順手
+    if (headerTitle) {
+        headerTitle.style.cursor = 'pointer';
+        headerTitle.addEventListener('click', scrollToTop);
+    }
+    if (headerImg) {
+        headerImg.style.cursor = 'pointer';
+        headerImg.addEventListener('click', scrollToTop);
+    }
+
 </script>
 </body>
 </html>
