@@ -1851,7 +1851,7 @@
                 // 4. 處理操作按鈕 (整合 已入/缺席 邏輯)
                 let actionBtn = '';
                 if (isCurrentUserHost) {
-                    const baseBtnStyle = "mr-2 text-[10px] px-2 py-0.5 rounded transition whitespace-nowrap border";
+                    const baseBtnStyle = "mr-1 md:mr-2 text-[10px] px-1 md:px-2 py-0.5 rounded transition whitespace-nowrap border";
                     
                     // A. 點名按鈕 (整合狀態顯示)
                     // 狀態：已入 (亮綠色，帶勾勾) vs 未入 (灰色框，無勾勾)
@@ -1904,7 +1904,7 @@
                         <div class="flex items-center flex-shrink-0 ml-2">
                             ${actionBtn}
                             ${checkedInIcon}
-                            <span class="text-xs text-gray-500 font-mono w-20 text-right whitespace-nowrap">${time}</span>
+                            <span class="text-[10px] md:text-xs tracking-tighter md:tracking-normal text-gray-500 font-mono w-14 md:w-20 text-right whitespace-nowrap">${time}</span>
                         </div>
                     </div>`;
             }).join('');
