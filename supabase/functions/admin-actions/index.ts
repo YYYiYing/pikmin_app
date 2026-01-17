@@ -1182,64 +1182,85 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: newSignup }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 訪客取消報名 (Cancel) - 強化人數計算安全性 + 已發車檢核 (v2: 備取可自由取消 / 已入者鎖定)
+    // 訪客取消報名 (Cancel) - v3 穩健版 (拆分查詢，避免 Join 錯誤)
     if (action === 'guest-cancel-signup') {
+        // 防呆：確保 payload 存在
+        if (!payload) {
+             return new Response(JSON.stringify({ error: '資料傳輸錯誤(Payload missing)' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
+        
         const { challengeId, nickname, friendCode } = payload;
+
+        if (!nickname || !friendCode) {
+            return new Response(JSON.stringify({ error: '資料不完整：無法識別您的身分 (請重新設定暱稱與好友碼)' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
+
         const guestName = `${nickname}💪${friendCode}`;
 
-        // 1. 查詢該挑戰目前的狀態與「所有」報名名單 (為了計算排名)
-        // 必須選出 is_checked_in 欄位
+        // 1. 單獨查詢挑戰狀態
         const { data: challengeData, error: checkErr } = await adminSupabaseClient
             .from('challenges')
-            .select('slots, status, dispatch_status, signups(guest_name, created_at, is_checked_in)')
+            .select('slots, status, dispatch_status')
             .eq('id', challengeId)
             .single();
 
         if (checkErr || !challengeData) {
-            throw new Error('找不到該挑戰或資料讀取失敗');
+            console.error('Fetch Challenge Error:', checkErr);
+            return new Response(JSON.stringify({ error: `讀取挑戰失敗: ${checkErr?.message || '查無此 ID'}` }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
 
-        // 2. 找到使用者的報名紀錄與排名
-        const allSignups = challengeData.signups || [];
-        // 依報名時間排序 (早的在前)
-        allSignups.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        // 2. 單獨查詢報名名單
+        // 對應 Schema：選取 signed_up_at, guest_name, is_checked_in, id
+        const { data: signupsList, error: signupErr } = await adminSupabaseClient
+            .from('signups')
+            .select('guest_name, is_checked_in, id, signed_up_at') 
+            .eq('challenge_id', challengeId)
+            .order('id', { ascending: true }); // 使用 id 排序最準確 (FIFO)
 
+        if (signupErr) {
+            console.error('Fetch Signups Error:', signupErr);
+            return new Response(JSON.stringify({ error: `讀取名單失敗: ${signupErr.message}` }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
+
+        // 3. 找到使用者的報名紀錄與排名
+        const allSignups = signupsList || [];
         const myIndex = allSignups.findIndex((s: any) => s.guest_name === guestName);
         
         if (myIndex === -1) {
-             throw new Error('取消失敗：找不到您的報名紀錄 (請確認暱稱與好友碼是否與報名時一致)');
+             return new Response(JSON.stringify({ error: '取消失敗：找不到您的報名紀錄 (請確認暱稱與好友碼是否與報名時一致)' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
 
         const myRecord = allSignups[myIndex];
-        const myRank = myIndex + 1; // 排名從 1 開始
-        const isWaitlist = myRank > challengeData.slots; // 是否為備取
+        const myRank = myIndex + 1; 
+        const isWaitlist = myRank > challengeData.slots; 
 
         // --- 核心權限檢查 ---
         
-        // 條件 A: 如果已經被標記為「已入」(Checked In)，絕對禁止取消 (防止領了獎勵又退掉)
-        if (myRecord.is_checked_in) {
-            throw new Error('取消失敗：發菇者確認您「已入場」，無法取消報名。');
+        // 條件 A: 已入
+        // Schema 定義 is_checked_in 為 boolean default false，但可能為 null，這裡做轉型確保安全
+        if (!!myRecord.is_checked_in) {
+            return new Response(JSON.stringify({ error: '取消失敗：發菇者確認您「已入場」，無法取消報名。' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
         }
 
-        // 條件 B: 如果狀態是「已發」，則只有「備取」可以取消，「正取」鎖定
+        // 條件 B: 已發車 (僅正取鎖定)
         if (challengeData.dispatch_status === '已發') {
             if (!isWaitlist) {
-                // 如果是正取，且已發車 -> 禁止取消
-                throw new Error('取消失敗：車長已經發車囉！正取人員無法取消報名。');
+                return new Response(JSON.stringify({ error: '取消失敗：車長已經發車囉！正取人員無法取消報名。' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
             }
-            // 如果是備取 (isWaitlist === true)，即使已發車也可以取消 (Pass)
         }
 
-        // 3. 執行刪除
-        const { error, count } = await adminSupabaseClient
+        // 4. 執行刪除
+        const { error: delError } = await adminSupabaseClient
             .from('signups')
             .delete({ count: 'exact' })
             .eq('challenge_id', challengeId)
             .eq('guest_name', guestName);
 
-        if (error) throw new Error(`取消失敗: ${error.message}`);
+        if (delError) {
+             return new Response(JSON.stringify({ error: `取消失敗: ${delError.message}` }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        }
         
-        // 4. 重新計算狀態 (邏輯保持不變)
+        // 5. 重新計算狀態 (更新 Challenges 表)
         const { data: challenge, error: getErr } = await adminSupabaseClient
             .from('challenges')
             .select('slots, start_time, status, signups(count)')
@@ -1253,20 +1274,12 @@ serve(async (req) => {
             const startTime = new Date(challenge.start_time);
             let newStatus = challenge.status;
 
-            if (startTime > now) {
-                newStatus = '預計開放';
-            } 
-            else if (currentCount >= slots) {
-                newStatus = '已額滿';
-            } else {
-                newStatus = '開放報名中';
-            }
+            if (startTime > now) newStatus = '預計開放';
+            else if (currentCount >= slots) newStatus = '已額滿';
+            else newStatus = '開放報名中';
 
             if (newStatus !== challenge.status) {
-                await adminSupabaseClient
-                    .from('challenges')
-                    .update({ status: newStatus })
-                    .eq('id', challengeId);
+                await adminSupabaseClient.from('challenges').update({ status: newStatus }).eq('id', challengeId);
             }
         }
 

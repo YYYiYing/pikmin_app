@@ -1767,39 +1767,65 @@
         };
 
         window.handleGuestCancel = async (challengeId) => {
-            if (!confirm(safeT('confirm_cancel_join', '確定要取消報名嗎？'))) return;
+        // 1. 確認對話框
+        if (!confirm(safeT('confirm_cancel_join', '確定要取消報名嗎？'))) return;
 
-            const nick = localStorage.getItem('guest_nick');
-            const code = localStorage.getItem('guest_code');
+        // 2. 取得身分資料
+        const nick = localStorage.getItem('guest_nick');
+        const code = localStorage.getItem('guest_code');
+
+        // ★★★ 新增：身分檢查邏輯 (防止資料為空導致後端報錯) ★★★
+        if (!nick || !code) {
+            // 提示使用者
+            showToast(safeT('toast_fill_all', '請先設定訪客身分，需與報名時一致！'), true);
             
-            const btn = event.target;
-            btn.disabled = true; btn.textContent = '...';
-
-            try {
-                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
-                    body: JSON.stringify({ 
-                        action: 'guest-cancel-signup', 
-                        payload: { challengeId, nickname: nick, friendCode: code } 
-                    })
-                });
-
-                if (error) throw error;
-                if (data && data.error) throw new Error(data.error);
-
-                showToast(safeT('toast_cancel_success', '已取消報名'), false);
-
-                let mySignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
-                mySignups = mySignups.filter(s => String(s.challengeId) !== String(challengeId));
-                localStorage.setItem('my_guest_signups', JSON.stringify(mySignups));
-
-                loadChallenges();
-
-            } catch (e) {
-                console.error(e);
-                showToast(`Error: ${e.message}`, true);
-                btn.disabled = false; btn.textContent = safeT('btn_cancel_join', '取消報名');
+            // 自動捲動到設定區塊
+            const infoSection = document.getElementById('guest-info-section');
+            if (infoSection) {
+                infoSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // 如果 toggleInfoSection 函式存在，則展開設定區
+                if (typeof toggleInfoSection === 'function') {
+                    toggleInfoSection(true);
+                }
             }
-        };
+            return; // 直接中斷執行，不發送請求
+        }
+        
+        // 3. 鎖定按鈕 (只有通過檢查才會執行到這裡)
+        const btn = event.target;
+        btn.disabled = true; 
+        btn.textContent = '...';
+
+        // 4. 執行 API 請求
+        try {
+            const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                body: JSON.stringify({ 
+                    action: 'guest-cancel-signup', 
+                    payload: { challengeId, nickname: nick, friendCode: code } 
+                })
+            });
+
+            if (error) throw error;
+            if (data && data.error) throw new Error(data.error);
+
+            showToast(safeT('toast_cancel_success', '已取消報名'), false);
+
+            // 更新本地暫存
+            let mySignups = JSON.parse(localStorage.getItem('my_guest_signups') || '[]');
+            mySignups = mySignups.filter(s => String(s.challengeId) !== String(challengeId));
+            localStorage.setItem('my_guest_signups', JSON.stringify(mySignups));
+
+            // 重新讀取列表
+            loadChallenges();
+
+        } catch (e) {
+            console.error(e);
+            showToast(`Error: ${e.message}`, true);
+            // 發生錯誤時恢復按鈕狀態
+            btn.disabled = false; 
+            btn.textContent = safeT('btn_cancel_join', '取消報名');
+        }
+    };
 
         let onlineUserList = []; 
 
