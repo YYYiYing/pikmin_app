@@ -647,7 +647,7 @@
                         <div class="flex gap-2 mt-1">
                             <input type="file" id="challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"/>
                             <button type="button" onclick="openLibraryModal('challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
-                                📖 圖書館
+                                🖼️ 美片
                             </button>
                         </div>
                         </div>
@@ -708,7 +708,7 @@
                     </div>
                     <div>
                         <label for="edit-slots" class="block text-sm font-medium text-gray-400">名額</label>
-                        <input type="number" id="edit-slots" min="1" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                        <input type="number" id="edit-slots" min="1" max="4" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
                     </div>
                     <div>
                         <div class="flex justify-between items-center">
@@ -742,8 +742,8 @@
                         <label for="edit-challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
                         <div class="flex gap-2 mt-1">
                             <input type="file" id="edit-challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"/>
-                            <button type="button" onclick="openLibraryModal('edit-challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
-                                📖 圖書館
+                            <button type="button" onclick="openLibraryModal('challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
+                                🖼️ 美片
                             </button>
                         </div>
                     </div>
@@ -860,16 +860,46 @@
 
 <div id="library-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 modal-backdrop">
     <div class="modal-content w-full max-w-4xl rounded-2xl shadow-xl p-6 bg-gray-800 border border-gray-600 flex flex-col max-h-[90vh] overflow-y-auto">
+        
         <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
             <h3 class="text-xl font-bold text-white flex items-center gap-2">
                 <span>🖼️</span> 選擇美片
-                <span id="lib-loading" class="text-sm text-gray-400 font-normal hidden">(載入中...)</span>
             </h3>
             <button type="button" onclick="closeLibraryModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
-        
-        <div id="library-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 overflow-y-auto p-2 min-h-[300px]">
+
+        <div class="flex justify-center mb-4">
+            <div class="bg-gray-700 p-1 rounded-lg inline-flex">
+                <button onclick="switchArtTab('library')" id="tab-library" class="px-6 py-1.5 rounded-md text-sm font-bold transition bg-pink-600 text-white shadow-sm">
+                    📖 圖書館 (私房)
+                </button>
+                <button onclick="switchArtTab('gallery')" id="tab-gallery" class="px-6 py-1.5 rounded-md text-sm font-bold text-gray-400 hover:text-gray-200 transition">
+                    🎨 藝廊 (公開)
+                </button>
             </div>
+        </div>
+        
+        <div id="lib-loading" class="hidden text-center py-4">
+            <span class="text-pink-400 animate-pulse font-bold">正在讀取美片數據...</span>
+        </div>
+
+        <div id="library-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2 overflow-y-auto min-h-[200px]">
+            </div>
+
+        <div id="lib-pagination" class="flex justify-center items-center gap-3 mt-4 mb-2">
+            <button onclick="changeLibPage(-1)" id="lib-prev-btn" class="flex items-center justify-center w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition">◀</button>
+            
+            <div class="flex items-center bg-gray-900 border border-gray-700 rounded px-2 py-1">
+                <span class="text-xs text-gray-500 mr-2">Page</span>
+                <input type="number" id="lib-page-input" value="1" min="1" 
+                       class="w-12 bg-transparent text-center text-white text-sm outline-none focus:ring-1 focus:ring-pink-500 rounded transition"
+                       onchange="jumpToLibPage(this.value)" 
+                       onkeydown="if(event.key==='Enter') jumpToLibPage(this.value)">
+                <span id="lib-total-pages" class="text-sm text-gray-500 font-mono border-l border-gray-700 pl-2 ml-1">/ 1</span>
+            </div>
+
+            <button onclick="changeLibPage(1)" id="lib-next-btn" class="flex items-center justify-center w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition">▶</button>
+        </div>
 
         <div class="mt-4 flex justify-end pt-2 border-t border-gray-700">
             <button type="button" onclick="closeLibraryModal()" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500">取消</button>
@@ -943,6 +973,16 @@
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    const CDN_HOST = 'https://pikmin-cdn.secretsoulful.workers.dev';
+
+    function getCdnUrl(url) {
+        if (!url) return '';
+        if (url.includes('htdddmoclmhqebyvzean.supabase.co')) {
+            return url.replace('https://htdddmoclmhqebyvzean.supabase.co', CDN_HOST);
+        }
+        return url;
+    }
+
     // 使用者與資料狀態
     let currentUserProfile = null;
     let challengesData = {};        // 儲存所有挑戰資料 (Key: ID)
@@ -999,69 +1039,153 @@
     };
     const wishOrder = ['巨菇', '活動菇', '白', '紅', '黃', '藍'];
 
-    // === 圖書館選圖功能變數 ===
-    let currentLibraryTargetInputId = null; // 紀錄目前是要幫哪個 input 選圖
-    let libraryPostcards = []; // 快取下載的美片列表
+    // ==========================================
+    // ▼▼▼ 美片選擇器 (圖書館 + 藝廊整合版) ▼▼▼
+    // ==========================================
+    
+    let currentLibraryTargetInputId = null;
+    let currentArtTab = 'library'; // 當前標籤: 'library' | 'gallery'
+    
+    // 資料快取 (分別儲存，避免重複讀取)
+    const artCache = {
+        library: null, // 存圖書館資料
+        gallery: null  // 存藝廊資料
+    };
+    
+    // 分頁狀態 (分開紀錄頁碼)
+    const artPages = {
+        library: 1,
+        gallery: 1
+    };
+    
+    const libItemsPerPage = 24; // 統一設定為 24 張
 
-    // 開啟圖書館視窗
-    window.openLibraryModal = async function(targetInputId) {
+    // 開啟視窗
+    window.openLibraryModal = function(targetInputId) {
         currentLibraryTargetInputId = targetInputId;
         const modal = document.getElementById('library-modal');
         modal.classList.remove('hidden');
         
-        // 如果還沒載入過資料，就去抓取
-        if (libraryPostcards.length === 0) {
-            await fetchLibraryImages();
+        // 預設打開圖書館 (或上次停留的標籤)
+        switchArtTab(currentArtTab); 
+    };
+
+    window.closeLibraryModal = function() {
+        document.getElementById('library-modal').classList.add('hidden');
+        document.querySelectorAll('.lib-item').forEach(el => el.classList.remove('selected'));
+    };
+
+    // ★ 切換標籤函式
+    window.switchArtTab = async function(tabName) {
+        currentArtTab = tabName;
+        
+        // 1. 更新按鈕樣式
+        const libBtn = document.getElementById('tab-library');
+        const galBtn = document.getElementById('tab-gallery');
+        const activeClass = 'bg-pink-600 text-white shadow-sm';
+        const inactiveClass = 'text-gray-400 hover:text-gray-200';
+
+        if (tabName === 'library') {
+            libBtn.className = `px-6 py-1.5 rounded-md text-sm font-bold transition ${activeClass}`;
+            galBtn.className = `px-6 py-1.5 rounded-md text-sm font-bold transition ${inactiveClass}`;
+        } else {
+            galBtn.className = `px-6 py-1.5 rounded-md text-sm font-bold transition ${activeClass}`;
+            libBtn.className = `px-6 py-1.5 rounded-md text-sm font-bold transition ${inactiveClass}`;
+        }
+
+        // 2. 檢查快取，若無則抓取
+        if (!artCache[tabName]) {
+            await fetchArtData(tabName);
         } else {
             renderLibraryGrid();
         }
     };
 
-    window.closeLibraryModal = function() {
-        document.getElementById('library-modal').classList.add('hidden');
-        // 清除選取狀態
-        document.querySelectorAll('.lib-item').forEach(el => el.classList.remove('selected'));
-    };
-
-    // 從資料庫抓取最新美片 (只抓 ID 和 URL 以節省流量)
-    async function fetchLibraryImages() {
+    // ★ 抓取資料 (根據標籤決定來源)
+    async function fetchArtData(tabName) {
         const loadingEl = document.getElementById('lib-loading');
+        const grid = document.getElementById('library-grid');
+        
         loadingEl.classList.remove('hidden');
+        grid.innerHTML = ''; // 清空以顯示載入中
+
         try {
-            // 限制抓取最新的 50 張，避免太卡
-            const { data, error } = await supabaseClient
-                .from('postcards')
-                .select('id, image_url')
-                .order('created_at', { ascending: false })
-                .limit(50);
+            let data = [];
             
-            if (error) throw error;
-            libraryPostcards = data;
+            if (tabName === 'library') {
+                // === A. 讀取圖書館 (postcards 資料表) ===
+                const { data: res, error } = await supabaseClient
+                    .from('postcards')
+                    .select('id, image_url')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                data = res;
+
+            } else {
+                // === B. 讀取藝廊 (guest_postcards 資料表 - 透過 RPC) ===
+                // 使用既有的 list-guest-postcards 功能
+                const { data: res, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'list-guest-postcards' })
+                });
+                
+                if (error) throw error;
+                // 注意：list-guest-postcards 回傳結構可能包含 data.data
+                data = res.data || []; 
+            }
+
+            // 存入快取
+            artCache[tabName] = data;
+            artPages[tabName] = 1; // 重置頁碼
+            
             renderLibraryGrid();
+
         } catch (err) {
-            console.error(err);
-            showToast('圖書館載入失敗', true);
+            console.error(`讀取 ${tabName} 失敗:`, err);
+            grid.innerHTML = '<p class="col-span-full text-center text-red-400 py-10">資料讀取失敗，請稍後再試。</p>';
         } finally {
             loadingEl.classList.add('hidden');
         }
     }
 
-    // 渲染圖書館格狀列表 (UI 修正版)
+    // 渲染網格 (通用)
     function renderLibraryGrid() {
         const grid = document.getElementById('library-grid');
-        if(!grid) return;
+        const pagination = document.getElementById('lib-pagination');
+        
+        // 取得當前資料與頁碼
+        const data = artCache[currentArtTab] || [];
+        const page = artPages[currentArtTab];
 
-        if (libraryPostcards.length === 0) {
-            grid.innerHTML = '<p class="col-span-full text-center text-gray-500 mt-10">目前沒有美片可選</p>';
+        if (data.length === 0) {
+            grid.innerHTML = '<p class="col-span-full text-center text-gray-500 mt-10">此區尚無美片</p>';
+            pagination.classList.add('hidden');
             return;
         }
 
-        // 1. 移除 aspect-square (避免手機版高度塌陷)
-        // 2. 加入 h-40 md:h-48 (設定固定高度，手機版較矮，電腦版較高)
-        // 3. 確保 w-full (寬度填滿格子)
-        grid.innerHTML = libraryPostcards.map(p => `
+        pagination.classList.remove('hidden');
+
+        // 1. 計算分頁
+        const totalPages = Math.ceil(data.length / libItemsPerPage);
+        
+        // 防呆校正
+        if (artPages[currentArtTab] > totalPages) artPages[currentArtTab] = 1;
+        
+        // 2. 切割資料
+        const start = (artPages[currentArtTab] - 1) * libItemsPerPage;
+        const end = start + libItemsPerPage;
+        const paginatedItems = data.slice(start, end);
+
+        // 3. 更新 UI 控制項
+        document.getElementById('lib-page-input').value = artPages[currentArtTab];
+        document.getElementById('lib-total-pages').textContent = `/ ${totalPages}`;
+        document.getElementById('lib-prev-btn').disabled = artPages[currentArtTab] === 1;
+        document.getElementById('lib-next-btn').disabled = artPages[currentArtTab] === totalPages;
+
+        // 4. 渲染圖片 (使用 getCdnUrl)
+        grid.innerHTML = paginatedItems.map(p => `
             <div class="lib-item w-full h-20 md:h-40 rounded-lg overflow-hidden bg-gray-900 group relative border border-gray-700 shadow-sm" onclick="selectLibImage('${p.image_url}', this)">
-                <img src="${p.image_url}" loading="lazy" class="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-110">
+                <img src="${getCdnUrl(p.image_url)}" loading="lazy" class="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-110">
                 
                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                     <span class="text-white font-bold bg-pink-600 px-3 py-1 rounded-full text-sm select-none shadow-lg transform scale-95 group-hover:scale-100 transition">
@@ -1074,46 +1198,63 @@
                 </div>
             </div>
         `).join('');
+        
+        grid.scrollTop = 0;
     }
 
-    // 核心邏輯：深層複製 (Deep Copy)
-    // 下載圖片 -> 轉成 File 物件 -> 塞入 Input
-    window.selectLibImage = async function(imageUrl, element) {
-        // UI 回饋：標示選取中
-        document.querySelectorAll('.lib-item').forEach(el => el.classList.remove('selected'));
-        element.classList.add('selected');
+    // 翻頁控制
+    window.changeLibPage = (delta) => {
+        artPages[currentArtTab] += delta;
+        renderLibraryGrid();
+    };
+
+    window.jumpToLibPage = (val) => {
+        const data = artCache[currentArtTab] || [];
+        const totalPages = Math.ceil(data.length / libItemsPerPage);
+        let target = parseInt(val);
         
-        showToast('正在下載圖片...', false); // 提示使用者稍等
+        if (isNaN(target) || target < 1) target = 1;
+        if (target > totalPages) target = totalPages;
+        
+        artPages[currentArtTab] = target;
+        renderLibraryGrid();
+    };
+
+    // 圖片選取邏輯 (維持原本優化版)
+    window.selectLibImage = async function(imageUrl, element) {
+        document.querySelectorAll('.lib-item').forEach(el => el.classList.remove('selected'));
+        if (element) element.classList.add('selected');
+        
+        showToast('正在下載圖片...', false);
 
         try {
-            // 1. 下載圖片 Blob
-            const response = await fetch(imageUrl);
+            const safeUrl = getCdnUrl(imageUrl);
+            const response = await fetch(safeUrl);
+            if (!response.ok) throw new Error(`下載失敗 (${response.status})`);
+            
             const blob = await response.blob();
             
-            // 2. 建立新的 File 物件 (給予一個獨特檔名，避免重複)
-            const filename = `lib_${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
+            // 檔名加入來源標記 (lib_ 或 gal_) 以示區別 (選用)
+            const prefix = currentArtTab === 'library' ? 'lib' : 'gal';
+            const filename = `${prefix}_${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
             const file = new File([blob], filename, { type: blob.type });
 
-            // 3. 模擬檔案選擇行為
             const container = new DataTransfer();
             container.items.add(file);
             
             const targetInput = document.getElementById(currentLibraryTargetInputId);
             if (targetInput) {
                 targetInput.files = container.files;
-                
-                // 額外提示：在輸入框旁顯示檔名 (因為這不是使用者自己選的，可能沒注意到變化)
-                // 這裡我們簡單閃爍一下 input 外框提示成功
                 targetInput.classList.add('ring-2', 'ring-pink-500');
                 setTimeout(() => targetInput.classList.remove('ring-2', 'ring-pink-500'), 1000);
             }
 
             showToast('已套用美片！', false);
-            setTimeout(closeLibraryModal, 500); // 稍微延遲關閉體驗較好
+            setTimeout(closeLibraryModal, 500);
 
         } catch (err) {
             console.error('圖片轉換失敗:', err);
-            showToast('圖片套用失敗，請重試', true);
+            showToast('圖片下載失敗，請稍後再試', true);
         }
     };
 
@@ -1199,7 +1340,13 @@
 
     /** [核心] 頁面載入入口 */
     async function initializePage() {
-        await supabaseClient.rpc('update_last_active');
+        // ★ 修改：加入錯誤處理，避免因為更新時間失敗而卡住整個網頁
+        try {
+            await supabaseClient.rpc('update_last_active');
+        } catch (err) {
+            console.warn('非致命錯誤：更新最後上線時間失敗', err);
+            // 這裡不 return，讓程式繼續往下跑
+        }
 
         // 每日上限設定
         const { data: settings, error: limitError } = await supabaseClient
@@ -1228,7 +1375,7 @@
         
         // 依序啟動各功能
         displayUserInfo();
-        initWishingWell();          // 啟動許願池
+        initWishingWell();
         await fetchUserSignups();
         await fetchChallenges();
         
@@ -1568,7 +1715,33 @@
     function refreshAllChallengeCards() {
         if (!challengesData) return;
         challengesListEl.innerHTML = '';
-        Object.values(challengesData).forEach(challenge => renderChallenge(challenge));
+        
+        // 將資料轉為陣列以便排序
+        const challengesArray = Object.values(challengesData);
+
+        // ★★★ 排序邏輯修改 ★★★
+        // 規則：
+        // 1. 「開放報名中」置頂
+        // 2. 其餘狀態排在後面
+        // 3. 同一狀態內，依照 ID 由大到小 (新到舊) 排序
+        challengesArray.sort((a, b) => {
+            // 判斷是否為開放報名中
+            const aIsOpen = a.status === '報名中';
+            const bIsOpen = b.status === '報名中';
+
+            // 如果 a 是開放中，b 不是 -> a 排前面 (-1)
+            if (aIsOpen && !bIsOpen) return -1;
+            
+            // 如果 b 是開放中，a 不是 -> b 排前面 (1)
+            if (!aIsOpen && bIsOpen) return 1;
+
+            // 如果狀態權重相同 (都是開放 或 都不是)，則比較 ID (新到舊)
+            return b.id - a.id;
+        });
+
+        // 依照排序後的順序渲染
+        challengesArray.forEach(challenge => renderChallenge(challenge));
+        
         applyFilter();
         // 更新紅點
         updateFilterBadges();
@@ -1649,6 +1822,7 @@
         const titleClasses = `text-xl font-bold px-3 py-1 rounded-md ${style.bg} ${style.text} whitespace-nowrap`;
 
         const isHost = challenge.host && challenge.host.id === currentUserProfile.id;
+        const isAdmin = currentUserProfile && currentUserProfile.role === '管理者';
         const isSignedUp = userSignedUpChallengeIds.has(challenge.id);
         const signupCount = challenge.signups ? challenge.signups.length : 0;
         const dispatchStatus = challenge.dispatch_status || '待發';
@@ -1770,7 +1944,9 @@
             }
         }
 
-        const hostControlsHtml = isHost ? `
+        const canControl = isHost || isAdmin;
+
+        const hostControlsHtml = canControl ? `
             <button data-id="${challenge.id}" class="edit-challenge-button text-gray-500 hover:text-yellow-400 transition" title="編輯">✏️</button>
             <button data-id="${challenge.id}" class="delete-challenge-button text-gray-500 hover:text-red-500 transition" title="刪除">🗑️</button>
         ` : '';
