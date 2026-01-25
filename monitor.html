@@ -62,7 +62,7 @@
             <div class="monitor-card flex flex-col h-full">
                 <div class="flex justify-between items-end mb-2">
                     <span class="text-gray-400 text-sm font-bold">文件儲存 (Storage)</span>
-                    <span class="text-2xl font-bold text-white"><span id="storage-text">0</span> <span class="text-sm text-gray-500">/ 1,024 MB</span></span>
+                    <span class="text-2xl font-bold text-white"><span id="storage-text">0</span> <span class="text-sm text-gray-500">/ 1 GB</span></span>
                 </div>
                 <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
                     <div id="storage-bar" class="bg-purple-600 h-2.5 rounded-full" style="width: 0%"></div>
@@ -110,13 +110,13 @@
                 const stats = data.data;
 
                 // 1. 更新 DB 數據
-                updateVisual('db-size', stats.dbSizeMB, 500, 'MB');
+                updateVisual('db-size', stats.dbSizeMB, 500);
                 if (stats.tableDetails) {
                     renderDBDetails(stats.tableDetails);
                 }
 
                 // 2. 更新 Storage 數據
-                updateVisual('storage', stats.storageMB, 1024, 'MB');
+                updateVisual('storage', stats.storageMB, 1024);
                 if (stats.bucketDetails) {
                     renderBucketDetails(stats.bucketDetails);
                 }
@@ -174,7 +174,7 @@
             return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
         }
 
-        function updateVisual(id, current, max, unit) {
+        function updateVisual(id, current, max) {
             const percent = Math.min((current / max) * 100, 100);
             const bar = document.getElementById(`${id}-bar`);
             const text = document.getElementById(`${id}-text`);
@@ -189,7 +189,10 @@
             bar.className = `bar-transition h-full ${colorClass}`;
             setTimeout(() => { bar.style.width = `${percent}%`; }, 100);
             
-            text.textContent = `${current.toLocaleString()} / ${max.toLocaleString()} ${unit}`;
+            // ★★★ 修正這裡：只更新數字，不帶單位 ★★★
+            // 使用 toLocaleString 確保有千分位，並保留小數點後兩位
+            text.textContent = current.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2});
+            
             percentText.textContent = `${percent.toFixed(1)}%`;
         }
 

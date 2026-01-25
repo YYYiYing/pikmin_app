@@ -2584,25 +2584,75 @@ serve(async (req) => {
             break;
             
         case 'get-system-stats': {
-            // 1. 查詢 DB 總容量
+            // 1. 查詢 DB 總容量 (維持原樣)
             const { data: dbBytes } = await adminSupabaseClient.rpc('get_database_size_bytes');
+            const { data: tableStats } = await adminSupabaseClient.rpc('get_table_stats');
 
-            // 2. 查詢 DB 資料表細項
-            const { data: tableStats, error: tableError } = await adminSupabaseClient.rpc('get_table_stats');
-            if (tableError) console.error('DB Stats Error:', tableError);
-
-            // 3. 查詢 Storage 儲存庫細項 (取代原本只查單一 Bucket 的做法)
-            const { data: bucketStats, error: storageError } = await adminSupabaseClient.rpc('get_storage_stats');
-            if (storageError) console.error('Storage Stats Error:', storageError);
-
-            // 計算 Storage 總容量
+            // 2. 查詢 Storage 儲存庫細項 (維持原樣)
+            const { data: bucketStats } = await adminSupabaseClient.rpc('get_storage_stats');
             const totalStorageBytes = bucketStats?.reduce((acc: number, b: any) => acc + (b.total_bytes || 0), 0) || 0;
+
+            // 3. 呼叫 Supabase 官方 API (V3 修正版)
+            let usageData: any = {};
+            const accessToken = Deno.env.get('MANAGEMENT_API_TOKEN'); 
+            const PROJECT_REF = 'htdddmoclmhqebyvzean'; 
+
+            if (!accessToken) {
+                usageData = { error: 'Backend: Token 未設定' };
+            } else {
+                try {
+                    const headers = {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    };
+
+                    // [嘗試 A] 最標準的專案用量 API (不帶任何參數)
+                    // 官方文件標準路徑：/v1/projects/{ref}/usage
+                    const usageRes = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/usage`, { method: 'GET', headers });
+                    
+                    if (usageRes.ok) {
+                        usageData = await usageRes.json();
+                        usageData._source = 'usage_api'; // 標記來源
+                    } else {
+                        console.error('Usage API Failed, trying Daily Stats...');
+                        
+                        // [嘗試 B] 如果上面失敗，改查「每日統計」 (Daily Stats)
+                        // 這通常會回傳過去 30 天的數據陣列
+                        const dailyRes = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/daily-stats`, { method: 'GET', headers });
+                        
+                        if (dailyRes.ok) {
+                            const dailyData = await dailyRes.json();
+                            // 我們需要自己加總最後一天的數據來模擬 "Usage"
+                            // 這裡做一個簡單轉換，讓前端還是能讀到數據
+                            if (Array.isArray(dailyData) && dailyData.length > 0) {
+                                // 取最後一筆有效的數據當作目前狀態
+                                const latest = dailyData[dailyData.length - 1];
+                                usageData = {
+                                    // 嘗試映射欄位名稱
+                                    db_egress_bytes: latest.bandwidth_egress_bytes || 0,
+                                    storage_egress_bytes: latest.storage_egress_bytes || 0,
+                                    monthly_active_users: latest.mau || 0,
+                                    func_invocations: latest.func_invocations || 0,
+                                    _source: 'daily_stats_proxy'
+                                };
+                            }
+                        } else {
+                             const errText = await usageRes.text();
+                             usageData = { error: `API 拒絕存取 (${usageRes.status})`, details: errText };
+                        }
+                    }
+                } catch (e: any) {
+                    console.error('Fetch Usage Failed:', e);
+                    usageData = { error: '連線例外錯誤', details: e.message };
+                }
+            }
 
             data = {
                 dbSizeMB: parseFloat((dbBytes / 1024 / 1024).toFixed(2)),
                 tableDetails: tableStats || [],
                 storageMB: parseFloat((totalStorageBytes / 1024 / 1024).toFixed(2)),
-                bucketDetails: bucketStats || [] // 回傳 Bucket 細項
+                bucketDetails: bucketStats || [],
+                usage: usageData
             };
             break;
         }
