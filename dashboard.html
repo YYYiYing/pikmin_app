@@ -742,7 +742,7 @@
                         <label for="edit-challenge-image" class="block text-sm font-medium text-gray-400">蘑菇美片 (選填)</label>
                         <div class="flex gap-2 mt-1">
                             <input type="file" id="edit-challenge-image" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"/>
-                            <button type="button" onclick="openLibraryModal('challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
+                            <button type="button" onclick="openLibraryModal('edit-challenge-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap">
                                 🖼️ 美片
                             </button>
                         </div>
@@ -2100,8 +2100,16 @@
         } else {
             startTimeHtml = `<p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false })}</p>`;
         }
+        
+        // ★★★ 蘑菇卡片美片縮圖 w-36 h-24 (3:2 比例)，更有明信片質感 ★★★
         let imageBtnHtml = (challenge.image_url && challenge.image_url.startsWith('http')) 
-            ? `<div class="mt-2"><button onclick="openImageViewer('${challenge.image_url}')" class="text-xs bg-gray-700 text-indigo-300 px-3 py-1.5 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-2 transition">📷 查看明信片</button></div>` : '';
+            ? `<div class="flex-shrink-0 ml-2 mb-1 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${challenge.image_url}')" title="點擊查看大圖">
+                 <img src="${getCdnUrl(challenge.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
+                 <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+                    <span class="text-white text-lg filter drop-shadow-md">🔍</span>
+                 </div>
+               </div>` 
+            : '';
 
         // 發送標籤
         let dispatchTagHtml = '';
@@ -2137,7 +2145,7 @@
             slotsDisplayHtml = `<span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}`;
         }
 
-        // --- 8. 組裝 HTML ---
+        // --- 8. 組裝 HTML (三層式佈局修正版) ---
         card.innerHTML = `
             <div>
                 <div class="flex justify-between items-start mb-2">
@@ -2152,21 +2160,33 @@
                         ${hostControlsHtml}
                     </div>
                 </div>
+                
                 <div class="flex flex-col mb-3 pl-1">
                     <div class="flex items-center">${battleTimerHtml}</div>
                     ${harvestHtmlBlock}
                 </div>
-                <div class="text-gray-400 space-y-2 mb-4">
-                    <p><strong>發菇者:</strong> <span class="${hostNameClass}" ${hostClickEvent}>${displayString}</span>${mainAccountSuffix}</p>
 
-                    <p><strong>呼叫時段: 📣</strong> ${displayDetails}</p>
+                <div class="text-gray-400 mb-4">
                     
-                    <p><strong>名額:</strong> ${slotsDisplayHtml}</p>
-                    ${startTimeHtml}
-                    <div class="flex items-center mt-1"><strong class="mr-2">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>
+                    <div class="mb-2 truncate">
+                        <p><strong>發菇者:</strong> <span class="${hostNameClass}" ${hostClickEvent}>${displayString}</span>${mainAccountSuffix}</p>
+                    </div>
+
+                    <div class="flex justify-between items-start">
+                        
+                        <div class="space-y-2 flex-1 min-w-0">
+                            <p><strong>呼叫時段: 📣</strong> ${displayDetails}</p>
+                            <p><strong>名額:</strong> ${slotsDisplayHtml}</p>
+                            ${startTimeHtml}
+                            <div class="flex items-center mt-1"><strong class="mr-2">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>
+                        </div>
+
+                        ${imageBtnHtml}
+                    </div>
+
                     ${notesHtml}
-                    ${imageBtnHtml}
                 </div>
+
                 ${participantsHtml}
             </div>
             <div class="mt-4">${actionButtonHtml}</div>
@@ -3372,10 +3392,14 @@
     mobileMenu.querySelector('#change-password-button-mobile').onclick = () => changePasswordButton.click();
     mobileMenu.querySelector('#logout-button-mobile').onclick = () => logoutButton.click();
 
-    // Global Image Viewer
+    // Global Image Viewer (支援 CDN)
     window.openImageViewer = function(url) {
         const m = document.getElementById('image-viewer-modal'), i = document.getElementById('viewer-image');
-        if(m && i) { i.src=url; m.classList.remove('hidden'); }
+        
+       if(m && i) { 
+            i.src = getCdnUrl(url); 
+            m.classList.remove('hidden'); 
+        }
     };
     window.closeImageViewer = function() {
         const m = document.getElementById('image-viewer-modal'), i = document.getElementById('viewer-image');
