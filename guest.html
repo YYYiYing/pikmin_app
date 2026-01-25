@@ -348,7 +348,7 @@
 
                 <div>
                     <label class="text-sm text-gray-400 font-bold" data-i18n="label_slots">呼叫名額</label>
-                    <input type="number" id="m-slots" value="4" min="1" max="8" class="dark-input w-full rounded-md mt-1 px-3 py-2">
+                    <input type="number" id="m-slots" value="4" min="1" max="10" class="dark-input w-full rounded-md mt-1 px-3 py-2">
                 </div>
 
                 <div>
@@ -465,8 +465,8 @@
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_slots_rem">剩餘名額</label>
-                    <input type="number" id="f-slots" value="5" min="1" max="5" class="dark-input w-full rounded-md mt-1 px-3 py-2">
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_joined_count">已進場人數</label>
+                    <input type="number" id="f-slots" value="1" min="0" max="20" class="dark-input w-full rounded-md mt-1 px-3 py-2">
                 </div>
 
                 <div>
@@ -992,7 +992,7 @@
             return window.t ? window.t(key) : defaultVal;
         }
 
-        // 渲染自飛卡片 (視覺升級：響應式修正版)
+        // 渲染自飛卡片 (視覺升級：響應式圖片 + 人數回報按鈕整合版)
         function renderFlyCard(c, mushroomStyles, typeTranslator, cookingTranslator) {
             const isMine = myFlyPostIds.includes(c.id);
             
@@ -1020,11 +1020,11 @@
                     notesHtml = `<div class="mt-2 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // 定義新的變數名稱 (拆分電腦與手機版) 
+            // === 圖片邏輯 (拆分電腦與手機版) ===
             const hasImage = (c.image_url && c.image_url.startsWith('http'));
             const safeImgUrl = hasImage ? getCdnUrl(c.image_url) : '';
 
-            // 電腦版圖片 (hidden md:block)
+            // 1. 電腦版圖片 (hidden md:block)
             let desktopImageHtml = hasImage
                 ? `<div class="hidden md:block flex-shrink-0 ml-2 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${c.image_url}')" title="${safeT('btn_view_postcard', '點擊查看大圖')}">
                         <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
@@ -1034,7 +1034,7 @@
                 </div>`
                 : '';
 
-            // 手機版圖片 (block md:hidden)
+            // 2. 手機版圖片 (block md:hidden)
             let mobileImageHtml = hasImage
                 ? `<div class="block md:hidden mt-3 w-full h-40 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md group" onclick="openImageViewer('${c.image_url}')">
                         <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-105 transition duration-500" alt="蘑菇美片">
@@ -1063,8 +1063,30 @@
 
             const postTime = new Date(c.created_at).toLocaleString('zh-TW', { hour12: false });
             const timeLabel = safeT('label_post_time', '發布時間');
-            const slotsLabel = safeT('label_slots_rem', '剩餘名額');
+            const slotsLabel = safeT('label_joined_count', '已進場人數');
             const flyTag = safeT('tag_fly', '自飛');
+
+            // === 人數顯示邏輯 (+1 按鈕整合) ===
+            const currentCount = parseInt(c.slots) || 0;
+            const isFull = currentCount >= 20;
+            
+            // +1 按鈕 HTML
+            const plusOneBtn = `
+                <button onclick="incrementFlyCount(${c.id}, ${currentCount}, this)"
+                    class="ml-2 bg-green-600 hover:bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    title="${safeT('btn_plus_one_hint', '我也進場 (+1)')}"
+                    ${isFull ? 'disabled' : ''}>
+                    <span>+1</span> <span>🙋</span>
+                </button>
+            `;
+
+            // 組合顯示 HTML (取代原本單純的文字顯示)
+            const slotsDisplayHtml = `
+                <div class="flex items-center">
+                    <span>${slotsLabel}: <span id="fly-count-${c.id}" class="font-bold ${isFull ? 'text-red-400' : 'text-green-400'}">${currentCount}</span> ${safeT('unit_person', '人')}</span>
+                    ${plusOneBtn}
+                </div>
+            `;
 
             return `
                 <div class="challenge-card p-4 rounded-xl relative border border-cyan-800 bg-gray-800/80 hover:border-cyan-500 transition-colors duration-300" 
@@ -1086,7 +1108,9 @@
                         
                         <div class="text-sm text-gray-400 space-y-2 flex-1 min-w-0 pr-2">
                             <p>${timeLabel}: ${postTime}</p>
-                            <p>${slotsLabel}: ${c.slots} ${safeT('unit_person', '人')}</p>
+                            
+                            ${slotsDisplayHtml}
+
                             <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded border border-gray-700 w-fit max-w-full">
                                 <span class="font-mono text-xs text-gray-300 truncate select-all">${c.coordinates}</span>
                             </div>
@@ -2688,6 +2712,7 @@
                 'label_m_type': '蘑菇種類',
                 'label_slots': '呼叫名額',
                 'label_slots_rem': '剩餘名額',
+                'label_joined_count': '已進場人數',
                 'label_open_time': '開放報名時間',
                 'btn_now': '現在',
                 'label_remember': '記住時間 (下次自動帶入)',
@@ -2851,6 +2876,7 @@
                 'label_m_type': 'Type',
                 'label_slots': 'Slots Needed',
                 'label_slots_rem': 'Slots Left',
+                'label_joined_count': 'Joined Players',
                 'label_open_time': 'Start Time',
                 'btn_now': 'Now',
                 'label_remember': 'Remember Time',
@@ -3012,6 +3038,7 @@
                 'label_m_type': '種類',
                 'label_slots': '募集人数',
                 'label_slots_rem': '残り枠',
+                'label_joined_count': '参加済み人数',
                 'label_open_time': '開始時間',
                 'btn_now': '現在',
                 'label_remember': '時間を記憶',
@@ -3173,6 +3200,7 @@
                 'label_m_type': '종류',
                 'label_slots': '모집 인원',
                 'label_slots_rem': '남은 자리',
+                'label_joined_count': '현재 참가 인원',
                 'label_open_time': '시작 시간',
                 'btn_now': '현재',
                 'label_remember': '시간 기억하기',
@@ -3991,6 +4019,50 @@
             } catch (err) {
                 console.error('圖片套用失敗:', err);
                 showToast('圖片下載失敗，請稍後再試', true);
+            }
+        };
+        
+        // ★★★ 自飛菇人數 +1 功能 ★★★
+        window.incrementFlyCount = async (id, currentCount, btn) => {
+            // 1. 防呆檢查：超過 20 人就不給按
+            if (currentCount >= 20) {
+                showToast(safeT('toast_full_20', '已達上限 20 人！'), true);
+                return;
+            }
+
+            // 2. 鎖定按鈕避免連點
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="animate-spin">⌛</span>'; // 顯示轉圈圈
+
+            try {
+                // 3. 呼叫後端 API
+                // 注意：您的後端 Edge Function 必須有寫好 'guest-increment-fly' 的邏輯
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ 
+                        action: 'guest-increment-fly', 
+                        payload: { id: id } 
+                    })
+                });
+
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                // 4. 成功提示
+                showToast('+1 🙋', false);
+                
+                // 5. 重新讀取列表以更新畫面
+                loadChallenges();
+
+            } catch (e) {
+                console.error(e);
+                // 如果後端沒設定好，通常會報錯，這裡給個提示
+                const msg = e.message === 'Function not found' ? '後端未更新' : '操作失敗';
+                showToast(safeT('toast_op_failed', msg), true);
+                
+                // 失敗則恢復按鈕
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
             }
         };
     </script>

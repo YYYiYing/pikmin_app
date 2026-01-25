@@ -1469,6 +1469,41 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, message: 'Deleted' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+
+    // 自飛菇 +1 (不檢查 IP，所有人皆可執行)
+    if (action === 'guest-increment-fly') {
+      const { id } = payload;
+      
+      // 1. 先讀取目前的資料 (確認目前人數)
+      const { data: currentPost, error: fetchError } = await adminSupabaseClient
+        .from('guest_fly_posts') 
+        .select('slots')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !currentPost) {
+        throw new Error('找不到該卡片');
+      }
+
+      // 2. 檢查是否已達上限 (20人)
+      if (currentPost.slots >= 20) {
+        throw new Error('人數已達上限');
+      }
+
+      // 3. 直接更新 +1
+      const { error: updateError } = await adminSupabaseClient
+        .from('guest_fly_posts')
+        .update({ slots: currentPost.slots + 1 })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      return new Response(
+        JSON.stringify({ success: true, message: '+1 成功' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     // 訪客發送留言 (含 IP 指紋計算)
     if (action === 'guest-send-message') {
         const { nickname, message } = payload;
