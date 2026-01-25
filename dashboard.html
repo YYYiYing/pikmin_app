@@ -2102,7 +2102,7 @@
             participantsHtml = `<div class="participant-list">${list}</div>`;
         }
 
-        // --- 7. 時間、圖片、倒數計時 ---
+        // --- 7. 時間、圖片、倒數計時 (拆分電腦與手機版圖片) ---
         let startTimeHtml;
         if (challenge.status === '預計開放' && new Date(challenge.start_time) > new Date()) { 
             startTimeHtml = `<p><strong>等待時間:</strong> <span class="countdown-timer" data-starttime="${challenge.start_time}">計算中...</span></p>`;
@@ -2110,14 +2110,28 @@
             startTimeHtml = `<p><strong>開放時間:</strong> ${new Date(challenge.start_time).toLocaleString('zh-TW', { hour12: false })}</p>`;
         }
         
-        // ★★★ 蘑菇卡片美片縮圖 w-36 h-24 (3:2 比例)，更有明信片質感 ★★★
-        let imageBtnHtml = (challenge.image_url && challenge.image_url.startsWith('http')) 
-            ? `<div class="flex-shrink-0 ml-2 mb-1 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${challenge.image_url}')" title="點擊查看大圖">
-                 <img src="${getCdnUrl(challenge.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
+        // 準備圖片 URL
+        const hasImage = (challenge.image_url && challenge.image_url.startsWith('http'));
+        const safeImgUrl = hasImage ? getCdnUrl(challenge.image_url) : '';
+
+        // 1. 電腦版圖片：維持原本的小縮圖，但在手機上隱藏 (hidden md:block)
+        let desktopImageHtml = hasImage
+            ? `<div class="hidden md:block flex-shrink-0 ml-2 mb-1 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${challenge.image_url}')" title="點擊查看大圖">
+                 <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
                  <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
                     <span class="text-white text-lg filter drop-shadow-md">🔍</span>
                  </div>
                </div>` 
+            : '';
+
+        // 2. 手機版圖片：寬度全滿，放在備註下方，電腦上隱藏 (block md:hidden)
+        let mobileImageHtml = hasImage
+            ? `<div class="block md:hidden mt-3 w-full h-48 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md group" onclick="openImageViewer('${challenge.image_url}')">
+                 <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-105 transition duration-500" alt="蘑菇美片">
+                 <div class="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
+                    🔍 查看大圖
+                 </div>
+               </div>`
             : '';
 
         // 發送標籤
@@ -2154,7 +2168,7 @@
             slotsDisplayHtml = `<span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}`;
         }
 
-        // --- 8. 組裝 HTML (三層式佈局修正版) ---
+        // --- 8. 組裝 HTML (插入mobileImageHtml) ---
         card.innerHTML = `
             <div>
                 <div class="flex justify-between items-start mb-2">
@@ -2190,10 +2204,12 @@
                             <div class="flex items-center mt-1"><strong class="mr-2">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>
                         </div>
 
-                        ${imageBtnHtml}
+                        ${desktopImageHtml}
                     </div>
 
                     ${notesHtml}
+
+                    ${mobileImageHtml}
                 </div>
 
                 ${participantsHtml}

@@ -1020,17 +1020,29 @@
                     notesHtml = `<div class="mt-2 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // ★★★ 新增：縮圖變數 (使用 getCdnUrl 加速) ★★★
-            let imageThumbnailHtml = '';
-            if (c.image_url && c.image_url.startsWith('http')) {
-                imageThumbnailHtml = `
-                    <div class="flex-shrink-0 ml-2 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${c.image_url}')" title="${safeT('btn_view_postcard', '點擊查看大圖')}">
-                         <img src="${getCdnUrl(c.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
-                         <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
-                            <span class="text-white text-lg filter drop-shadow-md">🔍</span>
-                         </div>
-                    </div>`;
-            }
+            // ★★★ 修改重點 1：拆分圖片變數 ★★★
+            const hasImage = (c.image_url && c.image_url.startsWith('http'));
+            const safeImgUrl = hasImage ? getCdnUrl(c.image_url) : '';
+
+            // 1. 電腦版 (手機隱藏 hidden md:block) - 顯示在右側的小縮圖
+            let desktopImageHtml = hasImage
+                ? `<div class="hidden md:block flex-shrink-0 ml-2 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${c.image_url}')" title="${safeT('btn_view_postcard', '點擊查看大圖')}">
+                        <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
+                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+                        <span class="text-white text-lg filter drop-shadow-md">🔍</span>
+                        </div>
+                </div>`
+                : '';
+
+            // 2. 手機版 (電腦隱藏 block md:hidden) - 顯示在備註下方的全寬大圖
+            let mobileImageHtml = hasImage
+                ? `<div class="block md:hidden mt-3 w-full h-40 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md group" onclick="openImageViewer('${c.image_url}')">
+                        <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-105 transition duration-500" alt="蘑菇美片">
+                        <div class="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
+                        📷 Postcard
+                        </div>
+                </div>`
+                : '';
 
             const hostLabel = safeT('label_host', '發菇者');
             const hostDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${c.friend_code}')" title="${safeT('hint_copy_code', '複製好友碼')}: ${c.friend_code}">${c.nickname}</span>`;
@@ -1318,22 +1330,35 @@
                 }
             }
             
+            // 備註與圖片拆分
             let notesHtml = '';
             if (c.notes && c.notes.trim() !== '') {
                     notesHtml = `<div class="mt-2 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // ★★★ 新增：縮圖變數 ★★★
-            let imageThumbnailHtml = '';
-            if (c.image_url && c.image_url.startsWith('http')) {
-                imageThumbnailHtml = `
-                    <div class="flex-shrink-0 ml-2 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${c.image_url}')" title="${safeT('btn_view_postcard', '點擊查看大圖')}">
-                         <img src="${getCdnUrl(c.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
-                         <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
-                            <span class="text-white text-lg filter drop-shadow-md">🔍</span>
-                         </div>
-                    </div>`;
-            }
+            // ★★★ 拆分電腦與手機版圖片變數 ★★★
+            const hasImage = (c.image_url && c.image_url.startsWith('http'));
+            const safeImgUrl = hasImage ? getCdnUrl(c.image_url) : '';
+
+            // 1. 電腦版 (hidden md:block)
+            let desktopImageHtml = hasImage
+                ? `<div class="hidden md:block flex-shrink-0 ml-2 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${c.image_url}')" title="${safeT('btn_view_postcard', '點擊查看大圖')}">
+                        <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
+                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+                        <span class="text-white text-lg filter drop-shadow-md">🔍</span>
+                        </div>
+                </div>`
+                : '';
+
+            // 2. 手機版 (block md:hidden) - 放在備註下方
+            let mobileImageHtml = hasImage
+                ? `<div class="block md:hidden mt-3 w-full h-40 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md group" onclick="openImageViewer('${c.image_url}')">
+                        <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-105 transition duration-500" alt="蘑菇美片">
+                        <div class="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
+                        📷 Postcard
+                        </div>
+                </div>`
+                : '';
 
             const hostNameRaw = c.display_host_name || '未知';
             const hostCodeMatch = hostNameRaw.match(/(\d{12})/);
@@ -1357,7 +1382,7 @@
                 slotsDisplayHtml = `${signupCount} / ${c.slots}`;
             }
 
-            // ★★★ 重組 HTML：使用 flex justify-between 左右佈局 ★★★
+            // 修正 renderNormalCard 的回傳 HTML
             return `
                 <div class="challenge-card p-4 rounded-xl relative hover:border-pink-500 transition-colors duration-300" 
                         data-status="${c.status}" 
@@ -1383,10 +1408,13 @@
                             ${fireHtml}
                             <p>${slotsLabel}: ${slotsDisplayHtml}</p>
                         </div>
-                        ${imageThumbnailHtml}
+                        
+                        ${desktopImageHtml}
                     </div>
 
                     ${notesHtml}
+
+                    ${mobileImageHtml}
 
                     ${participantsHtml}
                     
@@ -3549,8 +3577,8 @@
             
             chatList.innerHTML = messages.map(msg => {
                 const isMe = msg.nickname === myNick;
-                const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
-                const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
+                const d = new Date(msg.created_at);
+                const time = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;                const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
                 
                 // 指紋與綠燈邏輯
                 let isOnline = false;
@@ -3666,8 +3694,8 @@
                     const generateMessageHTML = (msg) => {
                         const myNick = localStorage.getItem('guest_nick');
                         const isMe = msg.nickname === myNick;
-                        const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
-                        const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
+                        const d = new Date(msg.created_at);
+                        const time = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;                        const colorClass = isMe ? 'text-indigo-300' : 'text-orange-300';
                         
                         let isOnline = false;
                         if (msg.ip_fingerprint) isOnline = onlineFingerprints.has(msg.ip_fingerprint);
@@ -3757,7 +3785,12 @@
                 });
 
                 if (error || (data && data.error)) throw new Error(data?.error || error.message);
+                
                 showToast(safeT('toast_msg_edited', '留言已修改'), false);
+                
+                // === 新增這一行：強制重整留言列表 ===
+                loadChatMessages(); 
+
             } catch (e) {
                 console.error(e);
                 showToast(safeT('toast_op_failed', '操作失敗 (可能非本人或IP已變動)'), true);
@@ -3777,7 +3810,12 @@
                 });
 
                 if (error || (data && data.error)) throw new Error(data?.error || error.message);
+                
                 showToast(safeT('toast_msg_deleted', '留言已收回'), false);
+
+                // === 新增這一行：強制重整留言列表 ===
+                loadChatMessages();
+
             } catch (e) {
                 console.error(e);
                 showToast(safeT('toast_op_failed', '操作失敗 (可能非本人或IP已變動)'), true);
