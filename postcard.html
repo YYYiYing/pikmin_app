@@ -116,6 +116,25 @@
         <div id="postcard-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             <p class="col-span-full text-center py-12 text-gray-500 animate-pulse">正在從資料庫讀取美片...</p>
         </div>
+
+        <div id="pagination-controls" class="flex justify-center items-center gap-3 mt-8 mb-12 hidden">
+            <button onclick="changePage(-1)" id="prev-page-btn" class="flex items-center justify-center w-10 h-10 bg-gray-800 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ◀
+            </button>
+            
+            <div class="flex items-center bg-gray-800 border border-gray-600 rounded-lg px-3 py-1">
+                <span class="text-sm text-gray-400 mr-2">Page</span>
+                <input type="number" id="page-input" value="1" min="1" 
+                    class="w-12 bg-gray-900 border border-gray-700 rounded text-center text-white text-sm focus:ring-2 focus:ring-pink-500 outline-none py-1 transition"
+                    onchange="jumpToPage(this.value)" 
+                    onkeydown="if(event.key==='Enter') jumpToPage(this.value)">
+                <span id="total-pages-text" class="text-sm text-gray-400 ml-2 font-mono">/ 1</span>
+            </div>
+
+            <button onclick="changePage(1)" id="next-page-btn" class="flex items-center justify-center w-10 h-10 bg-gray-800 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ▶
+            </button>
+        </div>
     </div>
 
     <div id="postcard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
@@ -238,6 +257,9 @@
         let activeTag = 'all';
         // 地點資料集合 (用於篩選與自動完成)
         let uniqueCountries = new Set(), uniqueRegions = new Set(), uniqueAreas = new Set();
+
+        let currentPage = 1;
+        const itemsPerPage = 32; // 每頁 32 張
 
         // --- 核心工具：圖片壓縮 ---
         function compressImage(file) {
@@ -391,12 +413,6 @@
             parent.appendChild(btn);
         }
 
-        function setTag(tag) {
-            activeTag = tag;
-            updateFilters();
-            renderGrid();
-        }
-
         function fillSelect(id, set, defaultTxt) {
             const el = document.getElementById(id);
             if(!el) return;
@@ -404,96 +420,158 @@
             el.innerHTML = `<option value="all">${defaultTxt}</option>`;
             Array.from(set).sort().forEach(v => el.add(new Option(v, v)));
             if(set.has(oldVal)) el.value = oldVal;
-            el.onchange = renderGrid;
+            
+            // 切換地點篩選時重置頁碼
+            el.onchange = () => {
+                currentPage = 1;
+                renderGrid();
+            };
+        }
+
+        function setTag(tag) {
+            activeTag = tag;
+            currentPage = 1; // 切換標籤時重置頁碼
+            updateFilters();
+            renderGrid();
         }
 
         // --- 畫面渲染 (Grid) ★★★ 這裡修正了卡片顯示樣式 ---
         function renderGrid() {
-            const grid = document.getElementById('postcard-grid');
-            const cVal = document.getElementById('filter-country') ? document.getElementById('filter-country').value : 'all';
-            const rVal = document.getElementById('filter-region') ? document.getElementById('filter-region').value : 'all';
-            const aVal = document.getElementById('filter-area') ? document.getElementById('filter-area').value : 'all';
+        const grid = document.getElementById('postcard-grid');
+        const paginationControls = document.getElementById('pagination-controls');
+
+        const cVal = document.getElementById('filter-country') ? document.getElementById('filter-country').value : 'all';
+        const rVal = document.getElementById('filter-region') ? document.getElementById('filter-region').value : 'all';
+        const aVal = document.getElementById('filter-area') ? document.getElementById('filter-area').value : 'all';
+        
+        // 1. 篩選
+        const filtered = allPostcards.filter(p => {
+            if (activeTag === 'obsolete') return p.is_obsolete === true;
+            if (p.is_obsolete === true) return false;
+            if (activeTag !== 'all' && (!p.tags || !p.tags.includes(activeTag))) return false;
+            if (cVal !== 'all' && p.country !== cVal) return false;
+            if (rVal !== 'all' && p.region !== rVal) return false;
+            if (aVal !== 'all' && p.area !== aVal) return false;
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            const msg = activeTag === 'obsolete' ? '目前沒有絕版的美片。' : '目前沒有符合條件的美片。';
+            grid.innerHTML = `<p class="col-span-full text-center py-12 text-gray-500 text-lg">${msg}</p>`;
+            paginationControls.classList.add('hidden');
+            return;
+        }
+
+        // 2. ★ 分頁計算
+        const totalPages = Math.ceil(filtered.length / itemsPerPage);
+        if (currentPage > totalPages) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedItems = filtered.slice(startIndex, endIndex);
+
+        // 3. ★ 更新 UI
+        paginationControls.classList.remove('hidden');
+        const pageInput = document.getElementById('page-input');
+        const totalText = document.getElementById('total-pages-text');
+        
+        if (pageInput && totalText) {
+            pageInput.value = currentPage; // 更新輸入框數字
+            pageInput.max = totalPages;    // 設定最大值防止亂輸
+            totalText.textContent = `/ ${totalPages}`; // 更新總頁數文字
+        }
+        document.getElementById('prev-page-btn').disabled = currentPage === 1;
+        document.getElementById('next-page-btn').disabled = currentPage === totalPages;
+
+        // 4. 渲染
+        grid.innerHTML = paginatedItems.map(p => {
+            const cleanName = (p.uploader_nickname || '').trim().replace(/[\s\uFEFF\xA0]*\d{12}$/, '');
+            const tagsHtml = (p.tags || []).map(t => `<span class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full mr-1 mb-1 inline-block border border-gray-600">#${t}</span>`).join('');
             
-            const filtered = allPostcards.filter(p => {
-                if (activeTag === 'obsolete') return p.is_obsolete === true;
-                if (p.is_obsolete === true) return false;
-                if (activeTag !== 'all' && (!p.tags || !p.tags.includes(activeTag))) return false;
-                if (cVal !== 'all' && p.country !== cVal) return false;
-                if (rVal !== 'all' && p.region !== rVal) return false;
-                if (aVal !== 'all' && p.area !== aVal) return false;
-                return true;
-            });
+            const canEdit = (p.uploader_id === currentUser.id) || (currentUser.role === '管理者');
+            const controlsHtml = canEdit ? `
+                <div class="absolute top-2 right-2 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition duration-200 z-10">
+                    <button onclick="editCard(${p.id}, event)" class="text-gray-300 hover:text-white p-1.5 hover:bg-gray-700 rounded" title="編輯">✏️</button>
+                    <button onclick="deleteCard(${p.id}, event)" class="text-red-400 hover:text-red-300 p-1.5 hover:bg-gray-700 rounded" title="刪除">🗑️</button>
+                </div>` : '';
 
-            if (filtered.length === 0) {
-                const msg = activeTag === 'obsolete' ? '目前沒有絕版的美片。' : '目前沒有符合條件的美片。';
-                grid.innerHTML = `<p class="col-span-full text-center py-12 text-gray-500 text-lg">${msg}</p>`;
-                return;
-            }
+            const heartClass = p.isLiked ? 'liked' : 'text-gray-500 hover:text-pink-400';
+            const heartIcon = p.isLiked ? '❤️' : '🤍';
+            const locationParts = [p.country, p.region, p.area].filter(Boolean);
+            const fullLocation = locationParts.length > 0 ? locationParts.join(' · ') : null;
+            const isObsoleteView = activeTag === 'obsolete';
+            const obsBtnIcon = isObsoleteView ? '✅上架' : '🚫'; 
+            const obsBtnTitle = isObsoleteView ? '恢復上架' : '回報絕版';
+            const obsBtnClass = isObsoleteView ? 'text-green-500 hover:text-green-300' : 'text-gray-500 hover:text-red-500';
 
-            grid.innerHTML = filtered.map(p => {
-                const cleanName = (p.uploader_nickname || '').trim().replace(/[\s\uFEFF\xA0]*\d{12}$/, '');
-                const tagsHtml = (p.tags || []).map(t => `<span class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full mr-1 mb-1 inline-block border border-gray-600">#${t}</span>`).join('');
-                
-                const canEdit = (p.uploader_id === currentUser.id) || (currentUser.role === '管理者');
-                const controlsHtml = canEdit ? `
-                    <div class="absolute top-2 right-2 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition duration-200 z-10">
-                        <button onclick="editCard(${p.id}, event)" class="text-gray-300 hover:text-white p-1.5 hover:bg-gray-700 rounded" title="編輯">✏️</button>
-                        <button onclick="deleteCard(${p.id}, event)" class="text-red-400 hover:text-red-300 p-1.5 hover:bg-gray-700 rounded" title="刪除">🗑️</button>
-                    </div>` : '';
-
-                const heartClass = p.isLiked ? 'liked' : 'text-gray-500 hover:text-pink-400';
-                const heartIcon = p.isLiked ? '❤️' : '🤍';
-                
-                // ★ 組合地點字串 (比照藝廊)
-                const locationParts = [p.country, p.region, p.area].filter(Boolean);
-                const fullLocation = locationParts.length > 0 ? locationParts.join(' · ') : null;
-
-                // 絕版樣式
-                const isObsoleteView = activeTag === 'obsolete';
-                const obsBtnIcon = isObsoleteView ? '✅上架' : '🚫'; 
-                const obsBtnTitle = isObsoleteView ? '恢復上架' : '回報絕版';
-                const obsBtnClass = isObsoleteView ? 'text-green-500 hover:text-green-300' : 'text-gray-500 hover:text-red-500';
-
-                return `
-                    <div class="card-bg rounded-xl overflow-hidden relative group flex flex-col h-full ${p.is_obsolete ? 'opacity-75 border-red-900/30' : ''}">
-                        <div class="aspect-video overflow-hidden bg-gray-900 cursor-pointer relative" onclick="viewImage('${p.image_url}')">
-                            <img src="${getCdnUrl(p.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out ${p.is_obsolete ? 'grayscale' : ''}">
-                            ${controlsHtml}
-                            ${p.is_obsolete ? '<div class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="bg-red-600/80 text-white px-3 py-1 rounded-full text-xs font-bold transform -rotate-12 border border-red-400">已絕版</span></div>' : ''}
-                        </div>
-                        <div class="p-4 flex flex-col flex-grow justify-between">
-                            <div>
-                                <div class="flex justify-between items-start mb-2">
-                                    <div class="flex items-center gap-1 overflow-hidden">
-                                        <span class="text-xs text-gray-400 flex-shrink-0">By</span>
-                                        <span class="font-bold text-gray-200 truncate" title="${cleanName}">${cleanName}</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="toggleObsolete(${p.id}, '${cleanName}')" class="flex items-center justify-center w-7 h-7 rounded-full bg-gray-800/50 ${obsBtnClass} transition transform active:scale-90" title="${obsBtnTitle}">
-                                            <span class="text-sm filter drop-shadow-md">${obsBtnIcon}</span>
-                                        </button>
-                                        <button onclick="toggleLike(${p.id}, this)" class="like-btn flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-full ${heartClass}">
-                                            <span class="text-base icon filter drop-shadow-md">${heartIcon}</span>
-                                            <span class="text-xs font-bold count">${p.likes}</span>
-                                        </button>
-                                    </div>
+            return `
+                <div class="card-bg rounded-xl overflow-hidden relative group flex flex-col h-full ${p.is_obsolete ? 'opacity-75 border-red-900/30' : ''}">
+                    <div class="aspect-video overflow-hidden bg-gray-900 cursor-pointer relative" onclick="viewImage('${p.image_url}')">
+                        <img src="${getCdnUrl(p.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out ${p.is_obsolete ? 'grayscale' : ''}">
+                        ${controlsHtml}
+                        ${p.is_obsolete ? '<div class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="bg-red-600/80 text-white px-3 py-1 rounded-full text-xs font-bold transform -rotate-12 border border-red-400">已絕版</span></div>' : ''}
+                    </div>
+                    <div class="p-4 flex flex-col flex-grow justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex items-center gap-1 overflow-hidden">
+                                    <span class="text-xs text-gray-400 flex-shrink-0">By</span>
+                                    <span class="font-bold text-gray-200 truncate" title="${cleanName}">${cleanName}</span>
                                 </div>
-                                <div class="bg-gray-800/50 rounded-lg p-2 flex justify-between items-center mb-3 border border-gray-700">
-                                    <span class="text-xs font-mono text-gray-400 truncate select-all flex-1 mr-2">${p.coordinate || '未知座標'}</span>
-                                    <button onclick="copyText('${p.coordinate}')" class="text-xs bg-gray-700 hover:bg-gray-600 text-green-400 px-2 py-1.5 rounded flex-shrink-0 font-bold flex items-center gap-1">📋 複製</button>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="toggleObsolete(${p.id}, '${cleanName}')" class="flex items-center justify-center w-7 h-7 rounded-full bg-gray-800/50 ${obsBtnClass} transition transform active:scale-90" title="${obsBtnTitle}">
+                                        <span class="text-sm filter drop-shadow-md">${obsBtnIcon}</span>
+                                    </button>
+                                    <button onclick="toggleLike(${p.id}, this)" class="like-btn flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-full ${heartClass}">
+                                        <span class="text-base icon filter drop-shadow-md">${heartIcon}</span>
+                                        <span class="text-xs font-bold count">${p.likes}</span>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="flex flex-wrap content-end mb-2 min-h-[1.5rem]">${tagsHtml}</div>
-                            
-                            ${fullLocation ? `
-                            <div class="pt-2 border-t border-gray-700/50 text-[11px] text-gray-400 flex items-center gap-1">
-                                <span>🌍</span>
-                                <span class="truncate" title="${fullLocation}">${fullLocation}</span>
-                            </div>` : ''}
+                            <div class="bg-gray-800/50 rounded-lg p-2 flex justify-between items-center mb-3 border border-gray-700">
+                                <span class="text-xs font-mono text-gray-400 truncate select-all flex-1 mr-2">${p.coordinate || '未知座標'}</span>
+                                <button onclick="copyText('${p.coordinate}')" class="text-xs bg-gray-700 hover:bg-gray-600 text-green-400 px-2 py-1.5 rounded flex-shrink-0 font-bold flex items-center gap-1">📋 複製</button>
+                            </div>
                         </div>
-                    </div>`;
+                        <div class="flex flex-wrap content-end mb-2 min-h-[1.5rem]">${tagsHtml}</div>
+                        
+                        ${fullLocation ? `
+                        <div class="pt-2 border-t border-gray-700/50 text-[11px] text-gray-400 flex items-center gap-1">
+                            <span>🌍</span>
+                            <span class="truncate" title="${fullLocation}">${fullLocation}</span>
+                        </div>` : ''}
+                    </div>
+                </div>`;
             }).join('');
         }
+
+        // 切換頁碼函式
+        window.changePage = (delta) => {
+            currentPage += delta;
+            renderGrid();
+            // 自動捲動到篩選器下方 (提升手機版體驗)
+            document.getElementById('filter-container').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        };
+
+            // 跳轉頁面函式
+        window.jumpToPage = (val) => {
+            // 取得目前的篩選結果總數來計算最大頁數 (需要重新跑一次篩選邏輯來確認範圍)
+            // 為了簡化，我們直接用 renderGrid 裡面的邏輯，或者將 totalPages 設為全域變數
+            // 這裡使用一個簡單的防呆技巧：直接讀取 DOM 上的 max 屬性 (因為 renderGrid 已經設定過了)
+            const input = document.getElementById('page-input');
+            const maxPage = parseInt(input.max) || 1;
+            let target = parseInt(val);
+
+            if (isNaN(target) || target < 1) target = 1;
+            if (target > maxPage) target = maxPage;
+
+            currentPage = target;
+            renderGrid();
+            
+            // 跳轉後回到頂部
+            document.getElementById('filter-container').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        };
+
 
         // --- 表單提交 (含失敗回滾與座標重複檢查) ---
         const modal = document.getElementById('postcard-modal');

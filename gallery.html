@@ -100,6 +100,25 @@
         <div id="postcard-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             <p class="col-span-full text-center py-12 text-gray-500 animate-pulse">正在載入藝廊...</p>
         </div>
+
+        <div id="pagination-controls" class="flex justify-center items-center gap-3 mt-8 mb-12 hidden">
+            <button onclick="changePage(-1)" id="prev-page-btn" class="flex items-center justify-center w-10 h-10 bg-gray-800 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ◀
+            </button>
+            
+            <div class="flex items-center bg-gray-800 border border-gray-600 rounded-lg px-3 py-1">
+                <span class="text-sm text-gray-400 mr-2">Page</span>
+                <input type="number" id="page-input" value="1" min="1" 
+                    class="w-12 bg-gray-900 border border-gray-700 rounded text-center text-white text-sm focus:ring-2 focus:ring-violet-500 outline-none py-1 transition"
+                    onchange="jumpToPage(this.value)" 
+                    onkeydown="if(event.key==='Enter') jumpToPage(this.value)">
+                <span id="total-pages-text" class="text-sm text-gray-400 ml-2 font-mono">/ 1</span>
+            </div>
+
+            <button onclick="changePage(1)" id="next-page-btn" class="flex items-center justify-center w-10 h-10 bg-gray-800 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ▶
+            </button>
+        </div>
     </div>
 
     <div id="postcard-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
@@ -205,6 +224,9 @@
         let myIpFingerprint = null; 
         let isAdmin = false; //管理員狀態
         let currentUser = null; // 用來存儲已登入的會員資訊
+
+        let currentPage = 1;
+        const itemsPerPage = 32; // 每頁顯示 32 張
 
         // 優化管理員檢查與會員登入狀態
         async function checkAdmin() {
@@ -538,32 +560,33 @@
             parent.appendChild(btn);
         }
 
+        // fillSelect 函式中的 onchange 事件
         function fillSelect(id, set, defaultTxt) {
             const el = document.getElementById(id);
             const oldVal = el.value;
             el.innerHTML = `<option value="all">${defaultTxt}</option>`;
             Array.from(set).sort().forEach(v => el.add(new Option(v, v)));
             if(set.has(oldVal)) el.value = oldVal;
-            el.onchange = renderGrid;
+            
+            // 切換篩選條件時，重置為第一頁
+            el.onchange = () => {
+                currentPage = 1;
+                renderGrid();
+            };
         }
 
+        // setTag 函式，加入重置頁碼
         window.setTag = (tag) => {
             activeTag = tag;
+            currentPage = 1; // 切換標籤重置頁碼
             
-            // ★ 修改：只更新按鈕樣式，不重新渲染整個列表 (避免「更多」選單跳回關閉狀態)
             document.querySelectorAll('.category-tab').forEach(btn => {
                 if (btn.dataset.tag === tag) {
                     btn.classList.add('active');
-                    // 特殊處理絕版區按鈕樣式
-                    if (tag === 'obsolete') {
-                        btn.className = 'category-tab active bg-red-600 text-white border-red-600';
-                    }
+                    if (tag === 'obsolete') btn.className = 'category-tab active bg-red-600 text-white border-red-600';
                 } else {
                     btn.classList.remove('active');
-                    // 還原絕版區按鈕樣式
-                    if (btn.dataset.tag === 'obsolete') {
-                        btn.className = 'category-tab text-red-400 border-red-900/50 hover:bg-red-900/30';
-                    }
+                    if (btn.dataset.tag === 'obsolete') btn.className = 'category-tab text-red-400 border-red-900/50 hover:bg-red-900/30';
                 }
             });
 
@@ -572,11 +595,13 @@
 
         function renderGrid() {
             const grid = document.getElementById('postcard-grid');
+            const paginationControls = document.getElementById('pagination-controls');
+            
             const cVal = document.getElementById('filter-country').value;
             const rVal = document.getElementById('filter-region').value;
             const aVal = document.getElementById('filter-area').value;
 
-            // 1. 篩選邏輯
+            // 1. 執行篩選 (維持原邏輯)
             const filtered = allCards.filter(c => {
                 if (activeTag === 'obsolete') return c.is_obsolete === true;
                 if (c.is_obsolete === true) return false;
@@ -590,25 +615,46 @@
             if (filtered.length === 0) {
                 const msg = activeTag === 'obsolete' ? '目前沒有絕版的美片。' : '沒有符合條件的美片。';
                 grid.innerHTML = `<p class="col-span-full text-center text-gray-500 py-12">${msg}</p>`;
+                paginationControls.classList.add('hidden');
                 return;
             }
 
-            grid.innerHTML = filtered.map(c => {
+            // 2. ★ 分頁計算邏輯
+            const totalPages = Math.ceil(filtered.length / itemsPerPage);
+            if (currentPage > totalPages) currentPage = 1; // 防呆
+
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedItems = filtered.slice(startIndex, endIndex);
+
+            // 3. ★ 更新分頁按鈕 UI
+            paginationControls.classList.remove('hidden');
+            const pageInput = document.getElementById('page-input');
+            const totalText = document.getElementById('total-pages-text');
+            
+            if (pageInput && totalText) {
+                pageInput.value = currentPage; // 更新輸入框數字
+                pageInput.max = totalPages;    // 設定最大值防止亂輸
+                totalText.textContent = `/ ${totalPages}`; // 更新總頁數文字
+            }
+            document.getElementById('prev-page-btn').disabled = currentPage === 1;
+            document.getElementById('next-page-btn').disabled = currentPage === totalPages;
+
+            // 4. 渲染卡片 (只渲染這一頁的 30 筆)
+            grid.innerHTML = paginatedItems.map(c => {
                 const displayName = c.nickname || '匿名';
                 const fullLocation = [c.country, c.region, c.area].filter(Boolean).join(' · ');
                 const tagsHtml = (c.tags||[]).map(t => `<span class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full mr-1 mb-1 inline-block border border-gray-600">#${t}</span>`).join('');
                 
-                // 權限判斷：本人 OR 管理員
                 const isOwner = (myIpFingerprint && c.ip_fingerprint === myIpFingerprint) || 
                                 (c.friend_code === guestCode && c.nickname === guestNick);
                 
-                const canEdit = isOwner || isAdmin;   // ★ 管理員也可以編輯
-                const canDelete = isOwner || isAdmin; // ★ 管理員也可以刪除
+                const canEdit = isOwner || isAdmin;
+                const canDelete = isOwner || isAdmin;
 
-                // 生成控制按鈕 HTML
                 let controlsHtml = '';
                 if (canEdit || canDelete) {
-                     controlsHtml = `
+                    controlsHtml = `
                     <div class="absolute top-2 right-2 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition duration-200 z-10">
                         ${canEdit ? `<button onclick="editCard(${c.id}, event)" class="text-gray-300 hover:text-white p-1.5 hover:bg-gray-700 rounded" title="編輯">✏️</button>` : ''}
                         ${canDelete ? `<button onclick="deleteCard(${c.id}, event)" class="text-red-400 hover:text-red-300 p-1.5 hover:bg-gray-700 rounded" title="刪除">🗑️</button>` : ''}
@@ -617,24 +663,15 @@
 
                 const heartIcon = c.isLiked ? '❤️' : '🤍';
                 const heartClass = c.isLiked ? 'liked' : 'text-gray-500 hover:text-pink-400';
-
-                // 絕版樣式
                 const cardContainerClass = c.is_obsolete ? 'border-red-900/80' : '';
                 const imgStyleClass = c.is_obsolete ? 'grayscale opacity-60 mix-blend-luminosity' : '';
                 const obsoleteBadge = c.is_obsolete ? '<div class="absolute inset-0 flex items-center justify-center pointer-events-none z-20"><span class="bg-red-600/90 text-white px-4 py-1.5 rounded-full text-sm font-bold transform -rotate-12 border-2 border-red-400 shadow-[0_0_15px_rgba(220,38,38,0.5)]">已絕版</span></div>' : '';
                 
-                // 按鈕圖示與樣式
                 const isObsoleteView = activeTag === 'obsolete';
                 const obsBtnTitle = isObsoleteView ? '恢復上架' : '回報絕版';
-                
                 let obsBtnHtml, obsBtnBaseClass;
                 if (isObsoleteView) {
-                    obsBtnHtml = `
-                        <div class="flex flex-col items-center justify-center leading-none pointer-events-none">
-                            <span class="text-xs">✅</span>
-                            <span class="text-[9px] font-bold mt-1">上架</span>
-                        </div>
-                    `;
+                    obsBtnHtml = `<div class="flex flex-col items-center justify-center leading-none pointer-events-none"><span class="text-xs">✅</span><span class="text-[9px] font-bold mt-1">上架</span></div>`;
                     obsBtnBaseClass = 'h-auto w-auto px-1.5 py-1 text-green-400 hover:text-green-300 bg-green-900/40 border-green-700/50 rounded-lg'; 
                 } else {
                     obsBtnHtml = `<span class="text-sm filter drop-shadow-md pointer-events-none">🚫</span>`;
@@ -655,12 +692,10 @@
                                     <span class="text-xs text-gray-500 font-normal mr-0.5">By</span>
                                     <span class="text-sm font-bold text-gray-200">${displayName}</span>
                                 </div>
-                                
                                 <div class="flex items-center gap-2 flex-shrink-0">
                                     <button onclick="toggleObsolete(${c.id}, '${displayName}')" class="flex items-center justify-center border border-gray-700 ${obsBtnBaseClass} transition active:scale-90 backdrop-blur-sm" title="${obsBtnTitle}">
                                         ${obsBtnHtml}
                                     </button>
-
                                     <button onclick="toggleLike(${c.id}, this)" class="like-btn flex items-center gap-1 bg-gray-800/80 border border-gray-700 px-2 py-0.5 rounded-full ${heartClass} backdrop-blur-sm">
                                         <span class="icon text-sm">${heartIcon}</span><span class="count text-xs font-bold">${c.likes}</span>
                                     </button>
@@ -684,6 +719,35 @@
                     </div>`;
             }).join('');
         }
+
+        // 切換頁碼函式
+        window.changePage = (delta) => {
+            currentPage += delta;
+            renderGrid();
+            // 切換頁面後，捲動到過濾器下方
+            document.getElementById('filter-container').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        };
+
+
+        // 跳轉頁面函式
+        window.jumpToPage = (val) => {
+            // 取得目前的篩選結果總數來計算最大頁數 (需要重新跑一次篩選邏輯來確認範圍)
+            // 為了簡化，我們直接用 renderGrid 裡面的邏輯，或者將 totalPages 設為全域變數
+            // 這裡使用一個簡單的防呆技巧：直接讀取 DOM 上的 max 屬性 (因為 renderGrid 已經設定過了)
+            const input = document.getElementById('page-input');
+            const maxPage = parseInt(input.max) || 1;
+            let target = parseInt(val);
+
+            if (isNaN(target) || target < 1) target = 1;
+            if (target > maxPage) target = maxPage;
+
+            currentPage = target;
+            renderGrid();
+            
+            // 跳轉後回到頂部
+            document.getElementById('filter-container').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        };
+
 
         // Actions
         const modal = document.getElementById('postcard-modal');
