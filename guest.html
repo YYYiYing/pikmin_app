@@ -992,7 +992,7 @@
             return window.t ? window.t(key) : defaultVal;
         }
 
-        // 渲染自飛卡片 (視覺升級：右側縮圖版)
+        // 渲染自飛卡片 (視覺升級：響應式修正版)
         function renderFlyCard(c, mushroomStyles, typeTranslator, cookingTranslator) {
             const isMine = myFlyPostIds.includes(c.id);
             
@@ -1020,11 +1020,11 @@
                     notesHtml = `<div class="mt-2 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // ★★★ 修改重點 1：拆分圖片變數 ★★★
+            // 定義新的變數名稱 (拆分電腦與手機版) 
             const hasImage = (c.image_url && c.image_url.startsWith('http'));
             const safeImgUrl = hasImage ? getCdnUrl(c.image_url) : '';
 
-            // 1. 電腦版 (手機隱藏 hidden md:block) - 顯示在右側的小縮圖
+            // 電腦版圖片 (hidden md:block)
             let desktopImageHtml = hasImage
                 ? `<div class="hidden md:block flex-shrink-0 ml-2 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${c.image_url}')" title="${safeT('btn_view_postcard', '點擊查看大圖')}">
                         <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
@@ -1034,7 +1034,7 @@
                 </div>`
                 : '';
 
-            // 2. 手機版 (電腦隱藏 block md:hidden) - 顯示在備註下方的全寬大圖
+            // 手機版圖片 (block md:hidden)
             let mobileImageHtml = hasImage
                 ? `<div class="block md:hidden mt-3 w-full h-40 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md group" onclick="openImageViewer('${c.image_url}')">
                         <img src="${safeImgUrl}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-105 transition duration-500" alt="蘑菇美片">
@@ -1066,7 +1066,6 @@
             const slotsLabel = safeT('label_slots_rem', '剩餘名額');
             const flyTag = safeT('tag_fly', '自飛');
 
-            // ★★★ 重組 HTML：使用 flex justify-between 左右佈局 ★★★
             return `
                 <div class="challenge-card p-4 rounded-xl relative border border-cyan-800 bg-gray-800/80 hover:border-cyan-500 transition-colors duration-300" 
                         data-datatype="fly" 
@@ -1094,10 +1093,12 @@
                             ${fireHtml}
                         </div>
 
-                        ${imageThumbnailHtml}
+                        ${desktopImageHtml}
                     </div>
 
                     ${notesHtml}
+
+                    ${mobileImageHtml}
 
                     ${actionBtnHtml}
                 </div>
