@@ -885,7 +885,7 @@ serve(async (req) => {
         // ★ 回傳合併後的 count
         return new Response(JSON.stringify({ 
             success: true, 
-            data: { count: totalCount, limit: 6, ip_fingerprint: fingerprint } 
+            data: { count: totalCount, limit: 10, ip_fingerprint: fingerprint } 
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
@@ -945,8 +945,8 @@ serve(async (req) => {
 
         if (err1 || err2) throw new Error('系統忙碌中，請稍後再試');
 
-        // ★ 5. 執行合併限制 (每日最多 6 則)
-        const COMBINED_LIMIT = 6; 
+        // ★ 5. 執行合併限制 (每日最多 10 則)
+        const COMBINED_LIMIT = 10; 
         const currentTotal = (challengeCount || 0) + (flyCount || 0);
 
         if (currentTotal >= COMBINED_LIMIT) {
@@ -1377,8 +1377,8 @@ serve(async (req) => {
 
       if (err1 || err2) throw new Error('系統忙碌中，請稍後再試');
 
-      // ★ 5. 執行合併限制 (改為 6 則)
-      const COMBINED_LIMIT = 6;
+      // ★ 5. 執行合併限制 (改為 10 則)
+      const COMBINED_LIMIT = 10;
       const currentTotal = (challengeCount || 0) + (flyCount || 0);
 
       if (currentTotal >= COMBINED_LIMIT) {
