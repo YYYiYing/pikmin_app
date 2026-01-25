@@ -221,6 +221,17 @@
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // === Cloudflare CDN 設定 ===
+        const CDN_HOST = 'https://pikmin-cdn.secretsoulful.workers.dev'; // 請確認這串網址跟您剛剛貼的一樣
+
+        function getCdnUrl(url) {
+            if (!url) return '';
+            if (url.includes('htdddmoclmhqebyvzean.supabase.co')) {
+                return url.replace('https://htdddmoclmhqebyvzean.supabase.co', CDN_HOST);
+            }
+            return url;
+        }
+
         // --- 全域變數 ---
         let currentUser = null;
         let allPostcards = [];
@@ -446,7 +457,7 @@
                 return `
                     <div class="card-bg rounded-xl overflow-hidden relative group flex flex-col h-full ${p.is_obsolete ? 'opacity-75 border-red-900/30' : ''}">
                         <div class="aspect-video overflow-hidden bg-gray-900 cursor-pointer relative" onclick="viewImage('${p.image_url}')">
-                            <img src="${p.image_url}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out ${p.is_obsolete ? 'grayscale' : ''}">
+                            <img src="${getCdnUrl(p.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out ${p.is_obsolete ? 'grayscale' : ''}">
                             ${controlsHtml}
                             ${p.is_obsolete ? '<div class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="bg-red-600/80 text-white px-3 py-1 rounded-full text-xs font-bold transform -rotate-12 border border-red-400">已絕版</span></div>' : ''}
                         </div>
@@ -604,7 +615,7 @@
             uploadSection.classList.remove('hidden');
             uploadSection.querySelector('label').textContent = '更換圖片 (若不修改請留空)';
             document.getElementById('image-upload').value = '';
-            document.getElementById('preview-image').src = card.image_url;
+            document.getElementById('preview-image').src = getCdnUrl(card.image_url);
             document.getElementById('preview-section').classList.remove('hidden');
             document.getElementById('submit-btn').textContent = '儲存變更';
             modal.classList.remove('hidden');
@@ -785,8 +796,14 @@
         window.viewImage = (url) => {
             const m = document.getElementById('image-viewer-modal');
             const i = document.getElementById('viewer-image');
-            if(m && i) { i.src = url; m.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+            
+            if(m && i) { 
+                i.src = getCdnUrl(url); 
+                m.classList.remove('hidden'); 
+                document.body.style.overflow = 'hidden'; 
+            }
         };
+
         window.closeImageViewer = () => {
             const m = document.getElementById('image-viewer-modal');
             if(m) { m.classList.add('hidden'); document.body.style.overflow = ''; setTimeout(() => document.getElementById('viewer-image').src='', 300); }

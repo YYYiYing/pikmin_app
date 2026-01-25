@@ -184,6 +184,18 @@
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, PUBLIC_KEY);
 
+        // === Cloudflare CDN 設定 (新增這段) ===
+        const CDN_HOST = 'https://pikmin-cdn.secretsoulful.workers.dev';
+
+        function getCdnUrl(url) {
+            if (!url) return '';
+            // 如果網址是原本的 Supabase 連結，就把它換成 CDN 連結
+            if (url.includes('htdddmoclmhqebyvzean.supabase.co')) {
+                return url.replace('https://htdddmoclmhqebyvzean.supabase.co', CDN_HOST);
+            }
+            return url;
+        }
+
         // State
         let allCards = [];
         let activeTag = 'all';
@@ -632,7 +644,7 @@
                 return `
                     <div class="card-bg rounded-xl overflow-hidden relative group flex flex-col h-full ${cardContainerClass}">
                         <div class="aspect-video bg-gray-900 cursor-pointer relative overflow-hidden" onclick="openImageViewer('${c.image_url}')">
-                            <img src="${c.image_url}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out ${imgStyleClass}">
+                            <img src="${getCdnUrl(c.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-700 ease-in-out ${imgStyleClass}">
                             ${controlsHtml}
                             ${obsoleteBadge}
                         </div>
@@ -929,7 +941,7 @@
         };
         
         window.openImageViewer = (url) => {
-            document.getElementById('viewer-image').src = url;
+            document.getElementById('viewer-image').src = getCdnUrl(url);
             document.getElementById('image-viewer-modal').classList.remove('hidden');
         };
         window.closeImageViewer = () => document.getElementById('image-viewer-modal').classList.add('hidden');
