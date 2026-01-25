@@ -387,7 +387,12 @@
 
                 <div>
                     <label class="text-sm text-gray-400 font-bold" data-i18n="label_postcard_image">蘑菇美片 (選填)</label>
-                    <input type="file" id="m-image" accept="image/*" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-pink-600 file:text-white hover:file:bg-pink-700 mt-1"/>
+                    <div class="flex items-center gap-2 mt-1">
+                        <input type="file" id="m-image" accept="image/*" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-pink-600 file:text-white hover:file:bg-pink-700"/>
+                        <button type="button" onclick="openGallerySelector('m-image')" class="flex-shrink-0 bg-pink-600 hover:bg-pink-500 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap flex items-center gap-1">
+                            <span>🎨</span> 美片
+                        </button>
+                    </div>
                 </div>
 
                 <div>
@@ -486,7 +491,12 @@
 
                 <div>
                     <label class="text-sm text-gray-400 font-bold" data-i18n="label_postcard_image">蘑菇美片 (選填)</label>
-                    <input type="file" id="f-image" accept="image/*" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-700 mt-1"/>
+                    <div class="flex items-center gap-2 mt-1">
+                        <input type="file" id="f-image" accept="image/*" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-700"/>
+                        <button type="button" onclick="openGallerySelector('f-image')" class="flex-shrink-0 bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-2 rounded-lg font-bold text-sm transition shadow-md whitespace-nowrap flex items-center gap-1">
+                            <span>🎨</span> 美片
+                        </button>
+                    </div>
                 </div>
 
                 <div>
@@ -537,11 +547,59 @@
         </div>
     </div>
 
+    <div id="gallery-selector-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+        <div class="bg-gray-800 w-full max-w-6xl rounded-2xl shadow-xl p-6 border border-gray-600 flex flex-col max-h-[90vh]">
+
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span>🎨</span> 選擇美片藝廊
+                </h3>
+                <button type="button" onclick="closeGalleryModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <div id="gallery-loading" class="hidden text-center py-10">
+                <span class="text-pink-400 animate-pulse font-bold text-lg">正在讀取美片數據...</span>
+            </div>
+
+            <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2 overflow-y-auto flex-1 min-h-[300px]">
+                </div>
+
+            <div id="gallery-pagination" class="flex justify-center items-center gap-3 mt-4 mb-2 pt-2 border-t border-gray-700">
+                <button onclick="changeGalleryPage(-1)" id="gal-prev-btn" class="flex items-center justify-center w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition">◀</button>
+                
+                <div class="flex items-center bg-gray-900 border border-gray-700 rounded px-2 py-1">
+                    <span class="text-xs text-gray-500 mr-2">Page</span>
+                    <input type="number" id="gal-page-input" value="1" min="1" 
+                           class="w-12 bg-transparent text-center text-white text-sm outline-none focus:ring-1 focus:ring-pink-500 rounded transition"
+                           onchange="jumpToGalleryPage(this.value)" 
+                           onkeydown="if(event.key==='Enter') jumpToGalleryPage(this.value)">
+                    <span id="gal-total-pages" class="text-sm text-gray-500 font-mono border-l border-gray-700 pl-2 ml-1">/ 1</span>
+                </div>
+
+                <button onclick="changeGalleryPage(1)" id="gal-next-btn" class="flex items-center justify-center w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition">▶</button>
+            </div>
+
+            <div class="mt-2 flex justify-end">
+                <button type="button" onclick="closeGalleryModal()" class="px-6 py-2 bg-gray-600 text-gray-200 rounded-lg font-semibold hover:bg-gray-500 transition">取消</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
         const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, PUBLIC_KEY);
+
+        const CDN_HOST = 'https://pikmin-cdn.secretsoulful.workers.dev';
+
+        function getCdnUrl(url) {
+            if (!url) return '';
+            if (url.includes('htdddmoclmhqebyvzean.supabase.co')) {
+                return url.replace('https://htdddmoclmhqebyvzean.supabase.co', CDN_HOST);
+            }
+            return url;
+        }
 
         // 本地狀態
         let myGuestPostIds = JSON.parse(localStorage.getItem('my_guest_post_ids') || '[]');
@@ -934,7 +992,7 @@
             return window.t ? window.t(key) : defaultVal;
         }
 
-        // 渲染自飛卡片
+        // 渲染自飛卡片 (視覺升級：右側縮圖版)
         function renderFlyCard(c, mushroomStyles, typeTranslator, cookingTranslator) {
             const isMine = myFlyPostIds.includes(c.id);
             
@@ -959,15 +1017,20 @@
             
             let notesHtml = '';
             if (c.notes && c.notes.trim()) {
-                    notesHtml = `<div class="mt-1 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
+                    notesHtml = `<div class="mt-2 text-sm text-cyan-200/90 italic border-l-2 border-cyan-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // 加入 safeT 翻譯
-            const viewImgText = safeT('btn_view_postcard', '📷 查看明信片');
-
-            let imageBtnHtml = (c.image_url && c.image_url.startsWith('http')) 
-                ? `<button onclick="openImageViewer('${c.image_url}')" class="mt-2 text-xs bg-gray-700 text-pink-300 px-2 py-1 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1 transition w-fit">${viewImgText}</button>` 
-                : '';
+            // ★★★ 新增：縮圖變數 (使用 getCdnUrl 加速) ★★★
+            let imageThumbnailHtml = '';
+            if (c.image_url && c.image_url.startsWith('http')) {
+                imageThumbnailHtml = `
+                    <div class="flex-shrink-0 ml-2 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${c.image_url}')" title="${safeT('btn_view_postcard', '點擊查看大圖')}">
+                         <img src="${getCdnUrl(c.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
+                         <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+                            <span class="text-white text-lg filter drop-shadow-md">🔍</span>
+                         </div>
+                    </div>`;
+            }
 
             const hostLabel = safeT('label_host', '發菇者');
             const hostDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${c.friend_code}')" title="${safeT('hint_copy_code', '複製好友碼')}: ${c.friend_code}">${c.nickname}</span>`;
@@ -991,6 +1054,7 @@
             const slotsLabel = safeT('label_slots_rem', '剩餘名額');
             const flyTag = safeT('tag_fly', '自飛');
 
+            // ★★★ 重組 HTML：使用 flex justify-between 左右佈局 ★★★
             return `
                 <div class="challenge-card p-4 rounded-xl relative border border-cyan-800 bg-gray-800/80 hover:border-cyan-500 transition-colors duration-300" 
                         data-datatype="fly" 
@@ -1007,16 +1071,21 @@
 
                     <p class="text-sm text-gray-300 font-bold mb-2">${hostLabel}: ${hostDisplay}</p>
                     
-                    <div class="text-sm text-gray-400 space-y-1">
-                        <p>${timeLabel}: ${postTime}</p>
-                        <p>${slotsLabel}: ${c.slots} ${safeT('unit_person', '人')}</p>
-                        <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded border border-gray-700">
-                            <span class="font-mono text-xs text-gray-300 truncate select-all">${c.coordinates}</span>
+                    <div class="flex justify-between items-start my-3">
+                        
+                        <div class="text-sm text-gray-400 space-y-2 flex-1 min-w-0 pr-2">
+                            <p>${timeLabel}: ${postTime}</p>
+                            <p>${slotsLabel}: ${c.slots} ${safeT('unit_person', '人')}</p>
+                            <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded border border-gray-700 w-fit max-w-full">
+                                <span class="font-mono text-xs text-gray-300 truncate select-all">${c.coordinates}</span>
+                            </div>
+                            ${fireHtml}
                         </div>
-                        ${fireHtml}
-                        ${notesHtml}
-                        ${imageBtnHtml}
+
+                        ${imageThumbnailHtml}
                     </div>
+
+                    ${notesHtml}
 
                     ${actionBtnHtml}
                 </div>
@@ -1057,6 +1126,7 @@
             return count;
         }
 
+        // 渲染大聲公卡片 (視覺升級：右側縮圖版)
         function renderNormalCard(c, mushroomStyles, myGuestSignups, typeTranslator, detailsTranslator, cookingTranslator) {
             const isMine = myGuestPostIds.some(id => String(id) === String(c.id));
             const mySignupRecord = myGuestSignups.find(s => String(s.challengeId) === String(c.id));
@@ -1105,7 +1175,6 @@
             else if (cStyle.includes('隨便')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
             
             const fireLabel = safeT('label_cooking', '火侯');
-            
             const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">${fireLabel}:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${displayCooking || '未指定'}</span></div>`;
                     
             let participantsHtml = '';
@@ -1157,24 +1226,17 @@
                     const addMsg = safeT('btn_add_comment', '留言');
 
                     if (isMe) {
-                        // 判斷：是否有留言內容
                         const hasComment = commentVal && commentVal.trim() !== '';
-
-                        // --- 樣式設定 ---
-                        // 1. 未留言 (銀色高亮)：背景亮銀灰、文字深黑、無邊框、滑鼠移過去變白
-                        // 2. 已留言 (深色沉穩)：背景深灰、文字青色、有邊框、滑鼠移過去變亮灰
                         const bgClass = hasComment ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-300 hover:bg-white';
-                        const textClass = hasComment ? 'text-cyan-300' : 'text-gray-900 font-extrabold'; // 未留言時加粗
-                        const borderClass = hasComment ? 'border-gray-500' : 'border-transparent shadow-md'; // 未留言加陰影增加立體感
+                        const textClass = hasComment ? 'text-cyan-300' : 'text-gray-900 font-extrabold';
+                        const borderClass = hasComment ? 'border-gray-500' : 'border-transparent shadow-md';
                         
-                        // 內容顯示
                         const commentDisplay = hasComment 
                             ? `<span class="truncate">${commentVal}</span>` 
                             : `<span class="flex items-center gap-1">✏️ ${addMsg}</span>`;
 
                         const commentAction = `onclick="window.editSignupComment(${c.id}, '${commentVal.replace(/'/g, "\\'")}', event)"`;
                         
-                        // 組合按鈕 HTML
                         commentBlock = `
                             <button ${commentAction} class="ml-2 relative z-10 text-xs border ${borderClass} ${bgClass} ${textClass} px-3 py-1 rounded transition max-w-[120px] shadow-sm flex items-center h-6" title="${hasComment ? '點擊編輯' : '點擊新增留言'}">
                                 ${commentDisplay}
@@ -1182,12 +1244,6 @@
                     } else {
                         if (commentVal) {
                             const safeComment = commentVal.replace(/'/g, "\\'");
-                            
-                            // ★ 修改樣式：
-                            // 1. onclick 加入 event 參數: window.openCommentModal(..., event)
-                            // 2. class 加入 relative z-10 (提升層級)
-                            // 3. class 改為 bg-gray-700 (不透明實色)
-                            // 4. border-gray-600 (明顯邊框)
                             commentBlock = `
                                 <button type="button" onclick="window.openCommentModal('${safeComment}', event)" 
                                     class="ml-2 relative z-10 text-xs text-cyan-300 bg-gray-700 px-2 py-0.5 rounded max-w-[120px] truncate cursor-pointer border border-gray-600 hover:bg-gray-600 hover:border-cyan-400 transition select-none shadow-sm"
@@ -1231,12 +1287,9 @@
             } else if (c.status === '預計開放') {
                 actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>${safeT('btn_not_open', '尚未開放')}</button>`;
             } else {
-                // ★ 修改：按鈕邏輯分離
-                // 1. 真正的額滿 (灰色按鈕)：人數 >= 名額 + 2
                 if (signupCount >= (c.slots + 2)) {
                      actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>${safeT('status_full', '已額滿')}</button>`;
                 } 
-               // 2. 備取階段 (橘色按鈕)：人數 >= 名額，但還沒到 +2
                 else if (signupCount >= c.slots) {
                     const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
                     const waitRank = signupCount - c.slots + 1;
@@ -1250,11 +1303,9 @@
                         const btnText = safeT('btn_join_waitlist', '報名備取');
                         const rankText = safeT('rank_wait', '備');
                         
-                        // ★ 修改：將 bg-blue-600 改為 bg-orange-600，hover 也對應改為 orange
                         actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition shadow-lg transform active:scale-95">👉 ${btnText} (${rankText}${waitRank})</button>`;
                     }
                 }
-                // 3. 一般報名
                 else {
                     const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
                     const coolText = safeT('btn_cooldown', '冷卻中');
@@ -1269,15 +1320,20 @@
             
             let notesHtml = '';
             if (c.notes && c.notes.trim() !== '') {
-                    notesHtml = `<div class="mt-1 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
+                    notesHtml = `<div class="mt-2 text-sm text-yellow-200/90 italic border-l-2 border-yellow-500/50 pl-2 break-words">📝 ${c.notes}</div>`;
             }
 
-            // 加入 safeT 翻譯，並將文字改為「查看明信片」
-            const viewImgText = safeT('btn_view_postcard', '📷 查看明信片');
-            
-            let imageBtnHtml = (c.image_url && c.image_url.startsWith('http')) 
-                ? `<button onclick="openImageViewer('${c.image_url}')" class="mt-2 text-xs bg-gray-700 text-pink-300 px-2 py-1 rounded hover:bg-gray-600 border border-gray-600 flex items-center gap-1 transition w-fit">${viewImgText}</button>` 
-                : '';
+            // ★★★ 新增：縮圖變數 ★★★
+            let imageThumbnailHtml = '';
+            if (c.image_url && c.image_url.startsWith('http')) {
+                imageThumbnailHtml = `
+                    <div class="flex-shrink-0 ml-2 cursor-pointer relative rounded-lg overflow-hidden border border-gray-700 shadow-md w-36 h-24 group" onclick="openImageViewer('${c.image_url}')" title="${safeT('btn_view_postcard', '點擊查看大圖')}">
+                         <img src="${getCdnUrl(c.image_url)}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" alt="蘑菇美片">
+                         <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+                            <span class="text-white text-lg filter drop-shadow-md">🔍</span>
+                         </div>
+                    </div>`;
+            }
 
             const hostNameRaw = c.display_host_name || '未知';
             const hostCodeMatch = hostNameRaw.match(/(\d{12})/);
@@ -1292,19 +1348,16 @@
             const callPeriodLabel = safeT('label_period', '呼叫時段');
             const slotsLabel = safeT('label_slots', '呼叫名額');
 
-            // ★★★ 在 return 之前插入這段計算邏輯 ★★★
             let slotsDisplayHtml = '';
             if (signupCount > c.slots) {
                 const waitCount = signupCount - c.slots;
-                // 使用翻譯鍵值 txt_waitlist
                 const waitText = safeT('txt_waitlist', '備取');
-                // 樣式：不加顏色，只加粗體 (font-bold) 與左邊距 (ml-2)
                 slotsDisplayHtml = `${c.slots} / ${c.slots} <span class="font-bold ml-2">${waitText} ${waitCount} / 2</span>`;
             } else {
                 slotsDisplayHtml = `${signupCount} / ${c.slots}`;
             }
 
-            // ★★★ 替換原本的 return 區塊 ★★★
+            // ★★★ 重組 HTML：使用 flex justify-between 左右佈局 ★★★
             return `
                 <div class="challenge-card p-4 rounded-xl relative hover:border-pink-500 transition-colors duration-300" 
                         data-status="${c.status}" 
@@ -1322,14 +1375,19 @@
                     </div>
 
                     <p class="text-sm text-pink-400 font-bold mb-2">${hostLabel}: ${hostDisplayHtml}</p>
-                    <div class="text-sm text-gray-400 space-y-1">
-                        ${timeDisplayHtml}
-                        <p>${callPeriodLabel}: 📣 ${displayDetails}</p>
-                        ${fireHtml}
-                        <p>${slotsLabel}: ${slotsDisplayHtml}</p>
-                        ${notesHtml}
-                        ${imageBtnHtml}
+                    
+                    <div class="flex justify-between items-start">
+                        <div class="text-sm text-gray-400 space-y-1 flex-1 min-w-0">
+                            ${timeDisplayHtml}
+                            <p>${callPeriodLabel}: 📣 ${displayDetails}</p>
+                            ${fireHtml}
+                            <p>${slotsLabel}: ${slotsDisplayHtml}</p>
+                        </div>
+                        ${imageThumbnailHtml}
                     </div>
+
+                    ${notesHtml}
+
                     ${participantsHtml}
                     
                     ${actionButtonHtml}
@@ -3319,9 +3377,16 @@
 
         // 開啟圖片瀏覽器
         window.openImageViewer = function(url) {
-            const m = document.getElementById('image-viewer-modal'), i = document.getElementById('viewer-image');
-            if(m && i) { i.src=url; m.classList.remove('hidden'); }
+            const m = document.getElementById('image-viewer-modal');
+            const i = document.getElementById('viewer-image');
+            
+            if(m && i) { 
+                // ★★★ 修正重點：大圖網址也要經過 CDN 轉換 ★★★
+                i.src = getCdnUrl(url); 
+                m.classList.remove('hidden'); 
+            }
         };
+
         window.closeImageViewer = function() {
             const m = document.getElementById('image-viewer-modal'), i = document.getElementById('viewer-image');
             if(m) { m.classList.add('hidden'); setTimeout(() => { if(i) i.src=''; }, 300); }
@@ -3716,6 +3781,177 @@
             } catch (e) {
                 console.error(e);
                 showToast(safeT('toast_op_failed', '操作失敗 (可能非本人或IP已變動)'), true);
+            }
+        };
+
+        // ==========================================
+        // ▼▼▼ 美片藝廊選擇器 (Gallery Selector) ▼▼▼
+        // ==========================================
+        
+        let galleryData = [];        // 儲存抓回來的藝廊資料
+        let galleryPage = 1;         // 當前頁碼
+        const galleryPerPage = 24;   // 每頁 24 張
+        let targetInputId = null;    // 紀錄要填入哪個 input (m-image 或 f-image)
+
+        // 開啟視窗
+        window.openGallerySelector = async function(inputId) {
+            targetInputId = inputId;
+            const modal = document.getElementById('gallery-selector-modal');
+            modal.classList.remove('hidden');
+            
+            // 如果還沒抓過資料，就抓一次
+            if (galleryData.length === 0) {
+                await fetchGalleryData();
+            } else {
+                renderGalleryGrid();
+            }
+        };
+
+        // 關閉視窗
+        window.closeGalleryModal = function() {
+            document.getElementById('gallery-selector-modal').classList.add('hidden');
+        };
+
+        // 抓取藝廊資料 (呼叫 admin-actions: list-guest-postcards)
+        async function fetchGalleryData() {
+            const loadingEl = document.getElementById('gallery-loading');
+            const grid = document.getElementById('gallery-grid');
+            
+            loadingEl.classList.remove('hidden');
+            grid.innerHTML = ''; // 清空顯示
+
+            try {
+                // 使用既有的 RPC 功能讀取公開藝廊
+                const { data: res, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'list-guest-postcards' })
+                });
+                
+                if (error) throw error;
+                
+                // 資料儲存 (list-guest-postcards 回傳結構通常是 { data: [...] })
+                galleryData = res.data || [];
+                galleryPage = 1;
+                
+                renderGalleryGrid();
+
+            } catch (err) {
+                console.error('藝廊讀取失敗:', err);
+                grid.innerHTML = '<p class="col-span-full text-center text-red-400 py-10">無法讀取藝廊資料，請稍後再試。</p>';
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        }
+
+        // 渲染網格 (Dashboard 移植修正版：使用明確高度避免重疊)
+        function renderGalleryGrid() {
+            const grid = document.getElementById('gallery-grid');
+            const pagination = document.getElementById('gallery-pagination');
+            const loading = document.getElementById('gallery-loading');
+            
+            // 隱藏 Loading (確保資料載入後隱藏)
+            if(loading) loading.classList.add('hidden');
+
+            if (!galleryData || galleryData.length === 0) {
+                grid.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center h-full text-gray-500"><span class="text-4xl mb-2">🖼️</span><p>藝廊目前沒有圖片</p></div>';
+                if(pagination) pagination.classList.add('hidden');
+                return;
+            }
+
+            if(pagination) pagination.classList.remove('hidden');
+
+            // 1. 計算分頁
+            const totalPages = Math.ceil(galleryData.length / galleryPerPage);
+            if (galleryPage > totalPages) galleryPage = 1;
+            if (galleryPage < 1) galleryPage = 1;
+
+            // 2. 切割資料
+            const start = (galleryPage - 1) * galleryPerPage;
+            const end = start + galleryPerPage;
+            const paginatedItems = galleryData.slice(start, end);
+
+            // 3. 更新分頁 UI
+            const pageInput = document.getElementById('gal-page-input');
+            const totalText = document.getElementById('gal-total-pages');
+            const prevBtn = document.getElementById('gal-prev-btn');
+            const nextBtn = document.getElementById('gal-next-btn');
+
+            if(pageInput) pageInput.value = galleryPage;
+            if(totalText) totalText.textContent = `/ ${totalPages}`;
+            if(prevBtn) prevBtn.disabled = galleryPage === 1;
+            if(nextBtn) nextBtn.disabled = galleryPage === totalPages;
+
+            // 4. 渲染圖片 (修正版：使用 h-32 md:h-48 固定高度，取代 aspect-ratio)
+            grid.innerHTML = paginatedItems.map(p => `
+                <div class="relative w-full h-32 md:h-48 group cursor-pointer rounded-lg overflow-hidden border border-gray-700 bg-gray-800 shadow-md hover:border-pink-500 transition duration-300" 
+                    onclick="selectGalleryImage('${p.image_url}', this)">
+                    
+                    <img src="${getCdnUrl(p.image_url)}" loading="lazy" class="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-110">
+                    
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex flex-col items-center justify-center backdrop-blur-[2px]">
+                        <span class="text-white font-bold bg-pink-600 px-3 py-1 rounded-full text-xs shadow-lg mb-1 transform scale-95 group-hover:scale-100 transition">
+                            ✅ 選擇
+                        </span>
+                        <span class="text-[10px] text-gray-200 bg-black/60 px-2 py-0.5 rounded border border-white/20">
+                            By ${p.nickname || '匿名'}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+            
+            grid.scrollTop = 0;
+        }
+
+        // 分頁控制
+        window.changeGalleryPage = (delta) => {
+            galleryPage += delta;
+            renderGalleryGrid();
+        };
+
+        window.jumpToGalleryPage = (val) => {
+            const totalPages = Math.ceil(galleryData.length / galleryPerPage);
+            let target = parseInt(val);
+            if (isNaN(target) || target < 1) target = 1;
+            if (target > totalPages) target = totalPages;
+            
+            galleryPage = target;
+            renderGalleryGrid();
+        };
+
+        // 核心：選取圖片並轉換為 File 物件塞回 input
+        window.selectGalleryImage = async function(imageUrl, element) {
+            showToast('正在下載美片...', false);
+
+            try {
+                // 1. 使用 CDN 下載 Blob
+                const safeUrl = getCdnUrl(imageUrl);
+                const response = await fetch(safeUrl);
+                if (!response.ok) throw new Error(`下載失敗 (${response.status})`);
+                
+                const blob = await response.blob();
+                
+                // 2. 轉換為 File 物件 (檔名加入亂數避免快取)
+                const filename = `gallery_${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
+                const file = new File([blob], filename, { type: blob.type });
+
+                // 3. 塞入目標 Input
+                const container = new DataTransfer();
+                container.items.add(file);
+                
+                const inputEl = document.getElementById(targetInputId);
+                if (inputEl) {
+                    inputEl.files = container.files;
+                    
+                    // 視覺回饋：閃爍綠框
+                    inputEl.classList.add('ring-2', 'ring-pink-500');
+                    setTimeout(() => inputEl.classList.remove('ring-2', 'ring-pink-500'), 1000);
+                }
+
+                showToast('已套用美片！', false);
+                setTimeout(closeGalleryModal, 300);
+
+            } catch (err) {
+                console.error('圖片套用失敗:', err);
+                showToast('圖片下載失敗，請稍後再試', true);
             }
         };
     </script>

@@ -1114,13 +1114,19 @@
             
             if (tabName === 'library') {
                 // === A. 讀取圖書館 (postcards 資料表) ===
+                // 直接讀取 uploader_nickname 欄位
                 const { data: res, error } = await supabaseClient
                     .from('postcards')
-                    .select('id, image_url')
+                    .select('id, image_url, uploader_nickname') 
                     .order('created_at', { ascending: false });
                 
                 if (error) throw error;
-                data = res;
+
+                data = res.map(item => ({
+                    id: item.id,
+                    image_url: item.image_url,
+                    nickname: (item.uploader_nickname || '匿名').replace(/\s*\d+$/, '')
+                }));
 
             } else {
                 // === B. 讀取藝廊 (guest_postcards 資料表 - 透過 RPC) ===
@@ -1187,9 +1193,12 @@
             <div class="lib-item w-full h-20 md:h-40 rounded-lg overflow-hidden bg-gray-900 group relative border border-gray-700 shadow-sm" onclick="selectLibImage('${p.image_url}', this)">
                 <img src="${getCdnUrl(p.image_url)}" loading="lazy" class="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-110">
                 
-                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                    <span class="text-white font-bold bg-pink-600 px-3 py-1 rounded-full text-sm select-none shadow-lg transform scale-95 group-hover:scale-100 transition">
+                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center backdrop-blur-[2px]">
+                    <span class="text-white font-bold bg-pink-600 px-3 py-1 rounded-full text-sm select-none shadow-lg mb-1 transform scale-95 group-hover:scale-100 transition">
                         點擊選擇
+                    </span>
+                    <span class="text-[10px] text-gray-200 bg-black/60 px-2 py-0.5 rounded border border-white/20">
+                        By ${p.nickname || '匿名'}
                     </span>
                 </div>
                 
