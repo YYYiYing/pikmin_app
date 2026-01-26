@@ -77,7 +77,7 @@
                     <span>➕</span> 分享雷達純點
                 </button>
                 
-                <a href="javascript:history.back()" class="text-gray-400 hover:text-white transition cursor-pointer font-bold">← 返回</a>
+                <a href="javascript:void(0)" onclick="handleBack()" class="text-gray-400 hover:text-white transition cursor-pointer">← 返回</a>
             </div>
             
             <div id="user-display" class="w-full md:w-auto text-center md:text-right text-xs text-gray-500 font-mono"></div>
@@ -1368,6 +1368,16 @@
                 setupInputDropdown('input-country', 'dropdown-country', uniqueCountries);
                 setupInputDropdown('input-region', 'dropdown-region', uniqueRegions);
                 setupInputDropdown('input-area', 'dropdown-area', uniqueAreas);
+            }
+        }
+
+        // 智慧返回功能
+        function handleBack() {
+            // radar.html 應該也有在 checkAuth() 或類似函式中設定 currentUser
+            if (currentUser) {
+                window.location.href = 'dashboard.html';
+            } else {
+                window.location.href = 'guest.html';
             }
         }
     </script>
