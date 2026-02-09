@@ -287,7 +287,7 @@ serve(async (req) => {
         });
     }
 
-    // 3. 排程清理逾時挑戰 (整合版：內部菇10hr + 訪客菇6hr + 圖片清理)
+    // 3. 排程清理逾時挑戰 (整合版：內部菇10hr + 訪客大聲公12hr + 自飛菇12hr + 圖片清理)
     if (action === 'cleanup-expired') {
         const now = Date.now();
         const deletedLog = [];
@@ -295,9 +295,10 @@ serve(async (req) => {
         // A. 定義時間門檻
         // 內部菇：已發車超過 10 小時
         const internalCutoff = new Date(now - 10 * 60 * 60 * 1000).toISOString();
-        // 訪客菇：開放時間超過 6 小時
-        const guestCutoff = new Date(now - 6 * 60 * 60 * 1000).toISOString();
+        // 訪客菇 (大聲公 & 自飛)：開放/發布時間超過 12 小時 (依據您的需求修改為 12)
+        const guestCutoff = new Date(now - 12 * 60 * 60 * 1000).toISOString();
 
+        // Part 1: 清理 Challenges 表格 (內部菇 + 訪客大聲公)
         // B1. 查詢逾時內部菇
         const { data: internalList, error: err1 } = await adminSupabaseClient
             .from('challenges')
@@ -307,7 +308,7 @@ serve(async (req) => {
         
         if (err1) throw err1;
 
-        // B2. 查詢逾時訪客菇
+        // B2. 查詢逾時訪客大聲公
         const { data: guestList, error: err2 } = await adminSupabaseClient
             .from('challenges')
             .select('id, image_url, mushroom_type, is_guest')
@@ -316,16 +317,16 @@ serve(async (req) => {
 
         if (err2) throw err2;
 
-        // C. 合併清單
-        const allToDelete = [
+        // C. 合併 Challenges 刪除清單
+        const challengesToDelete = [
             ...(internalList || []),
             ...(guestList || [])
         ];
 
-        // D. 執行刪除與圖片清理
-        if (allToDelete.length > 0) {
-            for (const challenge of allToDelete) {
-                // 1. 刪除圖片 (濾除 URL 參數)
+        // D. 執行 Challenges 刪除
+        if (challengesToDelete.length > 0) {
+            for (const challenge of challengesToDelete) {
+                // 1. 刪除圖片
                 if (challenge.image_url) {
                     try {
                         const fileName = challenge.image_url.split('/').pop()?.split('?')[0];
@@ -345,8 +346,45 @@ serve(async (req) => {
                 
                 // 3. 紀錄 Log
                 if (!delErr) {
-                    const typeLabel = challenge.is_guest ? '[訪客菇]' : '[內部菇]';
+                    const typeLabel = challenge.is_guest ? '[訪客大聲公]' : '[內部菇]';
                     deletedLog.push(`${typeLabel} 已刪除: ${challenge.mushroom_type} (ID: ${challenge.id})`);
+                }
+            }
+        }
+
+        // Part 2: 清理 Guest Fly Posts 表格 (訪客自飛菇)
+        // E. 查詢逾時自飛菇
+        const { data: flyList, error: errFly } = await adminSupabaseClient
+            .from('guest_fly_posts')
+            .select('id, image_url, mushroom_type')
+            .lt('created_at', guestCutoff);
+
+        if (errFly) throw errFly;
+
+        // F. 執行 Fly Posts 刪除
+        if (flyList && flyList.length > 0) {
+            for (const fly of flyList) {
+                // 1. 刪除圖片
+                if (fly.image_url) {
+                    try {
+                        const fileName = fly.image_url.split('/').pop()?.split('?')[0];
+                        if (fileName) {
+                            await adminSupabaseClient.storage.from('challenge-images').remove([fileName]);
+                        }
+                    } catch (e) {
+                        console.error(`自飛圖片清理失敗 (ID: ${fly.id}):`, e);
+                    }
+                }
+
+                // 2. 刪除紀錄
+                const { error: delFlyErr } = await adminSupabaseClient
+                    .from('guest_fly_posts')
+                    .delete()
+                    .eq('id', fly.id);
+
+                // 3. 紀錄 Log
+                if (!delFlyErr) {
+                    deletedLog.push(`[訪客自飛] 已刪除: ${fly.mushroom_type} (ID: ${fly.id})`);
                 }
             }
         }
@@ -364,7 +402,7 @@ serve(async (req) => {
         });
     }
 
-    // ★ 新增：取得首頁數據 (全類別 Top 3)
+    // 取得首頁數據 (全類別 Top 3)
     if (action === 'get-radar-home-data') {
         const authHeader = req.headers.get('Authorization');
 
@@ -1926,14 +1964,15 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // 發菇者點名 (切換 已入/未入 狀態)
+    // 發菇者點名 (切換 已入/未入 狀態) [已加入：滿4人已入自動額滿邏輯]
     if (action === 'toggle-signup-checked-in') {
         const { signupId, challengeId } = payload;
 
         // 1. 驗證權限：確認當前操作者 (user.id) 是該挑戰的 Host
+        // 多選出 slots, start_time, status 以便後續判斷
         const { data: challenge, error: cErr } = await adminSupabaseClient
             .from('challenges')
-            .select('host_id')
+            .select('host_id, slots, start_time, status') 
             .eq('id', challengeId)
             .single();
 
@@ -1954,21 +1993,60 @@ serve(async (req) => {
         if (sErr || !currentSignup) throw new Error('找不到該報名資料');
 
         // 3. 切換狀態 (True <-> False)
-        const newStatus = !currentSignup.is_checked_in;
+        const newCheckStatus = !currentSignup.is_checked_in;
 
         const { data: updated, error: uErr } = await adminSupabaseClient
             .from('signups')
-            .update({ is_checked_in: newStatus })
+            .update({ is_checked_in: newCheckStatus })
             .eq('id', signupId)
             .select()
             .single();
 
         if (uErr) throw uErr;
 
+        // 根據「已入人數」與「總報名數」更新蘑菇狀態
+        // 4. 重新統計該挑戰的所有報名狀況
+        const { data: allSignups, error: countErr } = await adminSupabaseClient
+            .from('signups')
+            .select('is_checked_in')
+            .eq('challenge_id', challengeId);
+
+        if (!countErr && allSignups) {
+            const totalCount = allSignups.length;
+            const checkedInCount = allSignups.filter((s: any) => s.is_checked_in).length; // 計算已入人數
+
+            const now = new Date();
+            const startTime = new Date(challenge.start_time);
+            let newStatus = challenge.status; // 預設維持現狀
+
+            // 判斷邏輯：
+            // 1. 如果時間還沒到 -> 預計開放
+            // 2. 如果 (已入 >= 4) 或 (總人數 >= 名額) -> 已額滿
+            // 3. 否則 -> 開放報名中
+
+            if (startTime > now) {
+                newStatus = '預計開放';
+            } else if (checkedInCount >= 4 || totalCount >= challenge.slots) {
+                // 滿足任一條件即視為額滿 (已入滿4人 OR 名額已滿)
+                newStatus = '已額滿';
+            } else {
+                // 未滿4人已入 且 未達名額上限
+                newStatus = '開放報名中';
+            }
+
+            // 5. 如果狀態有改變，寫入資料庫
+            if (newStatus !== challenge.status) {
+                await adminSupabaseClient
+                    .from('challenges')
+                    .update({ status: newStatus })
+                    .eq('id', challengeId);
+            }
+        }
+
         return new Response(JSON.stringify({ 
             success: true, 
             data: updated,
-            message: newStatus ? '已標記為已入' : '已取消已入標記'
+            message: newCheckStatus ? '已標記為已入' : '已取消已入標記'
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
