@@ -1380,25 +1380,26 @@
         const imgUrl = params.get('quickImg');
         if (!imgUrl) return;
         
-        // 清除 URL 參數
         window.history.replaceState({}, '', window.location.pathname);
         
-        try {
-            showToast('正在載入美片...', false);
-            const response = await fetch(imgUrl);
-            if (!response.ok) throw new Error('下載失敗');
-            const blob = await response.blob();
-            const file = new File([blob], `quick_${Date.now()}.jpg`, { type: blob.type });
-            const container = new DataTransfer();
-            container.items.add(file);
-            document.getElementById('challenge-image').files = container.files;
-            // 打開發布 Modal
-            document.getElementById('challenge-modal').classList.remove('hidden');
-            showToast('已自動帶入美片，請填寫其餘欄位。', false);
-        } catch (e) {
-            console.error('quickImg 載入失敗:', e);
-            showToast('美片載入失敗，請手動上傳。', true);
-        }
+        // 觸發按鈕點擊，載入身分、時間、記憶設定等
+        postChallengeButton.click();
+        
+        // 等待 Modal 開啟後，再設定圖片（按鈕 handler 的 reset 會清掉暫存的檔案）
+        const waitModal = setInterval(() => {
+            if (!challengeModal.classList.contains('hidden')) {
+                clearInterval(waitModal);
+                fetch(imgUrl)
+                    .then(r => { if (!r.ok) throw new Error('下載失敗'); return r.blob(); })
+                    .then(blob => {
+                        const file = new File([blob], `quick_${Date.now()}.jpg`, { type: blob.type });
+                        const dt = new DataTransfer();
+                        dt.items.add(file);
+                        document.getElementById('challenge-image').files = dt.files;
+                    })
+                    .catch(e => { console.error('quickImg 載入失敗:', e); showToast('美片載入失敗', true); });
+            }
+        }, 50);
     }
 
     document.addEventListener('DOMContentLoaded', initializePage);
