@@ -58,13 +58,11 @@ Guest users are identified by **IP fingerprint** (SHA-1 hash of `clientIp + 'SAL
 ## Cron & notifications
 
 `.github/workflows/cron.yml` calls the Edge Function every 30 minutes during Taiwan daytime (UTC 0–15 = TW 08:00–23:30):
-- `scheduled-email-notify` — sends email when open challenges change (fingerprint-based deduplication)
-- `scheduled-full-notify` — sends email for full-but-undispatched challenges (meal-time filtered)
 - `cleanup-expired` — deletes dispatched challenges (10h), guest challenges (12h), old self-fly posts, and orphaned images
 
 **Required secrets:**
 - GitHub: `SECRET_KEY` (Supabase service role key)
-- Supabase Edge Function env: `SUPABASE_URL`, `SECRET_KEY`, `PUBLIC_KEY`, `RESEND_API_KEY`
+- Supabase Edge Function env: `SUPABASE_URL`, `SECRET_KEY`, `PUBLIC_KEY`
 
 ## Gotchas
 

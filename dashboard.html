@@ -501,15 +501,6 @@
                 </button>
             </div>
                 
-                <div class="flex items-center space-x-2 ml-2">
-                    <button id="signup-sub-button" class="text-gray-400 hover:text-indigo-400 transition text-xs md:text-base flex items-center gap-1" title="訂閱新蘑菇通知">
-                        <span id="signup-email-icon">📧</span> <span id="signup-email-text">報名通知</span>
-                    </button>
-                    <button id="full-sub-button" class="text-gray-400 hover:text-red-400 transition text-xs md:text-base flex items-center gap-1" title="訂閱蘑菇額滿通知">
-                        <span id="full-email-icon">🔔</span> <span id="full-email-text">額滿通知</span>
-                    </button>
-                </div>
-
                 <button id="screenshot-button" class="text-gray-400 hover:text-white transition text-xs md:text-base">📸 截圖</button>
             </div>
             <button id="post-challenge-button" class="hidden bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 w-full md:w-auto">
@@ -1322,13 +1313,6 @@
     const cancelSyncButton = document.getElementById('cancel-sync-button');
     const clearSyncButton = document.getElementById('clear-sync-button');
 
-    const signupSubButton = document.getElementById('signup-sub-button');
-    const signupIcon = document.getElementById('signup-email-icon');
-    const signupText = document.getElementById('signup-email-text');
-    const fullSubButton = document.getElementById('full-sub-button');
-    const fullIcon = document.getElementById('full-email-icon');
-    const fullText = document.getElementById('full-email-text');
-
     const toastMessage = document.getElementById('toast-message');
 
     // 許願池 DOM (使用 const 確保不會被重複宣告)
@@ -1625,7 +1609,6 @@
         const mobAdmin = document.getElementById('admin-link-mobile');
         if (mobAdmin) mobAdmin.classList.remove('hidden');
     }
-        checkSubscriptionStatus();
     }
 
     async function refreshUserProfile() {
@@ -1704,7 +1687,8 @@
         // 規則：
         // 1. 「開放報名中」置頂
         // 2. 其餘狀態排在後面
-        // 3. 同一狀態內，依照 ID 由大到小 (新到舊) 排序
+        // 3. 開放中系列：已報名人數越多越前面 (缺員越少越優先)，同額則新到舊
+        // 4. 其餘狀態：ID 由大到小 (新到舊) 排序
         challengesArray.sort((a, b) => {
             // 判斷是否為開放報名中（相容新舊兩種狀態值）
             const aIsOpen = a.status === '開放報名中' || a.status === '報名中';
@@ -1716,7 +1700,14 @@
             // 如果 b 是開放中，a 不是 -> b 排前面 (1)
             if (!aIsOpen && bIsOpen) return 1;
 
-            // 如果狀態權重相同 (都是開放 或 都不是)，則比較 ID (新到舊)
+            // 如果都是開放中：已報名人數越多越前面
+            if (aIsOpen && bIsOpen) {
+                const aCount = a.signups?.length || 0;
+                const bCount = b.signups?.length || 0;
+                if (aCount !== bCount) return bCount - aCount;
+            }
+
+            // 同一狀態內，ID 由大到小 (新到舊)
             return b.id - a.id;
         });
 
@@ -1910,22 +1901,21 @@
                     checkedInIcon = `<span class="text-[10px] bg-green-600/20 text-green-400 border border-green-500/50 rounded px-1.5 py-0.5 ml-1 font-bold flex-shrink-0 select-none cursor-default" title="發菇者確認已入場">✅已入</span>`;
                 }
 
-                // 3. 處理留言按鈕
+                // 3. 處理留言 (優先顯示文字，空間不足時收合為圖示)
                 const commentVal = signup.comment || '';
                 const isMe = signup.user_id === currentUserProfile.id;
                 let commentBlock = '';
                 if (isMe) {
                     const hasComment = commentVal && commentVal.trim() !== '';
-                    const bgClass = 'bg-gray-700 hover:bg-gray-600';
-                    const textClass = hasComment ? 'text-cyan-300' : 'text-gray-400 hover:text-white';
-                    const borderClass = hasComment ? 'border-gray-500' : 'border-gray-500 border-dashed';
-                    const icon = hasComment ? '📝' : '✏️';
+                    const text = hasComment ? commentVal : '✏️留言';
+                    const textClass = hasComment ? 'text-cyan-300' : 'text-gray-400';
                     const title = hasComment ? '編輯留言' : '新增留言';
-                    commentBlock = `<button onclick="window.editUserSignupComment(${challenge.id}, '${commentVal.replace(/'/g, "\\'")}', event)" class="ml-1 relative z-10 text-xs border ${borderClass} ${bgClass} ${textClass} px-1.5 py-0.5 rounded transition flex items-center justify-center h-5 min-w-[24px] flex-shrink-0" title="${title}">${icon}</button>`;
+                    const safeComment = commentVal.replace(/'/g, "\\'");
+                    commentBlock = `<span class="comment-text-inline ml-1 max-w-[90px] md:max-w-[120px] truncate text-xs ${textClass} cursor-pointer hover:bg-gray-700 px-1.5 py-0.5 rounded transition select-none inline-block" data-comment="${safeComment}" data-challenge-id="${challenge.id}" data-is-me="true" data-has-comment="${hasComment}" onclick="window.editUserSignupComment(${challenge.id}, '${safeComment}', event)" title="${title}">${text}</span>`;
                 } else {
                     if (commentVal) {
                         const safeComment = commentVal.replace(/'/g, "\\'");
-                        commentBlock = `<button onclick="window.openDashboardComment('${safeComment}', event)" class="ml-1 relative z-10 text-xs text-cyan-300 bg-gray-700 px-1.5 py-0.5 rounded cursor-pointer border border-gray-600 hover:bg-gray-600 hover:border-cyan-400 transition select-none shadow-sm flex items-center justify-center h-5 min-w-[24px] flex-shrink-0" title="查看完整留言">📝</button>`;
+                        commentBlock = `<span class="comment-text-inline ml-1 max-w-[90px] md:max-w-[120px] truncate text-xs text-cyan-300 cursor-pointer hover:bg-gray-700 px-1.5 py-0.5 rounded transition select-none inline-block" data-comment="${safeComment}" data-challenge-id="${challenge.id}" data-is-me="false" data-has-comment="true" onclick="window.openDashboardComment('${safeComment}', event)" title="查看完整留言">${commentVal}</span>`;
                     }
                 }
 
@@ -2080,6 +2070,37 @@
         const existingCard = document.getElementById(card.id);
         if(existingCard) challengesListEl.replaceChild(card, existingCard);
         else challengesListEl.prepend(card);
+        
+        // 檢查留言文字是否溢出，若溢出則收合為圖示
+        requestAnimationFrame(() => checkCommentOverflow(card));
+    }
+
+    function checkCommentOverflow(cardEl) {
+        cardEl.querySelectorAll('.comment-text-inline').forEach(el => {
+            const row = el.closest('.participant-item');
+            if (!row) return;
+            const innerContainer = row.querySelector('.flex.items-center.flex-1');
+            if (innerContainer && innerContainer.scrollWidth > innerContainer.clientWidth) {
+                const isMe = el.dataset.isMe === 'true';
+                const hasComment = el.dataset.hasComment === 'true';
+                const challengeId = parseInt(el.dataset.challengeId);
+                const comment = el.dataset.comment;
+                const icon = hasComment ? '📝' : '✏️';
+                const title = hasComment ? (isMe ? '編輯留言' : '查看完整留言') : '新增留言';
+                const iconBtn = document.createElement('button');
+                let cls = 'ml-1 relative z-10 text-xs border border-gray-500 bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 rounded transition flex items-center justify-center h-5 min-w-[24px] flex-shrink-0';
+                if (isMe) {
+                    cls += hasComment ? ' text-cyan-300' : ' text-gray-400 hover:text-white border-dashed';
+                    iconBtn.onclick = (e) => window.editUserSignupComment(challengeId, comment, e);
+                } else {
+                    iconBtn.onclick = (e) => window.openDashboardComment(comment, e);
+                }
+                iconBtn.className = cls;
+                iconBtn.title = title;
+                iconBtn.textContent = icon;
+                el.replaceWith(iconBtn);
+            }
+        });
     }
 
     async function reloadChallengeCard(challengeId) {
@@ -2895,150 +2916,6 @@
         }
     }
 
-
-    // =========================================================================
-    // 10. 其他工具 (Subscription, Realtime, Utils)
-    // =========================================================================
-
-    /** [訂閱] */
-    function checkSubscriptionStatus() {
-        if(!currentUserProfile) return;
-        // 讀取新的 is_subscribed_... 欄位
-        updateSubBtn(signupSubButton, signupIcon, signupText, currentUserProfile.is_subscribed_signup, 'text-green-500', '報名通知', 'signup');
-        updateSubBtn(fullSubButton, fullIcon, fullText, currentUserProfile.is_subscribed_full, 'text-pink-500', '額滿通知', 'full');
-    }
-
-    // 修改 updateSubBtn 簽名 (拿掉 email 參數)
-    function updateSubBtn(btn, icon, txt, isSub, color, name, type) {
-        if(isSub) {
-            icon.textContent='📭'; txt.textContent='已加入';
-            btn.className=`${color} hover:opacity-80 transition text-xs md:text-base flex items-center gap-1`;
-            btn.title=`已加入${name}群組 (點擊前往設定/退出)`;
-        } else {
-            icon.textContent= name==='額滿通知'?'🔔':'📧'; txt.textContent=name;
-            btn.className=`text-gray-400 hover:${name==='額滿通知'?'text-red-400':'text-indigo-400'} transition text-xs md:text-base flex items-center gap-1`;
-            btn.title=`點擊前往 Google Groups 加入${name}`;
-        }
-        btn.onclick = () => handleSubClick(type, isSub, name);
-    }
-
-    /** [訂閱] 執行訂閱/退訂動作 (導引至 Google Groups) */
-    async function handleSubClick(type, isCurrentlySubscribed, name) {
-        const btn = type === 'full' ? fullSubButton : signupSubButton;
-        btn.disabled = true;
-        
-        // 定義網址
-        const joinUrl = type === 'full' 
-            ? "https://groups.google.com/g/full_quota_notify" 
-            : "https://groups.google.com/g/mushroom_notify";
-            
-        const leaveUrl = type === 'full' 
-            ? "https://groups.google.com/g/full_quota_notify/membership" 
-            : "https://groups.google.com/u/1/g/mushroom_notify/membership";
-
-        const targetUrl = isCurrentlySubscribed ? leaveUrl : joinUrl;
-        const actionText = isCurrentlySubscribed ? '退出' : '加入';
-        
-        // 提示訊息
-        const confirmMsg = isCurrentlySubscribed
-            ? `您確定要退出【${name}】嗎？\n\n系統將標記為未訂閱，並引導您至 Google Groups 頁面，請手動點擊「退出群組」。`
-            : `您想要加入【${name}】嗎？\n\n系統將引導您至 Google Groups 頁面，請手動點擊「申請加入」。`;
-
-        if (!confirm(confirmMsg)) {
-            btn.disabled = false;
-            return;
-        }
-
-        try {
-            // 呼叫後端更新狀態 (單純紀錄 True/False)
-            const { data, error } = await supabaseClient.functions.invoke('admin-actions', { 
-                body: { 
-                    action: 'update-subscription', 
-                    payload: { 
-                        userId: currentUserProfile.id, 
-                        type: type,
-                        status: !isCurrentlySubscribed // 切換狀態
-                    } 
-                } 
-            });
-
-            if (error) throw error;
-            if (data?.error) throw new Error(data.error);
-
-            // 更新本地狀態
-            if (type === 'full') currentUserProfile.is_subscribed_full = !isCurrentlySubscribed;
-            else currentUserProfile.is_subscribed_signup = !isCurrentlySubscribed;
-            
-            checkSubscriptionStatus();
-
-            // 跳轉
-            window.location.href = targetUrl;
-
-        } catch (e) { 
-            showToast('狀態更新失敗', true); 
-            console.error(e); 
-        } finally { 
-            btn.disabled = false; 
-        }
-    }
-
-    /** [訂閱] 執行訂閱/退訂動作 */
-    async function doSub(email, type) {
-        const btn = type === 'full' ? fullSubButton : signupSubButton;
-        // 暫存原本按鈕文字以便恢復 (優化版通常不需要，但保留以防萬一)
-        // const originalText = btn.textContent; 
-        
-        btn.disabled = true;
-        
-        try {
-            const { data, error } = await supabaseClient.functions.invoke('admin-actions', { 
-                body: { 
-                    action: 'update-subscription', 
-                    payload: { 
-                        userId: currentUserProfile.id, 
-                        email: email, 
-                        type: type 
-                    } 
-                } 
-            });
-
-            if (error) throw error;
-            if (data?.error) throw new Error(data.error);
-
-            // 更新本地狀態
-            if (type === 'full') currentUserProfile.full_notification_email = email;
-            else currentUserProfile.notification_email = email;
-            
-            checkSubscriptionStatus();
-
-            // 定義群組網址
-            const groupUrl = type === 'full' 
-                ? "https://groups.google.com/g/full_quota_notify" 
-                : "https://groups.google.com/g/mushroom_notify/members";
-
-            if (email) {
-                // === 訂閱成功 ===
-                showToast('訂閱成功！', false);
-                setTimeout(() => {
-                    alert('即將轉往Google網路論壇，請按「要求加入群組」，等審核通過即可收到通知。');
-                    window.location.href = groupUrl;
-                }, 500);
-            } else {
-                // === 退訂成功 (加入提示與轉址) ===
-                showToast('已取消訂閱', false);
-                setTimeout(() => {
-                    alert('【⚠️ 重要提醒】\n\n系統已清除您的信箱紀錄，但您仍需手動退出 Google 群組。\n\n點擊確定後將轉往群組頁面，請找到「退出群組」按鈕以完成退訂。');
-                    window.location.href = groupUrl;
-                }, 500);
-            }
-
-        } catch (e) { 
-            showToast('操作失敗', true); 
-            console.error(e); 
-        } finally { 
-            btn.disabled = false; 
-        }
-    }
 
     /** [Realtime] 最終完美版監聽器 (含前端查表) */
     function setupRealtimeListeners() {

@@ -61,8 +61,6 @@ daily_wish_count (int)
 absent_score (int)
 weekly_postcard_count (int)
 monthly_postcard_count (int)
-is_subscribed_signup (boolean)
-is_subscribed_full (boolean)
 notes (text)
 last_active_at (timestamptz)
 ```
@@ -247,8 +245,6 @@ function getCdnUrl(url) {
 
 | Action | Payload | 功能 | 呼叫頁面 |
 |--------|---------|------|----------|
-| `scheduled-email-notify` | — | 排程：發送報名通知 | cron.yml |
-| `scheduled-full-notify` | — | 排程：發送額滿待發通知 | cron.yml |
 | `cleanup-expired` | — | 排程：清除逾時挑戰(10h/12h)與孤兒圖片 | cron.yml |
 | `get-radar-home-data` | — | 取得雷達首頁 Top 3 資料 | radar |
 | `reverse-geocode` | `{lat, lng}` | 反查地址 (Nominatim API proxy) | postcard, radar, gallery, dedupe |
@@ -288,7 +284,6 @@ function getCdnUrl(url) {
 |--------|---------|------|----------|
 | `user-update-nickname` | `{newNickname}` | 修改暱稱 (更新 Auth email + profile + partners) | dashboard |
 | `submit-wish` | `{types: [...]}` | 許願 (呼叫 submit_wish_transaction RPC) | dashboard |
-| `update-subscription` | `{userId, type, status}` | 訂閱/取消 email 通知 | dashboard |
 | `toggle-signup-checked-in` | `{signupId, challengeId}` | 發菇者點名 (切換已入狀態) | dashboard |
 | `user-update-signup-comment` | `{challengeId, comment}` | 更新自己報名留言 | dashboard |
 | `add-postcard` | `{uploaderId, uploaderNickname, coordinate, ...}` | 發布會員美片 (座標去重) | postcard |
@@ -307,9 +302,6 @@ function getCdnUrl(url) {
 | `admin-clear-chat` | — | 清空所有留言 | admin |
 | `admin-batch-delete-messages` | `{ids}` | 批量刪除留言 | admin |
 | `list-users-with-details` | — | 取得用戶清單 (含最後登入) | admin |
-| `send-test-email` | — | 發送測試信 | admin |
-| `trigger-check-now` | — | 手動觸發報名通知 | admin |
-| `get-subscriber-counts` | — | 統計訂閱人數 | admin |
 | `delete-challenge` | `{challengeId}` | 管理員刪除挑戰 | admin |
 | `scan-duplicate-coordinates` | — | 掃描跨表重複座標 | —(dedupe 有獨立版本) |
 | `create-user` | `{nickname, password, role}` | 建立新用戶 | admin |
@@ -601,14 +593,11 @@ isAdmin = false
   → 成功: 記入 localStorage, 4秒冷卻
 ```
 
-### 9.4 排程通知流程
+### 9.4 排程清理流程
 ```
 GitHub Actions cron (每30分)
   → POST Edge Function
-  → 1. scheduled-email-notify: 指紋比對 → 有變化才發
-  → 2. scheduled-full-notify: 時段過濾 + 指紋比對
-  → 3. cleanup-expired: 刪除逾時+孤兒圖片
-  → 郵件透過 Resend API → Relay 到 Google Groups
+  → cleanup-expired: 刪除逾時+孤兒圖片
 ```
 
 ### 9.5 圖片上傳流程

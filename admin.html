@@ -134,38 +134,8 @@
         </header>
 
         <div id="global-settings-section" class="mb-8 admin-container rounded-2xl p-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="grid grid-cols-1 gap-8">
                 
-                <div>
-                    <div class="flex flex-col gap-6">
-                        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-bold text-indigo-400">📧 報名通知訂閱</h3>
-                                <p class="text-2xl font-bold text-white"><span id="sub-count">...</span> <span class="text-sm text-gray-500">人</span></p>
-                            </div>
-                        </div>
-
-                        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-bold text-pink-400">🔔 額滿通知訂閱</h3>
-                                <p class="text-2xl font-bold text-white"><span id="full-sub-count">...</span> <span class="text-sm text-gray-500">人</span></p>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-3 gap-2">
-                                <button id="trigger-check-button" class="bg-teal-600 hover:bg-teal-500 text-white px-2 py-2 rounded-lg font-bold text-xs md:text-sm flex items-center justify-center gap-1">
-                                    發送報名通知
-                                </button>
-                                <button id="trigger-full-notify-button" class="bg-pink-600 hover:bg-pink-500 text-white px-2 py-2 rounded-lg font-bold text-xs md:text-sm flex items-center justify-center gap-1">
-                                    發送額滿通知
-                                </button>
-                                <button id="send-test-email-button" class="secondary-button px-2 py-2 rounded-lg font-bold text-xs md:text-sm border border-gray-500 hover:bg-gray-600 flex items-center justify-center gap-1">
-                                    發送測試信
-                                </button>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="flex flex-col justify-between h-full">
                     <div>
                         <h2 class="text-xl font-bold mb-4">⚙️ 系統全域設定</h2>
@@ -175,18 +145,6 @@
                             <button id="save-settings-button" class="admin-button px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50">儲存</button>
                         </div>
                         <span id="settings-status-text" class="text-sm text-gray-400 mt-2 block"></span>
-                    </div>
-
-                    <div class="mt-8 pt-6 border-t border-gray-700">
-                        <h3 class="text-sm font-bold text-gray-400 mb-3">👥 Google Groups 管理捷徑</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <a href="https://groups.google.com/g/mushroom_notify" target="_blank" class="secondary-button px-4 py-3 rounded-lg font-bold text-sm text-center hover:bg-gray-600 hover:text-white transition border border-gray-600 block no-underline">
-                                🔗 開啟「報名通知」群組
-                            </a>
-                            <a href="https://groups.google.com/g/full_quota_notify" target="_blank" class="secondary-button px-4 py-3 rounded-lg font-bold text-sm text-center hover:bg-gray-600 hover:text-white transition border border-gray-600 block no-underline">
-                                🔗 開啟「額滿通知」群組
-                            </a>
-                        </div>
                     </div>
 
                    <div class="mt-6 pt-6 border-t border-gray-700">
@@ -399,12 +357,6 @@
         const dailyLimitInput = document.getElementById('daily-limit-input');
         const saveSettingsButton = document.getElementById('save-settings-button');
         const settingsStatusText = document.getElementById('settings-status-text');
-        const subCountEl = document.getElementById('sub-count');
-        const fullSubCountEl = document.getElementById('full-sub-count');
-
-        const sendTestEmailButton = document.getElementById('send-test-email-button');
-        const triggerCheckButton = document.getElementById('trigger-check-button');
-        const triggerFullNotifyButton = document.getElementById('trigger-full-notify-button');
 
         // --- 3. 狀態變數 ---
         let userToEdit = null;
@@ -428,94 +380,6 @@
             } catch (error) {
                 userListBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-400">無法載入使用者列表: ${error.message}</td></tr>`;
             }
-        }
-
-        // ★ 核心 2：載入訂閱統計 (呼叫後端 API)
-        async function loadSubscriptionStats() {
-            // 介面顯示讀取中
-            if (subCountEl) subCountEl.textContent = '...';
-            if (fullSubCountEl) fullSubCountEl.textContent = '...';
-
-            try {
-                // 呼叫 index.ts 中的 get-subscriber-counts
-                const { data, error } = await invokeAdminFunction('get-subscriber-counts', {});
-                
-                if (error) throw error;
-
-                if (data) {
-                    if (subCountEl) subCountEl.textContent = data.signupCount;
-                    if (fullSubCountEl) fullSubCountEl.textContent = data.fullCount;
-                }
-            } catch (err) {
-                console.error('訂閱統計讀取失敗', err);
-                if (subCountEl) subCountEl.textContent = 'err';
-                if (fullSubCountEl) fullSubCountEl.textContent = 'err';
-            }
-        }
-
-        // ★ 新增：發送測試信按鈕邏輯
-        if (sendTestEmailButton) {
-            sendTestEmailButton.addEventListener('click', async () => {
-                if (!confirm('確定要發送一封測試信給中繼站嗎？')) return;
-                
-                sendTestEmailButton.disabled = true;
-                sendTestEmailButton.textContent = '發送中...';
-                try {
-                    await invokeAdminFunction('send-test-email', {});
-                    showMessage('測試信已發送！請檢查 Gmail。', false);
-                } catch (error) {
-                    showMessage(`發送失敗: ${error.message}`, true);
-                } finally {
-                    sendTestEmailButton.disabled = false;
-                    sendTestEmailButton.textContent = '📨 發送測試信';
-                }
-            });
-        }
-
-        // ★ 新增：手動觸發檢查按鈕邏輯
-        if (triggerCheckButton) {
-            triggerCheckButton.addEventListener('click', async () => {
-                triggerCheckButton.disabled = true;
-                triggerCheckButton.innerHTML = '<span>🔄 檢查中...</span>';
-                try {
-                    const { data } = await invokeAdminFunction('trigger-check-now', {});
-                    if (data && data.sent) {
-                        showMessage(`檢查完成：${data.message}`, false);
-                    } else {
-                        showMessage(`檢查完成：${data.message || '無符合條件的蘑菇'}`, false);
-                    }
-                } catch (error) {
-                    showMessage(`檢查失敗: ${error.message}`, true);
-                } finally {
-                    triggerCheckButton.disabled = false;
-                    triggerCheckButton.innerHTML = '<span>⚡ 立即檢查蘑菇狀態</span>';
-                }
-            });
-        }
-
-        // 手動觸發額滿通知
-        if (triggerFullNotifyButton) {
-            triggerFullNotifyButton.addEventListener('click', async () => {
-                triggerFullNotifyButton.disabled = true;
-                const originalText = triggerFullNotifyButton.textContent;
-                triggerFullNotifyButton.textContent = '發送中...';
-
-                try {
-                    // 呼叫我們剛剛在 index.ts 寫好的 action
-                    const { data } = await invokeAdminFunction('scheduled-full-notify', {});
-
-                    if (data && data.message) {
-                        showMessage(`發送成功：${data.message}`, false);
-                    } else {
-                        showMessage('檢查完成，目前沒有額滿待發的蘑菇。', false);
-                    }
-                } catch (error) {
-                    showMessage(`發送失敗: ${error.message}`, true);
-                } finally {
-                    triggerFullNotifyButton.disabled = false;
-                    triggerFullNotifyButton.textContent = originalText;
-                }
-            });
         }
 
         // --- 以下維持您原本穩定的列表渲染邏輯 ---
@@ -725,7 +589,6 @@
             loadGlobalSettings();
             loadUsers();
             loadChallenges();
-            loadSubscriptionStats(); // ★ 關鍵：載入訂閱人數
             setupAdminRealtime();
             checkDbConnection();
             dbConnectionInterval = setInterval(checkDbConnection, 30000);
