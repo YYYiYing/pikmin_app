@@ -188,6 +188,9 @@
                         <button type="button" id="src-mushroom-btn" onclick="selectSource('蘑菇')" class="flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-amber-900/30 hover:border-amber-500/50 text-gray-400 hover:text-amber-300 transition text-sm font-bold flex items-center justify-center gap-1">
                             🍄 蘑菇
                         </button>
+                        <button type="button" id="src-detector-btn" onclick="selectSource('探測器')" class="flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-cyan-900/30 hover:border-cyan-500/50 text-gray-400 hover:text-cyan-300 transition text-sm font-bold flex items-center justify-center gap-1">
+                            📡 探測器
+                        </button>
                     </div>
                 </div>
 
@@ -413,8 +416,8 @@
             const sourceContainer = document.getElementById('source-filter-container');
             if (sourceContainer) {
                 sourceContainer.innerHTML = '';
-                const sources = ['all', '巨大花', '蘑菇'];
-                const sourceLabels = { all: '全部', '巨大花': '🏵️ 巨大花', '蘑菇': '🍄 蘑菇' };
+                const sources = ['all', '巨大花', '蘑菇', '探測器'];
+                const sourceLabels = { all: '全部', '巨大花': '🏵️ 巨大花', '蘑菇': '🍄 蘑菇', '探測器': '📡 探測器' };
                 sources.forEach(s => {
                     const btn = document.createElement('button');
                     btn.className = `filter-tag ${activeSource === s ? 'active' : ''}`;
@@ -481,6 +484,7 @@
             
             const giantBtn = document.getElementById('src-giant-btn');
             const mushroomBtn = document.getElementById('src-mushroom-btn');
+            const detectorBtn = document.getElementById('src-detector-btn');
             
             if (giantBtn) {
                 giantBtn.className = src === '巨大花'
@@ -491,6 +495,11 @@
                 mushroomBtn.className = src === '蘑菇'
                     ? 'flex-1 px-4 py-2 rounded-lg border bg-pink-600/30 border-pink-500 text-pink-300 text-sm font-bold flex items-center justify-center gap-1 transition'
                     : 'flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-amber-900/30 hover:border-amber-500/50 text-gray-400 hover:text-amber-300 text-sm font-bold flex items-center justify-center gap-1 transition';
+            }
+            if (detectorBtn) {
+                detectorBtn.className = src === '探測器'
+                    ? 'flex-1 px-4 py-2 rounded-lg border bg-cyan-600/30 border-cyan-500 text-cyan-300 text-sm font-bold flex items-center justify-center gap-1 transition'
+                    : 'flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-cyan-900/30 hover:border-cyan-500/50 text-gray-400 hover:text-cyan-300 text-sm font-bold flex items-center justify-center gap-1 transition';
             }
         };
 
@@ -583,6 +592,8 @@
                 sourceBadgeHtml = '<span class="text-[10px] bg-rose-600/20 text-rose-300 border border-rose-500/30 rounded-full px-1.5 py-0.5 font-bold ml-1">🏵️ 巨大花</span>';
             } else if (p.source === '蘑菇') {
                 sourceBadgeHtml = '<span class="text-[10px] bg-amber-600/20 text-amber-300 border border-amber-500/30 rounded-full px-1.5 py-0.5 font-bold ml-1">🍄 蘑菇</span>';
+            } else if (p.source === '探測器') {
+                sourceBadgeHtml = '<span class="text-[10px] bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 rounded-full px-1.5 py-0.5 font-bold ml-1">📡 探測器</span>';
             }
 
             return `
