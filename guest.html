@@ -4071,6 +4071,7 @@
             const params = new URLSearchParams(window.location.search);
             const imgUrl = params.get('quickImg');
             const type = params.get('type') || 'loudspeaker';
+            const coord = params.get('quickCoord') || '';
             if (!imgUrl) return;
             
             window.history.replaceState({}, '', window.location.pathname);
@@ -4086,6 +4087,7 @@
                 
                 if (type === 'fly') {
                     document.getElementById('f-image').files = container.files;
+                    if (coord) document.getElementById('f-coords').value = coord;
                     document.getElementById('fly-modal').classList.remove('hidden');
                 } else {
                     document.getElementById('m-image').files = container.files;
