@@ -259,7 +259,7 @@ serve(async (req) => {
 
     // 2. 發布訪客美片 (含座標重複檢查)
     if (action === 'add-guest-postcard') {
-        const { nickname, friendCode, coordinate, country, region, area, imageUrl, tags } = payload;
+        const { nickname, friendCode, coordinate, country, region, area, imageUrl, tags, source } = payload;
         
         // ★ 檢查座標是否重複
         const { data: existing } = await adminSupabaseClient
@@ -301,6 +301,7 @@ serve(async (req) => {
                 region: region || '',
                 area: area || '',
                 image_url: imageUrl,
+                source: source || '',
                 tags: tags || [],
                 likes: 0
             })
@@ -313,7 +314,7 @@ serve(async (req) => {
 
     // 3. 編輯訪客美片 (支援：本人 IP/Code 驗證 或 管理員 Token 驗證)
     if (action === 'edit-guest-postcard') {
-        const { id, nickname, friendCode, coordinate, country, region, area, imageUrl, tags } = payload;
+        const { id, nickname, friendCode, coordinate, country, region, area, imageUrl, tags, source } = payload;
         const authHeader = req.headers.get('Authorization'); // ★ 取得 Token
 
         // 1. 查舊資料
@@ -365,7 +366,7 @@ serve(async (req) => {
         if (!hasPermission) throw new Error('權限不足：您無法編輯此卡片');
 
         // 3. 更新資料
-        const updateData: any = { coordinate, tags, country, region, area };
+        const updateData: any = { coordinate, tags, source: source || '', country, region, area };
         if (imageUrl) updateData.image_url = imageUrl;
 
         const { error } = await adminSupabaseClient
@@ -1865,7 +1866,7 @@ serve(async (req) => {
     // --- 美片圖書館 Actions ---
     // 4. 發布新美片
     if (action === 'add-postcard') {
-        const { uploaderId, uploaderNickname, coordinate, imageUrl, tags, country, region, area } = payload;
+        const { uploaderId, uploaderNickname, coordinate, imageUrl, tags, source, country, region, area } = payload;
         
         if (user.id !== uploaderId) throw new Error('身分驗證失敗');
 
@@ -1888,6 +1889,7 @@ serve(async (req) => {
                 uploader_nickname: uploaderNickname,
                 coordinate: coordinate,
                 image_url: imageUrl,
+                source: source || '',
                 tags: tags,
                 country: country || '', 
                 region: region || '',   
@@ -1979,7 +1981,7 @@ serve(async (req) => {
 
     // 6. 編輯美片 (支援換圖 + 座標重複檢查) [ 加入地區欄位]
     if (action === 'edit-postcard') {
-        const { postcardId, coordinate, tags, imageUrl, country, region, area } = payload;
+        const { postcardId, coordinate, tags, imageUrl, source, country, region, area } = payload;
         
         // 1. 查出舊資料
         const { data: oldCard } = await adminSupabaseClient.from('postcards').select('uploader_id, image_url').eq('id', postcardId).single();
@@ -2012,6 +2014,7 @@ serve(async (req) => {
         const updateData: any = { 
             coordinate, 
             tags,
+            source: source || '',
             country: country || '', 
             region: region || '',  
             area: area || ''      

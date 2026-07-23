@@ -98,6 +98,15 @@
                 </div>
         </div>
 
+        <div class="mb-6">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-gray-400 text-sm">📌 來源：</span>
+            </div>
+            <div id="source-filter-container" class="flex flex-wrap gap-2 items-center">
+                <button class="filter-tag active" data-source="all">全部</button>
+                </div>
+        </div>
+
         <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 grid grid-cols-3 gap-2 text-sm mb-6">
             <div>
                 <label class="text-xs text-gray-500 block mb-1">國家</label>
@@ -167,6 +176,19 @@
                         </button>
                     </div>
                     <p class="text-[12px] text-white font-bold mt-1">請利用右側「貼上」按鈕，支援Google Map網址轉座標，並自動帶入地點資訊。</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">來源</label>
+                    <input type="hidden" id="input-source" value="">
+                    <div class="flex gap-2">
+                        <button type="button" id="src-giant-btn" onclick="selectSource('巨大花')" class="flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-rose-900/30 hover:border-rose-500/50 text-gray-400 hover:text-rose-300 transition text-sm font-bold flex items-center justify-center gap-1">
+                            🏵️ 巨大花
+                        </button>
+                        <button type="button" id="src-mushroom-btn" onclick="selectSource('蘑菇')" class="flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-amber-900/30 hover:border-amber-500/50 text-gray-400 hover:text-amber-300 transition text-sm font-bold flex items-center justify-center gap-1">
+                            🍄 蘑菇
+                        </button>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-2">
@@ -255,6 +277,7 @@
         let currentUser = null;
         let allPostcards = [];
         let activeTag = 'all';
+        let activeSource = 'all';
         // 地點資料集合 (用於篩選與自動完成)
         let uniqueCountries = new Set(), uniqueRegions = new Set(), uniqueAreas = new Set();
 
@@ -386,6 +409,22 @@
                 container.appendChild(toggleBtn);
             }
 
+            // 來源篩選按鈕
+            const sourceContainer = document.getElementById('source-filter-container');
+            if (sourceContainer) {
+                sourceContainer.innerHTML = '';
+                const sources = ['all', '巨大花', '蘑菇'];
+                const sourceLabels = { all: '全部', '巨大花': '🏵️ 巨大花', '蘑菇': '🍄 蘑菇' };
+                sources.forEach(s => {
+                    const btn = document.createElement('button');
+                    btn.className = `filter-tag ${activeSource === s ? 'active' : ''}`;
+                    btn.dataset.source = s;
+                    btn.textContent = sourceLabels[s];
+                    btn.onclick = () => setSourceFilter(s);
+                    sourceContainer.appendChild(btn);
+                });
+            }
+
             // 2. 地點下拉選單資料收集
             uniqueCountries = new Set(); uniqueRegions = new Set(); uniqueAreas = new Set();
             allPostcards.forEach(p => {
@@ -435,6 +474,40 @@
             renderGrid();
         }
 
+        // 來源選擇
+        window.selectSource = (src) => {
+            const input = document.getElementById('input-source');
+            if (input) input.value = src;
+            
+            const giantBtn = document.getElementById('src-giant-btn');
+            const mushroomBtn = document.getElementById('src-mushroom-btn');
+            
+            if (giantBtn) {
+                giantBtn.className = src === '巨大花'
+                    ? 'flex-1 px-4 py-2 rounded-lg border bg-pink-600/30 border-pink-500 text-pink-300 text-sm font-bold flex items-center justify-center gap-1 transition'
+                    : 'flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-rose-900/30 hover:border-rose-500/50 text-gray-400 hover:text-rose-300 text-sm font-bold flex items-center justify-center gap-1 transition';
+            }
+            if (mushroomBtn) {
+                mushroomBtn.className = src === '蘑菇'
+                    ? 'flex-1 px-4 py-2 rounded-lg border bg-pink-600/30 border-pink-500 text-pink-300 text-sm font-bold flex items-center justify-center gap-1 transition'
+                    : 'flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-amber-900/30 hover:border-amber-500/50 text-gray-400 hover:text-amber-300 text-sm font-bold flex items-center justify-center gap-1 transition';
+            }
+        };
+
+        // 來源篩選
+        function setSourceFilter(src) {
+            activeSource = src;
+            currentPage = 1;
+            document.querySelectorAll('#source-filter-container button').forEach(btn => {
+                if (btn.dataset.source === src) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            renderGrid();
+        }
+
         // --- 畫面渲染 (Grid) ★★★ 這裡修正了卡片顯示樣式 ---
         function renderGrid() {
         const grid = document.getElementById('postcard-grid');
@@ -452,6 +525,7 @@
             if (cVal !== 'all' && p.country !== cVal) return false;
             if (rVal !== 'all' && p.region !== rVal) return false;
             if (aVal !== 'all' && p.area !== aVal) return false;
+            if (activeSource !== 'all' && p.source !== activeSource) return false;
             return true;
         });
 
@@ -504,6 +578,13 @@
             const obsBtnTitle = isObsoleteView ? '恢復上架' : '回報絕版';
             const obsBtnClass = isObsoleteView ? 'text-green-500 hover:text-green-300' : 'text-gray-500 hover:text-red-500';
 
+            let sourceBadgeHtml = '';
+            if (p.source === '巨大花') {
+                sourceBadgeHtml = '<span class="text-[10px] bg-rose-600/20 text-rose-300 border border-rose-500/30 rounded-full px-1.5 py-0.5 font-bold ml-1">🏵️ 巨大花</span>';
+            } else if (p.source === '蘑菇') {
+                sourceBadgeHtml = '<span class="text-[10px] bg-amber-600/20 text-amber-300 border border-amber-500/30 rounded-full px-1.5 py-0.5 font-bold ml-1">🍄 蘑菇</span>';
+            }
+
             return `
                 <div class="card-bg rounded-xl overflow-hidden relative group flex flex-col h-full ${p.is_obsolete ? 'opacity-75 border-red-900/30' : ''}">
                     <div class="aspect-video overflow-hidden bg-gray-900 cursor-pointer relative" onclick="viewImage('${p.image_url}')">
@@ -517,6 +598,7 @@
                                 <div class="flex items-center gap-1 overflow-hidden">
                                     <span class="text-xs text-gray-400 flex-shrink-0">By</span>
                                     <span class="font-bold text-gray-200 truncate" title="${cleanName}">${cleanName}</span>
+                                    ${sourceBadgeHtml}
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <button onclick="toggleObsolete(${p.id}, '${cleanName}')" class="flex items-center justify-center w-7 h-7 rounded-full bg-gray-800/50 ${obsBtnClass} transition transform active:scale-90" title="${obsBtnTitle}">
@@ -613,6 +695,7 @@
 
                 const payload = {
                     coordinate: coords, tags,
+                    source: document.getElementById('input-source').value,
                     country, region, area,
                     imageUrl 
                 };
@@ -656,6 +739,7 @@
             document.getElementById('image-upload-section').querySelector('label').textContent = '上傳圖片';
             document.getElementById('preview-section').classList.add('hidden');
             document.getElementById('submit-btn').textContent = '發布';
+            window.selectSource('');
             modal.classList.remove('hidden');
         };
 
@@ -675,6 +759,13 @@
             document.getElementById('input-country').value = countryVal;
             document.getElementById('input-region').value = card.region || '';
             document.getElementById('input-area').value = card.area || '';
+            
+            // 回填來源
+            if (card.source) {
+                window.selectSource(card.source);
+            } else {
+                document.getElementById('input-source').value = '';
+            }
             
             // 如果座標存在，但國家/地區是空的（代表是舊資料或上次沒存到），自動觸發反查
             if (coordVal && !countryVal) {

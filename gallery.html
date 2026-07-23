@@ -81,6 +81,15 @@
                     </div>
             </div>
 
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-gray-400 text-sm">📌 來源：</span>
+                </div>
+                <div id="source-filter-container" class="flex flex-wrap gap-2 items-center">
+                    <button class="category-tab active" data-source="all">全部</button>
+                    </div>
+            </div>
+
             <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 grid grid-cols-3 gap-2 text-sm">
                 <div>
                     <label class="text-xs text-gray-500 block mb-1">國家</label>
@@ -146,6 +155,19 @@
                         <button type="button" id="paste-coord-btn" class="absolute right-2 top-2 bg-gray-700 hover:bg-gray-600 text-green-400 px-2 py-1.5 rounded transition font-bold text-xs">📋 貼上</button>
                     </div>
                     <p class="text-[12px] text-white font-bold mt-1">請利用右側「貼上」按鈕，支援Google Map網址轉座標，並自動帶入地點資訊。</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">來源</label>
+                    <input type="hidden" id="input-source" value="">
+                    <div class="flex gap-2">
+                        <button type="button" id="src-giant-btn" onclick="selectSource('巨大花')" class="flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-rose-900/30 hover:border-rose-500/50 text-gray-400 hover:text-rose-300 transition text-sm font-bold flex items-center justify-center gap-1">
+                            🏵️ 巨大花
+                        </button>
+                        <button type="button" id="src-mushroom-btn" onclick="selectSource('蘑菇')" class="flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-amber-900/30 hover:border-amber-500/50 text-gray-400 hover:text-amber-300 transition text-sm font-bold flex items-center justify-center gap-1">
+                            🍄 蘑菇
+                        </button>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-2">
@@ -218,6 +240,7 @@
         // State
         let allCards = [];
         let activeTag = 'all';
+        let activeSource = 'all';
         let uniqueCountries = new Set(), uniqueRegions = new Set(), uniqueAreas = new Set();
         let guestNick = localStorage.getItem('guest_nick');
         let guestCode = localStorage.getItem('guest_code');
@@ -534,6 +557,22 @@
                 tagContainer.appendChild(toggleBtn);
             }
 
+            // 來源篩選按鈕
+            const sourceContainer = document.getElementById('source-filter-container');
+            if (sourceContainer) {
+                sourceContainer.innerHTML = '';
+                const sources = ['all', '巨大花', '蘑菇'];
+                const sourceLabels = { all: '全部', '巨大花': '🏵️ 巨大花', '蘑菇': '🍄 蘑菇' };
+                sources.forEach(s => {
+                    const btn = document.createElement('button');
+                    btn.className = `category-tab ${activeSource === s ? 'active' : ''}`;
+                    btn.dataset.source = s;
+                    btn.textContent = sourceLabels[s];
+                    btn.onclick = () => setSourceFilter(s);
+                    sourceContainer.appendChild(btn);
+                });
+            }
+
             // Regions 下拉選單邏輯維持不變
             uniqueCountries = new Set(); uniqueRegions = new Set(); uniqueAreas = new Set();
             allCards.forEach(c => {
@@ -593,6 +632,40 @@
             renderGrid();
         };
 
+        // selectSource 函式
+        window.selectSource = (src) => {
+            const input = document.getElementById('input-source');
+            if (input) input.value = src;
+            
+            const giantBtn = document.getElementById('src-giant-btn');
+            const mushroomBtn = document.getElementById('src-mushroom-btn');
+            
+            if (giantBtn) {
+                giantBtn.className = src === '巨大花'
+                    ? 'flex-1 px-4 py-2 rounded-lg border bg-violet-600/30 border-violet-500 text-violet-300 text-sm font-bold flex items-center justify-center gap-1 transition'
+                    : 'flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-rose-900/30 hover:border-rose-500/50 text-gray-400 hover:text-rose-300 text-sm font-bold flex items-center justify-center gap-1 transition';
+            }
+            if (mushroomBtn) {
+                mushroomBtn.className = src === '蘑菇'
+                    ? 'flex-1 px-4 py-2 rounded-lg border bg-violet-600/30 border-violet-500 text-violet-300 text-sm font-bold flex items-center justify-center gap-1 transition'
+                    : 'flex-1 px-4 py-2 rounded-lg border border-gray-500 bg-gray-700 hover:bg-amber-900/30 hover:border-amber-500/50 text-gray-400 hover:text-amber-300 text-sm font-bold flex items-center justify-center gap-1 transition';
+            }
+        };
+
+        // setSourceFilter 函式
+        function setSourceFilter(src) {
+            activeSource = src;
+            currentPage = 1;
+            document.querySelectorAll('#source-filter-container button').forEach(btn => {
+                if (btn.dataset.source === src) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            renderGrid();
+        }
+
         function renderGrid() {
             const grid = document.getElementById('postcard-grid');
             const paginationControls = document.getElementById('pagination-controls');
@@ -609,6 +682,7 @@
                 if (cVal !== 'all' && c.country !== cVal) return false;
                 if (rVal !== 'all' && c.region !== rVal) return false;
                 if (aVal !== 'all' && c.area !== aVal) return false;
+                if (activeSource !== 'all' && c.source !== activeSource) return false;
                 return true;
             });
 
@@ -670,6 +744,13 @@
                 const isObsoleteView = activeTag === 'obsolete';
                 const obsBtnTitle = isObsoleteView ? '恢復上架' : '回報絕版';
                 let obsBtnHtml, obsBtnBaseClass;
+
+                let sourceBadgeHtml = '';
+                if (c.source === '巨大花') {
+                    sourceBadgeHtml = '<span class="text-[10px] bg-rose-600/20 text-rose-300 border border-rose-500/30 rounded-full px-1.5 py-0.5 font-bold ml-1">🏵️ 巨大花</span>';
+                } else if (c.source === '蘑菇') {
+                    sourceBadgeHtml = '<span class="text-[10px] bg-amber-600/20 text-amber-300 border border-amber-500/30 rounded-full px-1.5 py-0.5 font-bold ml-1">🍄 蘑菇</span>';
+                }
                 if (isObsoleteView) {
                     obsBtnHtml = `<div class="flex flex-col items-center justify-center leading-none pointer-events-none"><span class="text-xs">✅</span><span class="text-[9px] font-bold mt-1">上架</span></div>`;
                     obsBtnBaseClass = 'h-auto w-auto px-1.5 py-1 text-green-400 hover:text-green-300 bg-green-900/40 border-green-700/50 rounded-lg'; 
@@ -691,6 +772,7 @@
                                 <div class="flex-1 truncate pr-2" title="${displayName}">
                                     <span class="text-xs text-gray-500 font-normal mr-0.5">By</span>
                                     <span class="text-sm font-bold text-gray-200">${displayName}</span>
+                                    ${sourceBadgeHtml}
                                 </div>
                                 <div class="flex items-center gap-2 flex-shrink-0">
                                     <button onclick="toggleObsolete(${c.id}, '${displayName}')" class="flex items-center justify-center border border-gray-700 ${obsBtnBaseClass} transition active:scale-90 backdrop-blur-sm" title="${obsBtnTitle}">
@@ -760,6 +842,7 @@
             document.getElementById('image-upload-section').classList.remove('hidden');
             document.getElementById('preview-section').classList.add('hidden');
             document.getElementById('submit-btn').textContent = '發布';
+            window.selectSource('');
             modal.classList.remove('hidden');
         };
 
@@ -853,6 +936,7 @@
                     region: document.getElementById('input-region').value,
                     area: document.getElementById('input-area').value,
                     tags: [1,2,3].map(i=>document.getElementById(`tag-${i}`).value.trim()).filter(Boolean),
+                    source: document.getElementById('input-source').value,
                     imageUrl: imageUrl, // 如果是編輯且沒換圖，這裡是 null，後端會忽略
                     id: id
                 };
@@ -911,6 +995,13 @@
             document.getElementById('input-region').value = c.region || '';
             document.getElementById('input-area').value = c.area || '';
     
+            // 回填來源
+            if (c.source) {
+                window.selectSource(c.source);
+            } else {
+                document.getElementById('input-source').value = '';
+            }
+
             // 自我修復機制 (移植自美片圖書館)
             // 如果座標存在，但國家/地區是空的（代表是舊資料或上次沒存到），自動觸發反查
             const coordVal = c.coordinate;
