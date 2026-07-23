@@ -1,0 +1,12 @@
+# Supabase local development artifacts
+supabase/.temp/
+
+# macOS metadata (this repo is used across Mac and Windows)
+.DS_Store
+**/.DS_Store
+
+# IDE
+.vscode/settings.json
+
+# OS files
+Thumbs.db

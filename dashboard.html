@@ -304,7 +304,6 @@
 
         <div class="flex items-center gap-x-4 flex-wrap justify-end">
             <span id="user-info" class="font-semibold text-gray-200 text-sm text-center">讀取中...</span>
-            <span id="daily-quota-display" class="text-sm text-gray-400 border-l border-gray-600 pl-4 ml-2"></span>
             
             <div class="hidden md:flex items-center gap-x-4">
                 <a id="admin-link" href="./admin.html" class="hidden text-orange-400 hover:text-orange-300 font-bold transition text-sm">⚙️ 管理後台</a>
@@ -606,7 +605,7 @@
 
                     <div>
                         <label for="slots" class="block text-sm font-medium text-gray-400">名額</label>
-                        <input type="number" id="slots" min="1" max="10" required class="dark-input mt-1 block w-full rounded-md shadow-sm" value="4">
+                        <input type="number" id="slots" min="1" max="10" required class="dark-input mt-1 block w-full rounded-md shadow-sm" value="6">
                     </div>
 
                     <div>
@@ -1357,11 +1356,6 @@
             // 這裡不 return，讓程式繼續往下跑
         }
 
-        // 每日上限設定
-        const { data: settings, error: limitError } = await supabaseClient
-            .from('daily_settings').select('setting_value').eq('setting_name', 'daily_signup_limit');
-        window.dailySignupLimit = (limitError || !settings?.length) ? 3 : settings[0].setting_value;
-
         // 監聽登入狀態
         supabaseClient.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_OUT' || !session) {
@@ -1613,22 +1607,8 @@
     // 1. 處理顯示名稱 (保留既有名稱清洗邏輯)
     const displayName = (currentUserProfile.nickname || '').split(/[^a-zA-Z0-9\u4e00-\u9fa5\s!?.~_+\-]/)[0];
 
-    // =================
-    // 顯示個人缺席愛睏值
-    // =================
-    const absScore = currentUserProfile.absent_score || 0;
-    let absDisplay = '';
-
-    if (absScore > 0) {
-        // 如果有分數，顯示紅色警示字樣，並加上左邊距
-        absDisplay = `<span class="text-red-400 font-bold ml-2" title="目前累積的缺席指數">💤+${absScore}</span>`;
-    }
-    // =========================================================
-
-    // 2. 更新畫面 (改用 innerHTML 以支援 span 顏色標籤)
-    userInfoEl.innerHTML = `你好，${displayName}！${absDisplay}`;
-
-    updateQuotaDisplay();
+    // 2. 更新畫面
+    userInfoEl.innerHTML = `你好，${displayName}！`;
 
     // 3. 權限顯示判斷 (使用你提供的正常運作版本)
     // 判斷發菇按鈕與分頁
@@ -1646,13 +1626,6 @@
         if (mobAdmin) mobAdmin.classList.remove('hidden');
     }
         checkSubscriptionStatus();
-    }
-
-    function updateQuotaDisplay() {
-        const quotaEl = document.getElementById('daily-quota-display');
-        if (!currentUserProfile || !quotaEl) return;
-        const count = currentUserProfile.daily_signup_count || 0;
-        quotaEl.textContent = `本日額度: ${count} / ${window.dailySignupLimit}`;
     }
 
     async function refreshUserProfile() {
@@ -1708,8 +1681,7 @@
     async function fetchChallenges() {
         const { data: challenges, error } = await supabaseClient
             .from('challenges')
-            // 在 signups 的 profile 關聯中，加入 daily_signup_count
-            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname, absent_score, daily_signup_count))`)
+            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname))`)
             .order('start_time', { ascending: false });
 
         if (error) { challengesListEl.innerHTML = '<p class="text-center col-span-full text-red-400">無法載入挑戰。</p>'; return; }
@@ -1734,9 +1706,9 @@
         // 2. 其餘狀態排在後面
         // 3. 同一狀態內，依照 ID 由大到小 (新到舊) 排序
         challengesArray.sort((a, b) => {
-            // 判斷是否為開放報名中
-            const aIsOpen = a.status === '報名中';
-            const bIsOpen = b.status === '報名中';
+            // 判斷是否為開放報名中（相容新舊兩種狀態值）
+            const aIsOpen = a.status === '開放報名中' || a.status === '報名中';
+            const bIsOpen = b.status === '開放報名中' || b.status === '報名中';
 
             // 如果 a 是開放中，b 不是 -> a 排前面 (-1)
             if (aIsOpen && !bIsOpen) return -1;
@@ -1754,32 +1726,6 @@
         applyFilter();
         // 更新紅點
         updateFilterBadges();
-    }
-
-        // 計算當前使用者正在排幾個備取
-    function calculateUserWaitlistCount() {
-        let count = 0;
-        if (!currentUserProfile || !userSignedUpChallengeIds) return 0;
-
-        userSignedUpChallengeIds.forEach(signedCid => {
-            const c = challengesData[signedCid];
-            if (c && c.signups) {
-                // 找到我的報名資料
-                const mySignup = c.signups.find(s => s.user_id === currentUserProfile.id);
-                if (mySignup) {
-                    // 計算我的排名 (過濾掉比我晚報名的)
-                    // 注意：這裡假設 signups 已經是排序過的，或者是用時間比對
-                    const myTime = new Date(mySignup.signed_up_at).getTime();
-                    // 排名 = 比我早或同時報名的人數
-                    const rank = c.signups.filter(s => new Date(s.signed_up_at).getTime() <= myTime).length;
-                    
-                    if (rank > c.slots) {
-                        count++;
-                    }
-                }
-            }
-        });
-        return count;
     }
 
     // 核心渲染邏輯 (含分身顯示功能優化版)
@@ -1800,21 +1746,16 @@
         const displayDetails = detailsMap[challenge.details] || challenge.details || '未指定';
 
         // --- 2. 基本變數設定 ---
-        const dailyLimitReached = currentUserProfile && currentUserProfile.daily_signup_count >= window.dailySignupLimit;
+        const dailyLimitReached = false;
         
-        // 預先計算排名與身分 (為了判斷下方按鈕權限)
-        let amIWaitlist = false;
+        // 預先計算是否已入 (供鎖定判斷)
         let amICheckedIn = false;
         
         if (challenge.signups && challenge.signups.length > 0) {
-            // 必須先依照報名時間排序，才能算出正確排名
             const sortedForRank = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
             const myIndex = sortedForRank.findIndex(s => s.user_id === currentUserProfile.id);
             
             if (myIndex !== -1) {
-                // 如果排名數值 (Index+1) 大於 名額 (slots)，就是備取
-                amIWaitlist = (myIndex + 1) > challenge.slots;
-                // 順便取得是否已入 (供後續鎖定判斷)
                 amICheckedIn = sortedForRank[myIndex].is_checked_in === true;
             }
         }
@@ -1823,7 +1764,7 @@
         card.className = 'challenge-card bg-gray-800 rounded-xl shadow-md overflow-hidden p-6 flex flex-col justify-between';
         card.id = `challenge-${challenge.id}`;
         
-        const statusClass = challenge.status === '開放報名中' ? 'status-open' : (challenge.status === '已額滿' ? 'status-full' : 'status-pending');
+        const statusClass = (challenge.status === '開放報名中' || challenge.status === '報名中') ? 'status-open' : (challenge.status === '已額滿' ? 'status-full' : 'status-pending');
         card.dataset.status = challenge.status;
 
         const type = challenge.mushroom_type;
@@ -1895,43 +1836,24 @@
                 actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default">您是發菇者</button>`;
             }
         } else if (isSignedUp) {
-            // 操作按鈕邏輯 (已入鎖定 > 備取豁免 > 已發鎖定)
-            
             if (amICheckedIn) {
-                // 狀況 A: 被點名已入 -> 顯示「已上車」並鎖定 (優先權最高)
                 actionButtonHtml = `<button class="w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-green-500 shadow-inner" disabled>🚗 已上車</button>`;
             } else if (dispatchStatus === '已發') {
-                // 狀況 B: 已發車
-                if (amIWaitlist) {
-                    // 如果是「備取」，即使已發車，也允許取消 (因為正取滿了，備取沒望了)
-                    actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名 (備取)</button>`;
-                } else {
-                    // 如果是「正取」，已發車則鎖定 (因為可能正在打怪中)
-                    actionButtonHtml = `<button class="w-full bg-gray-600 text-gray-300 font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-gray-500" disabled>🚗 已發車 (請聯繫機長)</button>`;
-                }
+                actionButtonHtml = `<button class="w-full bg-gray-600 text-gray-300 font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-gray-500" disabled>🚗 已發車 (請聯繫機長)</button>`;
             } else {
-                // 狀況 C: 未發車且未被點名 -> 允許取消
                 actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名</button>`;
             }
         } else if (challenge.status === '預計開放') {
             actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>尚未開放</button>`;
         } 
-        // 只有當「人數 >= 名額 + 2」時，才真正顯示已額滿並鎖定
-        else if (challenge.status === '已額滿' && signupCount >= (challenge.slots + 2)) {
+        // 已額滿且達上限就鎖定
+        else if (challenge.status === '已額滿' && signupCount >= challenge.slots) {
             actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>已額滿</button>`;
         } else {
-            // 判斷目前是否屬於備取階段 (人數已達標，但未滿 +2)
-            const isWaitlist = signupCount >= challenge.slots;
-
-            // 1. 正取檢查：如果「不是」備取，且「每日額度已滿」，則鎖定 (訪客菇除外)
-            if (!isWaitlist && dailyLimitReached && !challenge.is_guest) { 
+            // 每日額度檢查
+            if (dailyLimitReached && !challenge.is_guest) { 
                 actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>報名額度已滿</button>`;
-            } 
-            // 2. 備取檢查：如果「是」備取，且「手上已有3個備取」，則鎖定 (不扣每日額度)
-            else if (isWaitlist && calculateUserWaitlistCount() >= 3) {
-                actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>備取數量已達上限(3)</button>`;
-            }
-            else {
+            } else {
                 if (currentUserProfile.role === '發菇者') {
                     actionButtonHtml = `<button class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-default" disabled>僅發布權限</button>`;
                 } else {
@@ -1939,15 +1861,7 @@
                     if (cooldownLeft > 0) {
                         actionButtonHtml = `<button class="signup-button w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
                     } else {
-                        // 根據是否為備取，顯示不同按鈕樣式
-                        if (isWaitlist) {
-                            const waitRank = signupCount - challenge.slots + 1;
-                            // 備取按鈕 (橘色)
-                            actionButtonHtml = `<button class="signup-button w-full bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition" data-challenge-id="${challenge.id}">報名備取 (備${waitRank})</button>`;
-                        } else {
-                            // 正取按鈕 (藍色)
-                            actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
-                        }
+                        actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
                     }
                 }
             }
@@ -1968,33 +1882,11 @@
             const isCurrentUserHost = (challenge.host && challenge.host.id === currentUserProfile.id);
 
             const list = sortedSignups.map((signup, index) => {
-                // 備取分隔線邏輯
-                let separatorHtml = '';
-                if (index === challenge.slots) {
-                    separatorHtml = `
-                        <div class="flex items-center my-2 select-none">
-                            <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
-                            <span class="mx-2 text-[10px] text-orange-400 font-bold bg-orange-900/30 px-2 rounded-full">備取區</span>
-                            <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
-                        </div>
-                    `;
-                }
-
-                // 排名顯示邏輯
-                let rankText;
-                if (index >= challenge.slots) {
-                    const waitRank = index - challenge.slots + 1;
-                    rankText = `<span class="text-orange-400">備${waitRank}</span>`;
-                } else {
-                    rankText = `${index + 1}${getRankSuffix(index + 1)}`;
-                }
+                // 排名顯示
+                const rankText = `${index + 1}${getRankSuffix(index + 1)}`;
                 
                 // 1. 處理暱稱
                 let rawNickname = signup.profile ? signup.profile.nickname : (signup.guest_name || '未知');
-                const dailyCount = signup.profile?.daily_signup_count;
-                const dailyCountHtml = (dailyCount !== undefined && dailyCount !== null) 
-                    ? `<span class="text-xs text-gray-400 font-normal select-none" title="今日已報名 ${dailyCount} 次">(${dailyCount})</span>` 
-                    : '';
 
                 const cleanName = rawNickname.replace(/[\s\uFEFF\xA0]*\d{12}[\s\uFEFF\xA0]*$/, '').trim();
                 const codeMatch = rawNickname.match(/(\d{12})/);
@@ -2007,9 +1899,7 @@
                     displayNameDisplay = cleanName;
                 }
                 
-                // 2. 處理愛睏值
-                const absScore = signup.profile?.absent_score || 0;
-                let statusIcon = absScore > 0 ? `<span class="text-xs text-red-400 border border-red-500/50 rounded px-1 ml-1 flex-shrink-0 cursor-help" title="累積缺席點數">💤+${absScore}</span>` : '';
+                // 2. 愛睏值已移除
 
                 // 1. 處理「已入」靜態標記 (預設邏輯)
                 // 邏輯：如果是發菇者，我們用按鈕來顯示狀態，所以不顯示靜態標籤，避免重複雜亂
@@ -2044,51 +1934,30 @@
                 if (isCurrentUserHost) {
                     const baseBtnStyle = "mr-1 md:mr-2 text-[10px] px-1 md:px-2 py-0.5 rounded transition whitespace-nowrap border";
                     
-                    // A. 點名按鈕 (整合狀態顯示)
-                    // 狀態：已入 (亮綠色，帶勾勾) vs 未入 (灰色框，無勾勾)
                     const checkInBtnText = signup.is_checked_in ? '✅已入' : '已入';
                     const checkInBtnStyle = signup.is_checked_in 
-                        ? "bg-green-600 text-white border-green-500 hover:bg-green-700 shadow-md font-bold" // 已入樣式
-                        : "bg-transparent text-gray-400 border-gray-600 hover:bg-gray-700 hover:text-white"; // 未入樣式
+                        ? "bg-green-600 text-white border-green-500 hover:bg-green-700 shadow-md font-bold"
+                        : "bg-transparent text-gray-400 border-gray-600 hover:bg-gray-700 hover:text-white";
 
                     const checkInBtn = `<button onclick="window.toggleSignupCheckedIn(${challenge.id}, ${signup.id}, '${cleanName}', event)" 
                         class="${baseBtnStyle} ${checkInBtnStyle}" 
                         title="切換已入狀態">${checkInBtnText}</button>`;
-
-                    // B. 缺席按鈕 (邏輯：如果已入，則不顯示缺席按鈕)
-                    let absentBtn = '';
-                    if (!signup.is_checked_in) {
-                        const hasReported = challenge.absent_records && challenge.absent_records.some(r => r.reporter_id === currentUserProfile.id && r.absentee_id === signup.user_id);
-                        
-                        if (hasReported) {
-                            absentBtn = `<button onclick="revokeAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
-                                class="${baseBtnStyle} bg-gray-700 text-gray-400 border-gray-600 hover:bg-gray-600 hover:text-white" 
-                                title="撤銷缺席標記">撤銷</button>`;
-                        } else {
-                            absentBtn = `<button onclick="reportAbsent(${challenge.id}, '${signup.user_id}', '${cleanName}')" 
-                                class="${baseBtnStyle} bg-transparent text-red-400 border-red-900/30 hover:bg-gray-700 hover:text-red-300" 
-                                title="回報缺席">缺席</button>`;
-                        }
-                    }
                     
-                    // 組合按鈕
-                    actionBtn = checkInBtn + absentBtn;
+                    actionBtn = checkInBtn;
                 }
 
                 const time = formatSignupTime(signup.signed_up_at);
                 
                 // 5. 組合 HTML (調整排版)
                 return `
-                    ${separatorHtml}
                     <div class="participant-item group py-1 flex justify-between items-center">
                         <div class="flex items-center flex-1 min-w-0 pr-1 overflow-hidden">
                             <span class="participant-rank w-8 flex-shrink-0 text-center mr-1">${rankText}</span>
 
                             <span class="text-gray-200 truncate font-bold min-w-[30px]" title="${cleanName}">
-                                ${displayNameDisplay}${dailyCountHtml}
+                                ${displayNameDisplay}
                             </span>
                             
-                            ${statusIcon}
                             ${commentBlock}
                             </div>
 
@@ -2156,17 +2025,8 @@
         if (dataEndTime) countdownDisplayHtml = '計算中...';
         const battleTimerHtml = `<span class="battle-timer text-white font-bold" data-endtime="${dataEndTime}">${countdownDisplayHtml}</span><button class="open-sync-modal-button text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded ml-2 hover:bg-gray-600 border border-gray-600 transition" data-id="${challenge.id}" title="校正時間">校時</button>`;
 
-        // 名額顯示格式化邏輯 (解決 6/4 問題)
-        let slotsDisplayHtml = '';
-        if (signupCount > challenge.slots) {
-            // 進入備取階段
-            const waitCount = signupCount - challenge.slots;
-            // 顯示格式：名額 4/4 <span橘色>備取 1/2</span>
-            slotsDisplayHtml = `${challenge.slots} / ${challenge.slots} <span class="font-bold ml-2">備取 ${waitCount} / 2</span>`;
-        } else {
-            // 一般階段：保留原本的 ID 供後續可能的邏輯使用
-            slotsDisplayHtml = `<span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}`;
-        }
+        // 名額顯示
+        const slotsDisplayHtml = `<span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}`;
 
         // --- 8. 組裝 HTML (插入mobileImageHtml) ---
         card.innerHTML = `
@@ -2224,8 +2084,7 @@
 
     async function reloadChallengeCard(challengeId) {
         const { data: challenge, error } = await supabaseClient.from('challenges')
-            // 同樣加入 daily_signup_count
-            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname, absent_score, daily_signup_count)), absent_records(reporter_id, absentee_id)`)
+            .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname))`)
             .eq('id', challengeId).single();
         
         if (error) {
@@ -2250,7 +2109,7 @@
         // 1. 重置表單與預設值 (保留既有功能)
         challengeForm.reset();
         challengeForm['mushroom-type'].value = '巨菇';
-        challengeForm['slots'].value = 4;
+        challengeForm['slots'].value = 6;
         
         const remTime = localStorage.getItem('rememberedChallengeTime');
         const remDetails = localStorage.getItem('rememberedChallengeDetails');
@@ -2680,7 +2539,6 @@
             await reloadChallengeCard(challengeId);
             await refreshUserProfile();
             refreshAllChallengeCards();
-            updateQuotaDisplay();
         }
     }
 
@@ -2722,7 +2580,6 @@
             await reloadChallengeCard(challengeId);
             await refreshUserProfile();
             refreshAllChallengeCards();
-            updateQuotaDisplay();
         }
     }
     
@@ -3377,7 +3234,7 @@
                     break;
                     
                 case 'full':
-                    // 3. 已額滿：顯示所有「已額滿」的卡片 (包含內部與訪客，可在此報名備取)
+                    // 3. 已額滿：顯示所有「已額滿」的卡片
                     if (status === '已額滿') {
                         show = true;
                     }
@@ -3656,109 +3513,6 @@
             showToast('刪除失敗', true);
         }
     };
-
-    // 工具函式：更新畫面上所有卡片中，特定使用者的缺席分數與按鈕狀態
-    async function syncUserStatusOnAllCards(targetUserId) {
-        // 1. 先去資料庫抓這個人「最新」的分數 (確保數據絕對正確)
-        const { data: userData, error } = await supabaseClient
-            .from('profiles')
-            .select('absent_score')
-            .eq('id', targetUserId)
-            .single();
-
-        if (error || !userData) return;
-        const newScore = userData.absent_score;
-
-        // 2. 遍歷所有已載入的卡片資料 (challengesData)
-        // 我們不重新 fetch 所有挑戰 (太慢)，而是直接修改本地快取
-        Object.values(challengesData).forEach(challenge => {
-            if (!challenge.signups) return;
-
-            // 檢查這張卡片有沒有這個人
-            const participant = challenge.signups.find(s => s.user_id === targetUserId);
-            
-            if (participant) {
-                // A. 更新分數
-                if (participant.profile) {
-                    participant.profile.absent_score = newScore;
-                }
-
-                // B. 重新渲染這張卡片 (這樣分數和按鈕狀態才會更新)
-                renderChallenge(challenge);
-            }
-        });
-    }
-
-    // 回報缺席 (修正版：全域同步 + 手動更新按鈕狀態)
-    async function reportAbsent(challengeId, userId, userName) {
-        if (!confirm(`確認回報「${userName}」本次缺席嗎？\n\n• 對方缺席指數將 +2\n• 此操作稍後可撤銷`)) return;
-        
-        try {
-            const { error } = await supabaseClient.rpc('report_absentee', { 
-                p_challenge_id: challengeId, 
-                p_absentee_id: userId 
-            });
-            
-            if (error) {
-                if (error.message.includes('unique constraint') || error.message.includes('duplicate')) {
-                    showToast('已經回報過了', true);
-                    // 發生衝突時，強制重整該卡片以修正按鈕狀態
-                    reloadChallengeCard(challengeId);
-                } else {
-                    showToast(`回報失敗: ${error.message}`, true);
-                }
-            } else {
-                showToast(`已標記 ${userName} 缺席`, false);
-
-                // 關鍵 1：手動更新本地快取，讓按鈕立刻變色 (解決 409 問題)
-                const c = challengesData[challengeId];
-                if (c) {
-                    if (!c.absent_records) c.absent_records = [];
-                    // 塞入一筆假紀錄，讓 renderChallenge 知道「我檢舉過他了」
-                    c.absent_records.push({ 
-                        reporter_id: currentUserProfile.id, 
-                        absentee_id: userId 
-                    });
-                }
-
-                // 關鍵 2：觸發全域同步，更新所有卡片上的分數
-                await syncUserStatusOnAllCards(userId);
-            }
-        } catch (e) {
-            console.error(e);
-            showToast('系統錯誤', true);
-        }
-    }
-
-    // 撤銷檢舉 (修正版：全域同步 + 手動更新按鈕狀態)
-    async function revokeAbsent(challengeId, userId, userName) {
-        if (!confirm(`確定要撤銷對「${userName}」的缺席回報嗎？\n\n• 對方將扣除 2 點缺席指數`)) return;
-        
-        try {
-            const { error } = await supabaseClient.rpc('revoke_absentee', { 
-                p_challenge_id: challengeId, 
-                p_absentee_id: userId 
-            });
-            
-            if (error) throw error;
-            
-            showToast(`已撤銷檢舉`, false);
-
-            // 關鍵 1：手動移除本地快取中的檢舉紀錄
-            const c = challengesData[challengeId];
-            if (c && c.absent_records) {
-                c.absent_records = c.absent_records.filter(
-                    r => !(r.reporter_id === currentUserProfile.id && r.absentee_id === userId)
-                );
-            }
-
-            // 關鍵 2：觸發全域同步，更新所有卡片上的分數
-            await syncUserStatusOnAllCards(userId);
-
-        } catch (e) {
-            showToast(`撤銷失敗: ${e.message}`, true);
-        }
-    }
 
     // 複製發菇者好友碼的專用函式
     function copyHostFriendCode(fullString) {
