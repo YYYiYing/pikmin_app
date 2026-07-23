@@ -136,6 +136,7 @@ DECLARE
     new_weekly_fastest numeric;
     new_monthly_fastest numeric;
     current_count INT;
+    checked_in_count INT;
 BEGIN
     -- 鎖定挑戰
     SELECT * INTO target_challenge
@@ -191,9 +192,11 @@ BEGIN
     END IF;
 
     -- 更新挑戰狀態
-    SELECT count(*) INTO current_count FROM signups WHERE challenge_id = challenge_id_to_cancel;
+    SELECT count(*), count(*) FILTER (WHERE is_checked_in = true)
+    INTO current_count, checked_in_count
+    FROM signups WHERE challenge_id = challenge_id_to_cancel;
 
-    IF current_count >= target_challenge.slots THEN
+    IF current_count >= target_challenge.slots OR checked_in_count >= 4 THEN
         UPDATE challenges SET status = '已額滿' WHERE id = challenge_id_to_cancel AND status != '已額滿';
     ELSIF now() < target_challenge.start_time THEN
         UPDATE challenges SET status = '預計開放' WHERE id = challenge_id_to_cancel;

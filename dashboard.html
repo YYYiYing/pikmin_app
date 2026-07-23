@@ -1751,12 +1751,16 @@
             }
         }
 
+        // === 計算已入人數，若達 4 人則強制視為額滿 ===
+        const checkedInCount = challenge.signups ? challenge.signups.filter(s => s.is_checked_in === true).length : 0;
+        const effectiveStatus = (checkedInCount >= 4 && challenge.status !== '已額滿') ? '已額滿' : challenge.status;
+
         const card = document.createElement('div');
         card.className = 'challenge-card bg-gray-800 rounded-xl shadow-md overflow-hidden p-6 flex flex-col justify-between';
         card.id = `challenge-${challenge.id}`;
         
-        const statusClass = (challenge.status === '開放報名中' || challenge.status === '報名中') ? 'status-open' : (challenge.status === '已額滿' ? 'status-full' : 'status-pending');
-        card.dataset.status = challenge.status;
+        const statusClass = (effectiveStatus === '開放報名中' || effectiveStatus === '報名中') ? 'status-open' : (effectiveStatus === '已額滿' ? 'status-full' : 'status-pending');
+        card.dataset.status = effectiveStatus;
 
         const type = challenge.mushroom_type;
         const style = mushroomStyles[type] || { bg: 'bg-transparent', text: 'text-gray-100' };
@@ -1837,8 +1841,8 @@
         } else if (challenge.status === '預計開放') {
             actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>尚未開放</button>`;
         } 
-        // 已額滿且達上限就鎖定
-        else if (challenge.status === '已額滿' && signupCount >= challenge.slots) {
+        // 已額滿 (資料庫或已入達標) 就鎖定
+        else if (effectiveStatus === '已額滿') {
             actionButtonHtml = `<button class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed" disabled>已額滿</button>`;
         } else {
             // 每日額度檢查
@@ -2029,7 +2033,7 @@
                     </div>
                     <div class="flex items-center space-x-2">
                         ${dispatchTagHtml}
-                        <span class="status-badge ${statusClass}">${challenge.status === '開放報名中' ? '報名中' : challenge.status}</span>
+                        <span class="status-badge ${statusClass}">${effectiveStatus === '開放報名中' ? '報名中' : effectiveStatus}</span>
                         ${hostControlsHtml}
                     </div>
                 </div>
@@ -3430,7 +3434,7 @@
 
         // 遍歷所有資料進行統計
         Object.values(challengesData).forEach(c => {
-            const isFull = c.status === '已額滿';
+            const isFull = c.status === '已額滿' || (c.signups && c.signups.filter(s => s.is_checked_in === true).length >= 4);
             const isGuest = c.is_guest === true;
             const isSigned = userSignedUpChallengeIds.has(c.id);
             const isHosted = c.host && currentUserProfile && c.host.id === currentUserProfile.id;

@@ -1768,7 +1768,7 @@ serve(async (req) => {
 
             if (startTime > now) {
                 newStatus = '預計開放';
-            } else if (checkedInCount >= challenge.slots || totalCount >= challenge.slots) {
+            } else if (checkedInCount >= 4 || totalCount >= challenge.slots) {
                 // 滿足任一條件即視為額滿 (已入滿4人 OR 名額已滿)
                 newStatus = '已額滿';
             } else {
