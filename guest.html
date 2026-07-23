@@ -620,7 +620,8 @@
             loadChallenges();   
             startGlobalCountdown(); 
             setupOnlinePresence();
-            setupGuestRealtime(); // 呼叫新的即時監聽函式
+            setupGuestRealtime();
+            handleQuickPublish();
         });
 
         // ==========================================
@@ -3896,7 +3897,7 @@
                 if (error) throw error;
                 
                 // 資料儲存 (list-guest-postcards 回傳結構通常是 { data: [...] })
-                galleryData = res.data || [];
+                galleryData = (res.data || []).filter((item: any) => item.source === '蘑菇');
                 galleryPage = 1;
                 
                 renderGalleryGrid();
@@ -4065,6 +4066,37 @@
                 btn.innerHTML = originalHtml;
             }
         };
+
+        async function handleQuickPublish() {
+            const params = new URLSearchParams(window.location.search);
+            const imgUrl = params.get('quickImg');
+            const type = params.get('type') || 'loudspeaker';
+            if (!imgUrl) return;
+            
+            window.history.replaceState({}, '', window.location.pathname);
+            
+            try {
+                showToast('正在載入美片...', false);
+                const response = await fetch(imgUrl);
+                if (!response.ok) throw new Error('下載失敗');
+                const blob = await response.blob();
+                const file = new File([blob], `quick_${Date.now()}.jpg`, { type: blob.type });
+                const container = new DataTransfer();
+                container.items.add(file);
+                
+                if (type === 'fly') {
+                    document.getElementById('f-image').files = container.files;
+                    document.getElementById('fly-modal').classList.remove('hidden');
+                } else {
+                    document.getElementById('m-image').files = container.files;
+                    document.getElementById('guest-modal').classList.remove('hidden');
+                }
+                showToast('已自動帶入美片，請填寫其餘欄位。', false);
+            } catch (e) {
+                console.error('quickImg 載入失敗:', e);
+                showToast('美片載入失敗，請手動上傳。', true);
+            }
+        }
     </script>
 </body>
 </html>

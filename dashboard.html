@@ -1107,7 +1107,8 @@
                 // 直接讀取 uploader_nickname 欄位
                 const { data: res, error } = await supabaseClient
                     .from('postcards')
-                    .select('id, image_url, uploader_nickname') 
+                    .select('id, image_url, uploader_nickname')
+                    .eq('source', '蘑菇')
                     .order('created_at', { ascending: false });
                 
                 if (error) throw error;
@@ -1127,7 +1128,7 @@
                 
                 if (error) throw error;
                 // 注意：list-guest-postcards 回傳結構可能包含 data.data
-                data = res.data || []; 
+                data = (res.data || []).filter((item: any) => item.source === '蘑菇');
             }
 
             // 存入快取
@@ -1370,6 +1371,34 @@
         setupOnlinePresence();
         startGlobalCountdown();
         updateMarquee();
+        
+        handleQuickPublish();
+    }
+
+    async function handleQuickPublish() {
+        const params = new URLSearchParams(window.location.search);
+        const imgUrl = params.get('quickImg');
+        if (!imgUrl) return;
+        
+        // 清除 URL 參數
+        window.history.replaceState({}, '', window.location.pathname);
+        
+        try {
+            showToast('正在載入美片...', false);
+            const response = await fetch(imgUrl);
+            if (!response.ok) throw new Error('下載失敗');
+            const blob = await response.blob();
+            const file = new File([blob], `quick_${Date.now()}.jpg`, { type: blob.type });
+            const container = new DataTransfer();
+            container.items.add(file);
+            document.getElementById('challenge-image').files = container.files;
+            // 打開發布 Modal
+            document.getElementById('challenge-modal').classList.remove('hidden');
+            showToast('已自動帶入美片，請填寫其餘欄位。', false);
+        } catch (e) {
+            console.error('quickImg 載入失敗:', e);
+            showToast('美片載入失敗，請手動上傳。', true);
+        }
     }
 
     document.addEventListener('DOMContentLoaded', initializePage);

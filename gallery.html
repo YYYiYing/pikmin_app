@@ -222,6 +222,21 @@
         </div>
     </div>
 
+    <div id="publish-chooser-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="bg-gray-800 w-full max-w-xs rounded-2xl shadow-xl p-6 border border-gray-600">
+            <h3 class="text-lg font-bold text-white text-center mb-4">🍄 選擇發布類型</h3>
+            <div class="flex flex-col gap-3">
+                <button onclick="window.doPublishToGuest('loudspeaker')" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-xl transition text-sm flex items-center justify-center gap-2">
+                    <span style="font-size: 20px;">📢</span> 大聲公呼叫蘑菇
+                </button>
+                <button onclick="window.doPublishToGuest('fly')" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 rounded-xl transition text-sm flex items-center justify-center gap-2">
+                    <span style="font-size: 20px;">✈️</span> 座標自飛蘑菇
+                </button>
+                <button onclick="document.getElementById('publish-chooser-modal').classList.add('hidden')" class="text-gray-400 hover:text-white text-xs py-2 transition">取消</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const SUPABASE_URL = 'https://htdddmoclmhqebyvzean.supabase.co';
         const PUBLIC_KEY = 'sb_publishable_95x4eVN3GHlRFfnJQHaXpg_csrMp2fJ';
@@ -808,6 +823,11 @@
                                     <span class="text-violet-400">🌍</span> ${fullLocation}
                                 </p>
                             </div>` : ''}
+                        <div class="flex justify-end mt-2 pt-2 border-t border-gray-700/50">
+                            ${(!c.source || c.source === '蘑菇') ? `<button onclick="window.quickPublishFromGallery('${getCdnUrl(c.image_url)}')" class="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded-full font-bold transition flex items-center gap-1">
+                                🍄 發布
+                            </button>` : ''}
+                        </div>
                         </div>
                     </div>`;
             }).join('');
@@ -1266,6 +1286,20 @@
                 window.location.href = 'guest.html';
             }
         }
+        window.quickPublishFromGallery = (imgUrl) => {
+            if (currentUser) {
+                window.location.href = `./dashboard.html?quickImg=${encodeURIComponent(imgUrl)}`;
+            } else {
+                window._pendingPublishImg = imgUrl;
+                document.getElementById('publish-chooser-modal').classList.remove('hidden');
+            }
+        };
+
+        window.doPublishToGuest = (type) => {
+            document.getElementById('publish-chooser-modal').classList.add('hidden');
+            const img = window._pendingPublishImg || '';
+            window.location.href = `./guest.html?quickImg=${encodeURIComponent(img)}&type=${type}`;
+        };
     </script>
 </body>
 </html>
