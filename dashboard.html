@@ -1128,7 +1128,7 @@
                 
                 if (error) throw error;
                 // 注意：list-guest-postcards 回傳結構可能包含 data.data
-                data = (res.data || []).filter((item: any) => item.source === '蘑菇');
+                data = (res.data || []).filter(item => item.source === '蘑菇');
             }
 
             // 存入快取

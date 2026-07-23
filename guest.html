@@ -3897,7 +3897,7 @@
                 if (error) throw error;
                 
                 // 資料儲存 (list-guest-postcards 回傳結構通常是 { data: [...] })
-                galleryData = (res.data || []).filter((item: any) => item.source === '蘑菇');
+                galleryData = (res.data || []).filter(item => item.source === '蘑菇');
                 galleryPage = 1;
                 
                 renderGalleryGrid();
