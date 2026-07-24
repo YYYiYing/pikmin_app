@@ -37,8 +37,8 @@ serve(async (req) => {
         // A. 定義時間門檻
         // 內部菇：已發車超過 10 小時
         const internalCutoff = new Date(now - 10 * 60 * 60 * 1000).toISOString();
-        // 訪客菇 (大聲公 & 自飛)：開放/發布時間超過 12 小時 (依據您的需求修改為 12)
-        const guestCutoff = new Date(now - 12 * 60 * 60 * 1000).toISOString();
+        // 訪客菇 (大聲公 & 自飛)：開放/發布時間超過 24 小時
+        const guestCutoff = new Date(now - 24 * 60 * 60 * 1000).toISOString();
 
         // Part 1: 清理 Challenges 表格 (內部菇 + 訪客大聲公)
         // B1. 查詢逾時內部菇
@@ -666,7 +666,7 @@ serve(async (req) => {
         // ★ 回傳合併後的 count
         return new Response(JSON.stringify({ 
             success: true, 
-            data: { count: totalCount, limit: 10, ip_fingerprint: fingerprint } 
+            data: { count: totalCount, limit: 30, ip_fingerprint: fingerprint } 
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
@@ -858,7 +858,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, data: { message: '刪除成功' } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // ★★★ 訪客報名 (Join) - 修改版：加入候補名額邏輯 (slots + 2) ★★★
+    // ★★★ 訪客報名 (Join) ★★★
     if (action === 'guest-join-challenge') {
         const { challengeId, nickname, friendCode } = payload;
         const guestName = `${nickname}💪${friendCode}`;
@@ -875,14 +875,13 @@ serve(async (req) => {
         // 安全取得目前人數
         const currentCount = challenge.signups?.[0]?.count ?? 0;
         
-        // 允許報名直到 (名額 + 2)
-        // 當人數達到 (Slots + 2) 時才擋下
-        if (currentCount >= (challenge.slots + 2)) {
+        // 當人數達到 Slots 時擋下
+        if (currentCount >= challenge.slots) {
             // 如果已經滿了，順手修復狀態 (防呆)
             if (challenge.status !== '已額滿') {
                 await adminSupabaseClient.from('challenges').update({ status: '已額滿' }).eq('id', challengeId);
             }
-            throw new Error('報名失敗：連候補都滿囉！');
+            throw new Error('報名失敗：已經額滿！');
         }
 
         // 2. 檢查是否重複報名
@@ -894,48 +893,6 @@ serve(async (req) => {
             .maybeSingle();
 
         if (exist) throw new Error('您已經報名過這場挑戰了');
-
-        // ★★★ 新增：檢查備取上限 (Max 3) ★★★
-        // 只有當本次報名屬於「備取」時 (目前人數 >= slots)，才需要檢查這個人手上是不是已經滿手備取了
-        // 如果本次是「正取」，則不受備取上限限制
-        if (currentCount >= challenge.slots) {
-            // A. 查出這個人所有的報名紀錄
-            const { data: myAllSignups } = await adminSupabaseClient
-                .from('signups')
-                .select('challenge_id, created_at')
-                .eq('guest_name', guestName);
-            
-            if (myAllSignups && myAllSignups.length > 0) {
-                let currentWaitlistCount = 0;
-                
-                // B. 逐一檢查這些報名是否為備取 (Rank > Slots)
-                for (const s of myAllSignups) {
-                    // 查該挑戰的名額
-                    const { data: ch } = await adminSupabaseClient
-                        .from('challenges')
-                        .select('slots')
-                        .eq('id', s.challenge_id)
-                        .single();
-                    
-                    if (ch) {
-                        // 查我在該挑戰的排名 (比我早報名的人數 + 1)
-                        const { count: rank } = await adminSupabaseClient
-                            .from('signups')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('challenge_id', s.challenge_id)
-                            .lte('created_at', s.created_at); // created_at <= 我的時間
-                        
-                        if ((rank || 0) > ch.slots) {
-                            currentWaitlistCount++;
-                        }
-                    }
-                }
-
-                if (currentWaitlistCount >= 3) {
-                    throw new Error('您同時排隊的備取已達上限 (3個)，請先取消其他備取。');
-                }
-            }
-        }
 
         // 3. 寫入報名表
         const { data: newSignup, error: insertErr } = await adminSupabaseClient
@@ -1266,8 +1223,8 @@ serve(async (req) => {
         throw new Error('找不到該卡片');
       }
 
-      // 2. 檢查是否已達上限 (20人)
-      if (currentPost.slots >= 20) {
+      // 2. 檢查是否已達上限 (30人)
+      if (currentPost.slots >= 30) {
         throw new Error('人數已達上限');
       }
 
@@ -1281,6 +1238,55 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, message: '+1 成功' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    // 自飛菇人數 -1
+    if (action === 'guest-decrement-fly') {
+      const { id } = payload;
+      
+      const { data: currentPost, error: fetchError } = await adminSupabaseClient
+        .from('guest_fly_posts') 
+        .select('slots')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !currentPost) {
+        throw new Error('找不到該卡片');
+      }
+
+      if (currentPost.slots <= 0) {
+        throw new Error('人數不可小於 0');
+      }
+
+      const { error: updateError } = await adminSupabaseClient
+        .from('guest_fly_posts')
+        .update({ slots: currentPost.slots - 1 })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      return new Response(
+        JSON.stringify({ success: true, message: '-1 成功' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    // 自飛菇人數直接設定 (直接輸入)
+    if (action === 'guest-set-fly-count') {
+      const { id, count } = payload;
+      const newCount = parseInt(count);
+      if (isNaN(newCount) || newCount < 0 || newCount > 30) {
+        throw new Error('人數必須在 0~30 之間');
+      }
+      const { error: updateError } = await adminSupabaseClient
+        .from('guest_fly_posts')
+        .update({ slots: newCount })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      return new Response(
+        JSON.stringify({ success: true, message: '已更新人數' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }

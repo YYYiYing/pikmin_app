@@ -244,7 +244,7 @@
             </div>
             
             <p class="text-center text-xl text-white text-gray-500 mt-2 mb-4 font-mono">
-                <span data-i18n="quota_label">同時發布上限</span>: <span id="quota-display" class="text-pink-400 font-bold">--</span> / 10
+                <span data-i18n="quota_label">同時發布上限</span>: <span id="quota-display" class="text-pink-400 font-bold">--</span> / 30
             </p>
             
             <p class="text-center text-sm text-gray-500 mt-2 font-mono">
@@ -283,7 +283,7 @@
         </div>
             <p class="text-center text-sm text-gray-500 mt-2 mb-4 font-mono">
                 💣 <span data-i18n="warn_destroy">蘑菇卡片逾時自動銷毀</span> 💣<br>
-                ♻️ <span data-i18n="warn_destroy_time">(大聲公 / 自飛: 12小時)</span> ♻️
+                ♻️ <span data-i18n="warn_destroy_time">(大聲公 / 自飛: 24小時)</span> ♻️
             </p>
         <div id="guest-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <p class="text-gray-500 col-span-full text-center py-8" data-i18n="loading_msg">搜尋菇菇中...</p>
@@ -348,7 +348,13 @@
 
                 <div>
                     <label class="text-sm text-gray-400 font-bold" data-i18n="label_slots">呼叫名額</label>
-                    <input type="number" id="m-slots" value="4" min="1" max="10" class="dark-input w-full rounded-md mt-1 px-3 py-2">
+                    <div class="flex items-center gap-3 mt-2">
+                        <input type="range" id="m-slots" min="1" max="10" value="10" 
+                            class="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                            oninput="document.getElementById('m-slots-display').textContent = this.value">
+                        <span id="m-slots-display" class="text-pink-400 font-bold text-xl min-w-[3rem] text-right">10</span>
+                        <span class="text-gray-400 text-sm" data-i18n="unit_person">人</span>
+                    </div>
                 </div>
 
                 <div>
@@ -378,11 +384,18 @@
 
                 <div>
                     <label class="text-sm text-gray-400 font-bold" data-i18n="label_cooking">火侯</label>
-                    <select id="m-style" class="dark-input w-full rounded-md mt-1 px-3 py-2">
-                        <option value="隨便亂炒（不限戰力）" data-i18n="opt_cook_any">隨便亂炒（不限戰力）</option>
-                        <option value="大火快炒（戰力全開）" data-i18n="opt_cook_hard">大火快炒（戰力全開）</option>
-                        <option value="細火慢燉（控制戰力）" data-i18n="opt_cook_slow">細火慢燉（控制戰力）</option>
-                    </select>
+                    <div class="flex gap-2 mt-2">
+                        <button type="button" data-value="隨便亂炒（不限戰力）" 
+                            class="cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400" 
+                            onclick="setGuestCookBtn(this)" data-i18n="opt_cook_any">🔥 不限</button>
+                        <button type="button" data-value="大火快炒（戰力全開）" 
+                            class="cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
+                            onclick="setGuestCookBtn(this)" data-i18n="opt_cook_hard">🔥 大火</button>
+                        <button type="button" data-value="細火慢燉（控制戰力）" 
+                            class="cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
+                            onclick="setGuestCookBtn(this)" data-i18n="opt_cook_slow">🔥 細火</button>
+                    </div>
+                    <input type="hidden" id="m-style" value="隨便亂炒（不限戰力）">
                 </div>
 
                 <div>
@@ -466,7 +479,13 @@
 
                 <div>
                     <label class="text-sm text-gray-400 font-bold" data-i18n="label_joined_count">已進場人數</label>
-                    <input type="number" id="f-slots" value="1" min="0" max="20" class="dark-input w-full rounded-md mt-1 px-3 py-2">
+                    <div class="flex items-center gap-3 mt-2">
+                        <input type="range" id="f-slots" min="0" max="30" value="0" 
+                            class="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                            oninput="document.getElementById('f-slots-display').textContent = this.value">
+                        <span id="f-slots-display" class="text-cyan-400 font-bold text-xl min-w-[3rem] text-right">0</span>
+                        <span class="text-gray-400 text-sm" data-i18n="unit_person">人</span>
+                    </div>
                 </div>
 
                 <div>
@@ -482,11 +501,18 @@
 
                 <div>
                     <label class="text-sm text-gray-400 font-bold" data-i18n="label_cooking">火侯</label>
-                    <select id="f-style" class="dark-input w-full rounded-md mt-1 px-3 py-2">
-                        <option value="隨便亂炒（不限戰力）" data-i18n="opt_cook_any">隨便亂炒</option>
-                        <option value="大火快炒（戰力全開）" data-i18n="opt_cook_hard">大火快炒</option>
-                        <option value="細火慢燉（控制戰力）" data-i18n="opt_cook_slow">細火慢燉</option>
-                    </select>
+                    <div class="flex gap-2 mt-2">
+                        <button type="button" data-value="隨便亂炒（不限戰力）" 
+                            class="cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400" 
+                            onclick="setFlyCookBtn(this)" data-i18n="opt_cook_any">🔥 不限</button>
+                        <button type="button" data-value="大火快炒（戰力全開）" 
+                            class="cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
+                            onclick="setFlyCookBtn(this)" data-i18n="opt_cook_hard">🔥 大火</button>
+                        <button type="button" data-value="細火慢燉（控制戰力）" 
+                            class="cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
+                            onclick="setFlyCookBtn(this)" data-i18n="opt_cook_slow">🔥 細火</button>
+                    </div>
+                    <input type="hidden" id="f-style" value="隨便亂炒（不限戰力）">
                 </div>
 
                 <div>
@@ -738,13 +764,6 @@
             updateGuestQuota(); // 強制重整額度與連線
         });
 
-        function checkInfoComplete() {
-            if(nickInput.value && codeInput.value) {
-                actionArea.classList.remove('hidden');
-                if (typeof initChat === 'function') initChat(); 
-            }
-        }
-
         // UX 優化：按 Enter 自動儲存
         document.getElementById('guest-code').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -758,43 +777,6 @@
                 document.getElementById('guest-code').focus();
             }
         });
-
-        // (選用) 為了更順暢，也可以讓暱稱輸入框按 Enter 跳到好友碼輸入框
-        document.getElementById('guest-nickname').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('guest-code').focus();
-            }
-        });
-
-        document.getElementById('save-guest-info').addEventListener('click', () => {
-            const nick = nickInput.value.trim();
-            const code = codeInput.value.trim();
-            if(!nick || !code) {
-                showToast(safeT('toast_fill_all', '請完整填寫暱稱與好友碼'), true);
-                return;
-            }
-            
-            if (!/^\d{12}$/.test(code)) {
-                showToast(safeT('toast_code_fmt', '好友碼格式錯誤：必須為12位純數字'), true);
-                return;
-            }
-            
-            localStorage.setItem('guest_nick', nick);
-            localStorage.setItem('guest_code', code);
-            showToast(safeT('toast_profile_saved', '身分已暫存！'), false);
-            checkInfoComplete();
-
-            // 儲存成功後，隱藏輸入區塊
-            toggleInfoSection(false);
-        });
-
-        function checkInfoComplete() {
-            if(nickInput.value && codeInput.value) {
-                actionArea.classList.remove('hidden');
-                updateGuestQuota(); 
-            }
-        }
 
         let activeFilter = 'all'; // 當前篩選狀態
 
@@ -903,7 +885,9 @@
 
                 allData.forEach(c => {
                     const isFly = c.dataType === 'fly';
-                    const isFull = !isFly && c.status === '已額滿'; 
+                    const isFullNormal = !isFly && c.status === '已額滿'; 
+                    const isFullFly = isFly && (parseInt(c.slots) || 0) >= 30;
+                    const isFull = isFullNormal || isFullFly;
                     
                     let isMine = false;
                     if(isFly) isMine = myFlyPostIds.includes(c.id);
@@ -915,12 +899,12 @@
                         isSigned = myGuestSignups.some(s => String(s.challengeId) === String(c.id));
                     }
 
-                    if (isFly || !isFull) countAll++;
+                    if (!isFull) countAll++;
                     if (isFly) countFly++;
                     if (!isFly && !isFull) countNormal++;
-                    if (!isFly && isFull) countFull++;
+                    if (isFull) countFull++;
                     if (isMine) countMine++;
-                    if (isSigned) countSigned++; // ★ 計數
+                    if (isSigned) countSigned++;
                 });
 
                 const updateBadge = (id, count) => {
@@ -1048,6 +1032,9 @@
             const hostLabel = safeT('label_host', '發菇者');
             const hostDisplay = `<span class="cursor-pointer hover:text-white hover:underline transition" onclick="copyText('${c.friend_code}')" title="${safeT('hint_copy_code', '複製好友碼')}: ${c.friend_code}">${c.nickname}</span>`;
 
+            const currentCount = parseInt(c.slots) || 0;
+            const isFull = currentCount >= 30;
+
             let actionBtnHtml = '';
             if (isMine) {
                 actionBtnHtml = `
@@ -1057,9 +1044,22 @@
                     </div>`;
             } else {
                 actionBtnHtml = `
-                    <button onclick="handleFlyCopy('${c.coordinates}')" class="mt-4 w-full bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition shadow-lg transform active:scale-95 flex justify-center items-center gap-2">
-                        <span>🚀</span> ${safeT('btn_take_off', '我要起飛')}
-                    </button>`;
+                    <div class="mt-4 flex gap-2">
+                        <button onclick="handleFlyCopy('${c.coordinates}')" class="flex-1 bg-cyan-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-cyan-700 transition shadow-lg transform active:scale-95 flex justify-center items-center gap-1 text-sm">
+                            📋 ${safeT('btn_take_off', '複製座標')}
+                        </button>
+                        <div class="flex-1 bg-gray-800 border border-gray-700 rounded-lg flex items-center justify-center gap-1 px-1">
+                            <button onclick="decrementFlyCount(${c.id}, ${currentCount}, this)" 
+                                class="text-red-400 hover:text-red-300 bg-gray-700 hover:bg-gray-600 rounded px-2 py-1 transition font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
+                                ${currentCount <= 0 ? 'disabled' : ''} title="-1">◀ -1</button>
+                            <input id="fly-count-${c.id}" type="text" value="${currentCount}" 
+                                class="w-10 bg-transparent text-center text-white font-bold text-sm outline-none border-b border-transparent focus:border-cyan-400 transition"
+                                onfocus="this.select()" onchange="setFlyCount(${c.id}, this)">
+                            <button onclick="incrementFlyCount(${c.id}, ${currentCount}, this)" 
+                                class="text-green-400 hover:text-green-300 bg-gray-700 hover:bg-gray-600 rounded px-2 py-1 transition font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
+                                ${isFull ? 'disabled' : ''} title="+1">+1 ▶</button>
+                        </div>
+                    </div>`;
             }
 
             const postTime = new Date(c.created_at).toLocaleString('zh-TW', { hour12: false });
@@ -1067,31 +1067,17 @@
             const slotsLabel = safeT('label_joined_count', '已進場人數');
             const flyTag = safeT('tag_fly', '自飛');
 
-            // === 人數顯示邏輯 (+1 按鈕整合) ===
-            const currentCount = parseInt(c.slots) || 0;
-            const isFull = currentCount >= 20;
-            
-            // +1 按鈕 HTML
-            const plusOneBtn = `
-                <button onclick="incrementFlyCount(${c.id}, ${currentCount}, this)"
-                    class="ml-2 bg-green-600 hover:bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    title="${safeT('btn_plus_one_hint', '我也進場 (+1)')}"
-                    ${isFull ? 'disabled' : ''}>
-                    <span>+1</span> <span>🙋</span>
-                </button>
-            `;
-
-            // 組合顯示 HTML (取代原本單純的文字顯示)
+            // === 人數顯示邏輯 ===
             const slotsDisplayHtml = `
                 <div class="flex items-center">
-                    <span>${slotsLabel}: <span id="fly-count-${c.id}" class="font-bold ${isFull ? 'text-red-400' : 'text-green-400'}">${currentCount}</span> ${safeT('unit_person', '人')}</span>
-                    ${plusOneBtn}
+                    <span>${slotsLabel}: <span class="font-bold ${isFull ? 'text-red-400' : 'text-green-400'}">${currentCount}</span> ${safeT('unit_person', '人')}</span>
                 </div>
             `;
 
             return `
                 <div class="challenge-card p-4 rounded-xl relative border border-cyan-800 bg-gray-800/80 hover:border-cyan-500 transition-colors duration-300" 
                         data-datatype="fly" 
+                        data-status="${isFull ? '已額滿' : 'open'}"
                         data-ismine="${isMine}">
                     
                     <div class="absolute top-2 right-2 flex items-center gap-2">
@@ -1128,40 +1114,6 @@
                     ${actionBtnHtml}
                 </div>
             `;
-        }
-
-            // 計算訪客目前的備取數量
-        function calculateGuestWaitlistCount() {
-            let count = 0;
-            // 從全域變數 window.currentAllData 讀取所有挑戰資料
-            if (!window.currentAllData) return 0;
-
-            // 取得訪客身分
-            const localNick = localStorage.getItem('guest_nick');
-            const localCode = localStorage.getItem('guest_code');
-            const myGuestId = (localNick && localCode) ? `${localNick}💪${localCode}` : null;
-            if (!myGuestId) return 0;
-
-            window.currentAllData.forEach(c => {
-                if (c.dataType === 'normal' && c.signups) {
-                    // 檢查我是否已報名
-                    const mySignup = c.signups.find(s => {
-                    let rawName = s.guest_name || (s.profile ? s.profile.nickname : '');
-                    return rawName === myGuestId || (s.guest_name === myGuestId);
-                    });
-
-                    if (mySignup) {
-                        // 計算排名
-                        const myTime = new Date(mySignup.signed_up_at).getTime();
-                        const rank = c.signups.filter(s => new Date(s.signed_up_at).getTime() <= myTime).length;
-                        
-                        if (rank > c.slots) {
-                            count++;
-                        }
-                    }
-                }
-            });
-            return count;
         }
 
         // 渲染大聲公卡片 (視覺升級：右側縮圖版)
@@ -1224,27 +1176,8 @@
                 const sortedSignups = c.signups.sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
                 
                 const rows = sortedSignups.map((s, idx) => {
-                    const isWaitlist = idx >= c.slots;
-                    
-                    let separatorHtml = '';
-                    if (idx === c.slots) {
-                        separatorHtml = `
-                            <div class="flex items-center my-2">
-                                <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
-                                <span class="mx-2 text-[10px] text-orange-400 font-bold bg-orange-900/30 px-2 rounded-full">${safeT('separator_waitlist', '備取區')}</span>
-                                <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
-                            </div>
-                        `;
-                    }
-
-                    let rankDisplay;
-                    if (isWaitlist) {
-                        const waitRank = idx - c.slots + 1;
-                        rankDisplay = `<span class="text-xs text-orange-400 font-bold w-6 text-center mr-1">${safeT('rank_wait', '備')}${waitRank}</span>`;
-                    } else {
-                        const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
-                        rankDisplay = `<span class="participant-rank">${rank}</span>`;
-                    }
+                    const rank = `${idx + 1}${getRankSuffix(idx + 1)}`;
+                    const rankDisplay = `<span class="participant-rank">${rank}</span>`;
 
                     let rawName = s.guest_name || (s.profile ? s.profile.nickname : '未知');
                     if (s.profile && s.profile.nickname) rawName = s.profile.nickname;
@@ -1292,8 +1225,7 @@
                     }
 
                     return `
-                        ${separatorHtml}
-                        <div class="participant-item ${isWaitlist ? 'opacity-90' : ''}">
+                        <div class="participant-item">
                             <div class="flex items-center w-full overflow-hidden">
                                 ${rankDisplay}
                                 <span class="${nameClass} flex-1" ${clickAttr}>${displayName}</span>
@@ -1325,26 +1257,9 @@
             } else if (c.status === '預計開放') {
                 actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>${safeT('btn_not_open', '尚未開放')}</button>`;
             } else {
-                if (signupCount >= (c.slots + 2)) {
+                if (signupCount >= c.slots) {
                      actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>${safeT('status_full', '已額滿')}</button>`;
-                } 
-                else if (signupCount >= c.slots) {
-                    const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
-                    const waitRank = signupCount - c.slots + 1;
-                    
-                    if (calculateGuestWaitlistCount() >= 3) {
-                         actionButtonHtml = `<button class="mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-50" disabled>備取數量已達上限(3)</button>`;
-                    }
-                    else if (cooldownLeft > 0) {
-                        actionButtonHtml = `<button class="guest-signup-btn mt-4 w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>${safeT('btn_cooldown', '冷卻中')} ${cooldownLeft}s</button>`;
-                    } else {
-                        const btnText = safeT('btn_join_waitlist', '報名備取');
-                        const rankText = safeT('rank_wait', '備');
-                        
-                        actionButtonHtml = `<button onclick="handleGuestSignup(${c.id})" class="guest-signup-btn mt-4 w-full bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition shadow-lg transform active:scale-95">👉 ${btnText} (${rankText}${waitRank})</button>`;
-                    }
-                }
-                else {
+                } else {
                     const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
                     const coolText = safeT('btn_cooldown', '冷卻中');
                     
@@ -1399,14 +1314,7 @@
             const callPeriodLabel = safeT('label_period', '呼叫時段');
             const slotsLabel = safeT('label_slots', '呼叫名額');
 
-            let slotsDisplayHtml = '';
-            if (signupCount > c.slots) {
-                const waitCount = signupCount - c.slots;
-                const waitText = safeT('txt_waitlist', '備取');
-                slotsDisplayHtml = `${c.slots} / ${c.slots} <span class="font-bold ml-2">${waitText} ${waitCount} / 2</span>`;
-            } else {
-                slotsDisplayHtml = `${signupCount} / ${c.slots}`;
-            }
+            let slotsDisplayHtml = `${signupCount} / ${c.slots}`;
 
             // 修正 renderNormalCard 的回傳 HTML
             return `
@@ -1466,6 +1374,9 @@
             form.reset();
             document.getElementById('edit-id').value = '';
             document.getElementById('modal-title').textContent = safeT('modal_post_title', '發布蘑菇挑戰');
+            document.getElementById('m-slots').value = 10;
+            document.getElementById('m-slots-display').textContent = '10';
+            resetGuestCookBtns();
             
             const savedTime = localStorage.getItem('guest_saved_time');
             const isRemembered = localStorage.getItem('guest_is_remembered') === 'true';
@@ -1585,6 +1496,7 @@
                 document.getElementById('edit-id').value = data.id;
                 document.getElementById('m-type').value = data.mushroom_type;
                 document.getElementById('m-slots').value = data.slots;
+                document.getElementById('m-slots-display').textContent = data.slots;
                 
                 const t = new Date(data.start_time);
                 t.setMinutes(t.getMinutes() - t.getTimezoneOffset());
@@ -1593,6 +1505,11 @@
                 document.getElementById('m-details').value = data.details;
                 document.getElementById('m-style').value = data.cooking_style;
                 document.getElementById('m-notes').value = data.notes || '';
+                
+                // 復原膠囊按鈕狀態
+                document.querySelectorAll('.cook-guest-btn').forEach(btn => {
+                    if (btn.dataset.value === data.cooking_style) setGuestCookBtn(btn);
+                });
                 
                 document.getElementById('modal-title').textContent = safeT('modal_edit_title', '編輯訪客挑戰');
                 modal.classList.remove('hidden');
@@ -1747,9 +1664,8 @@
                 let show = false;
 
                 if (activeFilter === 'all') {
-                    if (dataType === 'fly') show = true;
-                    else if (status !== '已額滿') show = true;
-                    
+                    if (status !== '已額滿') show = true;
+
                 } else if (activeFilter === 'fly') {
                     if (dataType === 'fly') show = true;
 
@@ -1757,7 +1673,7 @@
                     if (dataType === 'normal' && status !== '已額滿') show = true;
 
                 } else if (activeFilter === 'full') {
-                    if (dataType === 'normal' && status === '已額滿') show = true;
+                    if (status === '已額滿') show = true;
 
                 } else if (activeFilter === 'mine') {
                     if (isMine) show = true;
@@ -2356,10 +2272,63 @@
         const flyModal = document.getElementById('fly-modal');
         const flyForm = document.getElementById('fly-form');
         
+        function resetFlyCookBtns() {
+            document.querySelectorAll('.cook-fly-btn').forEach(btn => {
+                btn.className = 'cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400';
+            });
+            const defaultBtn = document.querySelector('.cook-fly-btn[data-value="隨便亂炒（不限戰力）"]');
+            if (defaultBtn) {
+                defaultBtn.className = 'cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400';
+            }
+            document.getElementById('f-style').value = '隨便亂炒（不限戰力）';
+        }
+        window.setFlyCookBtn = function(btn) {
+            document.querySelectorAll('.cook-fly-btn').forEach(b => {
+                b.className = 'cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400';
+            });
+            const val = btn.dataset.value;
+            if (val === '隨便亂炒（不限戰力）') {
+                btn.className = 'cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400';
+            } else if (val === '大火快炒（戰力全開）') {
+                btn.className = 'cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-red-600/20 border-red-600/40 text-red-400';
+            } else {
+                btn.className = 'cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-orange-600/20 border-orange-600/40 text-orange-400';
+            }
+            document.getElementById('f-style').value = val;
+        };
+
+        function resetGuestCookBtns() {
+            document.querySelectorAll('.cook-guest-btn').forEach(btn => {
+                btn.className = 'cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400';
+            });
+            const defaultBtn = document.querySelector('.cook-guest-btn[data-value="隨便亂炒（不限戰力）"]');
+            if (defaultBtn) {
+                defaultBtn.className = 'cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400';
+            }
+            document.getElementById('m-style').value = '隨便亂炒（不限戰力）';
+        }
+        window.setGuestCookBtn = function(btn) {
+            document.querySelectorAll('.cook-guest-btn').forEach(b => {
+                b.className = 'cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400';
+            });
+            const val = btn.dataset.value;
+            if (val === '隨便亂炒（不限戰力）') {
+                btn.className = 'cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400';
+            } else if (val === '大火快炒（戰力全開）') {
+                btn.className = 'cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-red-600/20 border-red-600/40 text-red-400';
+            } else {
+                btn.className = 'cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-orange-600/20 border-orange-600/40 text-orange-400';
+            }
+            document.getElementById('m-style').value = val;
+        };
+
         document.getElementById('open-fly-modal').onclick = () => {
             flyForm.reset();
             document.getElementById('fly-edit-id').value = '';
             document.getElementById('fly-modal-title').textContent = safeT('modal_fly_title', '✈️ 發布自飛座標');
+            document.getElementById('f-slots').value = 0;
+            document.getElementById('f-slots-display').textContent = '0';
+            resetFlyCookBtns();
             flyModal.classList.remove('hidden');
         };
         document.getElementById('close-fly-modal').onclick = () => flyModal.classList.add('hidden');
@@ -2447,9 +2416,16 @@
             document.getElementById('fly-edit-id').value = data.id;
             document.getElementById('f-type').value = data.mushroom_type || '巨菇'; 
             document.getElementById('f-slots').value = data.slots;
+            document.getElementById('f-slots-display').textContent = data.slots;
             document.getElementById('f-coords').value = data.coordinates;
             document.getElementById('f-style').value = data.cooking_style;
             document.getElementById('f-notes').value = data.notes || '';
+            
+            // 復原膠囊按鈕狀態
+            document.querySelectorAll('.cook-fly-btn').forEach(btn => {
+                const val = btn.dataset.value;
+                if (val === data.cooking_style) setFlyCookBtn(btn);
+            });
             
             document.getElementById('fly-modal-title').textContent = safeT('modal_edit_title', '編輯');
             flyModal.classList.remove('hidden');
@@ -2662,7 +2638,7 @@
                 'no_filter_match': '此分類下沒有蘑菇',
                 'loading_msg': '搜尋菇菇中...',
                 'warn_destroy': '蘑菇卡片逾時自動銷毀',
-                'warn_destroy_time': '(大聲公 / 自飛: 12小時)',
+                'warn_destroy_time': '(大聲公 / 自飛: 24小時)',
 
                 // --- 訪客留言板 (Chat / Guestbook) ---
                 'chat_title': '訪客留言板',
@@ -2699,7 +2675,7 @@
                 'btn_cooldown': '冷卻中',
                 'btn_edit': '編輯',
                 'btn_delete': '刪除',
-                'btn_take_off': '我要起飛', // 自飛菇複製座標
+                'btn_take_off': '複製座標', // 自飛菇複製座標
                 'btn_add_comment': '留言',
                 'prompt_comment': '請輸入留言:',
 
@@ -2826,7 +2802,7 @@
                 'no_filter_match': 'No mushrooms here',
                 'loading_msg': 'Searching for mushrooms...',
                 'warn_destroy': 'Cards Auto-Destroy on Timeout',
-                'warn_destroy_time': '(Bullhorn / Coords: 12h)',
+                'warn_destroy_time': '(Bullhorn / Coords: 24h)',
 
                 // --- Chat ---
                 'chat_title': 'Guest Chat',
@@ -2863,7 +2839,7 @@
                 'btn_cooldown': 'Cooling',
                 'btn_edit': 'Edit',
                 'btn_delete': 'Delete',
-                'btn_take_off': 'Take Off',
+                'btn_take_off': 'Copy Coords',
                 'btn_add_comment': 'Msg',
                 'prompt_comment': 'Enter comment:',
 
@@ -2988,7 +2964,7 @@
                 'no_filter_match': '該当なし',
                 'loading_msg': '読み込み中...',
                 'warn_destroy': 'カードは自動削除されます',
-                'warn_destroy_time': '(メガホン / 座標: 12h)',
+                'warn_destroy_time': '(メガホン / 座標: 24h)',
 
                 // --- Chat ---
                 'chat_title': 'ゲスト掲示板',
@@ -3150,7 +3126,7 @@
                 'no_filter_match': '없음',
                 'loading_msg': '로딩 중...',
                 'warn_destroy': '카드는 시간이 지나면 자동 삭제됩니다',
-                'warn_destroy_time': '(메가폰 / 좌표: 12h)',
+                'warn_destroy_time': '(메가폰 / 좌표: 24h)',
 
                 // --- Chat ---
                 'chat_title': '게스트 채팅',
@@ -4023,47 +3999,69 @@
             }
         };
         
-        // ★★★ 自飛菇人數 +1 功能 ★★★
+        // ★★★ 自飛菇人數 +/- 功能 ★★★
         window.incrementFlyCount = async (id, currentCount, btn) => {
-            // 1. 防呆檢查：超過 20 人就不給按
-            if (currentCount >= 20) {
-                showToast(safeT('toast_full_20', '已達上限 20 人！'), true);
+            if (currentCount >= 30) {
+                showToast('已達上限 30 人！', true);
                 return;
             }
-
-            // 2. 鎖定按鈕避免連點
             const originalHtml = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '<span class="animate-spin">⌛</span>'; // 顯示轉圈圈
-
+            btn.innerHTML = '<span class="animate-spin">⌛</span>';
             try {
-                // 3. 呼叫後端 API
-                // 注意：您的後端 Edge Function 必須有寫好 'guest-increment-fly' 的邏輯
                 const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
-                    body: JSON.stringify({ 
-                        action: 'guest-increment-fly', 
-                        payload: { id: id } 
-                    })
+                    body: JSON.stringify({ action: 'guest-increment-fly', payload: { id: id } })
                 });
-
                 if (error) throw error;
                 if (data && data.error) throw new Error(data.error);
-
-                // 4. 成功提示
                 showToast('+1 🙋', false);
-                
-                // 5. 重新讀取列表以更新畫面
                 loadChallenges();
-
             } catch (e) {
                 console.error(e);
-                // 如果後端沒設定好，通常會報錯，這裡給個提示
                 const msg = e.message === 'Function not found' ? '後端未更新' : '操作失敗';
                 showToast(safeT('toast_op_failed', msg), true);
-                
-                // 失敗則恢復按鈕
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
+            }
+        };
+
+        window.decrementFlyCount = async (id, currentCount, btn) => {
+            if (currentCount <= 0) return;
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="animate-spin">⌛</span>';
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'guest-decrement-fly', payload: { id: id } })
+                });
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+                showToast('-1', false);
+                loadChallenges();
+            } catch (e) {
+                console.error(e);
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        };
+
+        window.setFlyCount = async (id, input) => {
+            const newVal = parseInt(input.value);
+            if (isNaN(newVal) || newVal < 0 || newVal > 30) {
+                loadChallenges();
+                return;
+            }
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({ action: 'guest-set-fly-count', payload: { id, count: newVal } })
+                });
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+                showToast('已更新', false);
+                loadChallenges();
+            } catch (e) {
+                console.error(e);
+                loadChallenges();
             }
         };
 
