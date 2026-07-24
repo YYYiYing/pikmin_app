@@ -13,19 +13,45 @@
 |------|---------|
 | `index.html` | Login page |
 | `dashboard.html` | Main hub: challenges, signups, leaderboard, music player, wishing well |
-| `guest.html` | No-account guest zone (guest challenges + self-fly posts) |
+| `guest.html` | No-account guest zone (loudspeaker challenges + self-fly posts) |
 | `admin.html` | Admin panel: user management, DB stats |
 | `gallery.html` | Public postcard gallery (`guest_postcards` table) |
 | `postcard.html` | Member postcard library (`postcards` table) |
 | `partner.html` | Friend code directory |
-| `radar.html` | Mushroom location radar (`radar_posts` table) |
+| `radar.html` | Mushroom location radar (`radar_posts` table), with category management |
 | `gpx_generator.html` | GPX route generator |
 | `monitor.html` | DB resource monitoring |
 | `migration.html` | Admin tool: migrate postcards from library to gallery |
-| `dedupe.html` | Admin tool: deduplicate postcards |
-| `supabase/functions/admin-actions/index.ts` | **Single Edge Function** — all backend logic lives here (Deno) |
+| `dedupe.html` | Admin tool: deduplicate postcards + fuzzy review PASS |
+| `supabase/functions/admin-actions/index.ts` | **Single Edge Function** — all backend logic lives here (Deno, 2633 lines) |
 
-## Key changes (post-initial-AGENTS.md)
+## Key changes
+
+### Guest page overhaul (guest.html)
+- Self-fly cards redesigned: left block (copy coords) + right block (-1/editable count/+1), removed old standalone +1 button
+- Loudspeaker: waitlist mechanism removed entirely (signup cap = slots, no slots+2)
+- Modals upgraded: slots → range slider, cooking style → pill buttons, fire level → capsule buttons
+- Filter system: full tab includes fly >=30; "all" excludes full fly; badges re-calculated
+- Edge Function: `guestCutoff` 12h→24h, `guest-increment-fly` cap 20→30, added `guest-decrement-fly`, `guest-set-fly-count`; `guest-join-challenge` waitlist logic removed; `get-guest-daily-count` limit 10→30
+
+### Dashboard modal upgrades (dashboard.html)
+- Create/edit modals: slots `<input type="number">` → range slider (1-10), cooking style `<select>` → pill buttons
+- Label renamed: `火侯` → `戰力`
+- Button text simplified: `不限` / `大戰力` / `小戰力`
+- Card display: `cStyle` mapped from DB values to new names
+
+### i18n system cleanup (guest.html)
+- zh-TW translations updated: `label_cooking` → `戰力`, `opt_cook_*` → `不限`/`大戰力`/`小戰力`
+- en/ja/ko translations shortened to match the new naming
+- 12 orphaned translation keys (waitlist leftovers + legacy toasts) removed from all 4 languages
+- 3 HTML fallback text mismatches fixed (`btn_radar_link`, `btn_change_nick`, `btn_paste`)
+- `data-i18n` attributes restored on cooking pills for language switching support
+
+### Radar category management (radar.html + Edge Function)
+- **New Edge Function actions**: `create-radar-category`, `delete-radar-category` (admin-only)
+- `update-radar-category`: added `sort_order` support
+- Delete: blocks if category has posts, cleans up storage image
+- Frontend: header "新增類別" button (always visible to admin); category banner ⚙️ dropdown with edit/delete (only when a category is selected)
 
 ### Source classification
 - `postcards.source` and `guest_postcards.source` (text DEFAULT '') — classify images as 巨大花/蘑菇/探測器
@@ -77,6 +103,10 @@
 - Edge Function `host-remove-signup`: host removes a participant's signup, freeing up a slot. Full auth check (host_id === user.id). Deletes signup record, recalculates challenge status (same auto-full logic as toggle-signup-checked-in: `checked_in_count >= 4 → 已額滿`).
 - Dashboard: each participant row shows 「釋出」button (red, subtle) next to「已入」for the host. Confirm dialog before removal. No penalty to the removed user.
 
+### Dedupe PASS feature
+- `fuzzy_review_passes` new table + Edge Function `save-fuzzy-pass`/`delete-fuzzy-pass`
+- `dedupe.html`: PASS button, toggle to show/hide passed items, re-trigger review for new items
+
 ## Commands
 
 ```bash
@@ -95,22 +125,22 @@ The login in `index.html` converts the nickname to a virtual email, trying two f
 1. **New format:** `{hex_encoded_nickname}@pikmin.sys` (UTF-8 → hex)
 2. **Old format (fallback):** `{url_encoded_clean_nickname}@pikmin.sys` (symbols stripped)
 
-When changing nicknames, the Edge Function updates the Supabase Auth email to the new hex format (`user-update-nickname` action, `index.ts:2096`).
+When changing nicknames, the Edge Function updates the Supabase Auth email to the new hex format (`user-update-nickname` action).
 
 ## Edge Function structure
 
 The `admin-actions` function dispatches on `action` field. The file is organized as:
 
-1. **Public actions** (no auth): scheduled emails, cleanup, guest CRUD, radar reads, public postcards
-2. **Auth wall** at line ~1871: all actions below require a valid Supabase JWT
-3. **Authenticated actions**: nickname change, subscriptions, wishes, postcard CRUD, radar admin, toggle check-in
+1. **Public actions** (no auth): cleanup, guest CRUD, radar reads (categories + posts), vote-radar-post
+2. **Auth wall** at line 1618: all actions below require a valid Supabase JWT
+3. **Authenticated actions** (after line 1618): nickname change, wishes, postcard CRUD, radar admin (create/update/delete category), toggle check-in, host-remove-signup, user-update-signup-comment
 
 Guest users are identified by **IP fingerprint** (SHA-1 hash of `clientIp + 'SALT_2025'`), not auth.
 
 ## Cron & notifications
 
 `.github/workflows/cron.yml` calls the Edge Function every 30 minutes during Taiwan daytime (UTC 0–15 = TW 08:00–23:30):
-- `cleanup-expired` — deletes dispatched challenges (10h), guest challenges (12h), old self-fly posts, and orphaned images
+- `cleanup-expired` — deletes dispatched challenges (10h), guest challenges (24h), old self-fly posts, and orphaned images
 
 **Required secrets:**
 - GitHub: `SECRET_KEY` (Supabase service role key)
@@ -118,11 +148,12 @@ Guest users are identified by **IP fingerprint** (SHA-1 hash of `clientIp + 'SAL
 
 ## Gotchas
 
-- **Guest daily limit** is shared across `challenges` and `guest_fly_posts` tables (10 combined/day per IP).
-- **Guest signup overflow:** guests can join beyond `slots` up to `slots + 2` (waitlist), capped at 3 concurrent waitlist entries per guest.
+- **Guest daily limit** is shared across `challenges` and `guest_fly_posts` tables (30 combined/day per IP).
+- **Guest challenge auto-cleanup**: loudspeaker + self-fly posts expire after 24h.
 - **`is_checked_in`** is the "checked in" flag on signups — toggled by the host (not boolean-safe, uses `!!` coercion in Edge Function).
 - **Image cleanup** is manual in the Edge Function: when updating/deleting records with new images, old Storage files must be explicitly deleted. URL parsing strips `?token=` query params to extract filenames.
 - **Coordinate deduplication:** both `postcards` and `radar_posts` enforce unique coordinates at the Edge Function level.
+- **Radar categories**: `radar_categories` table has `sort_order` for ordering. Admin can create/edit/delete via the radar.html UI (header "新增類別" button + category banner gear menu).
 - **No `.gitignore` exists.** The `.supabase` directory and `.temp/` files should be added.
 - **Windows path separators:** this repo is developed on Win11. Use forward slashes in HTML references (as-is).
 - **Supabase anon key** is hardcoded in all HTML files — this is intentional (public key, no security risk).
