@@ -18,6 +18,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SECRET_KEY') ?? '' 
     );
+    const IP_SALT = Deno.env.get('IP_SALT') || 'SALT_2025';
 
     const requestText = await req.text();
     const { action, payload } = requestText ? JSON.parse(requestText) : { action: null, payload: null };
@@ -173,7 +174,7 @@ serve(async (req) => {
         
         if (userVotes.length === 0 && clientIp !== 'unknown') {
             const encoder = new TextEncoder();
-            const d = encoder.encode(clientIp + 'SALT_2025');
+            const d = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', d);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
@@ -197,7 +198,7 @@ serve(async (req) => {
             
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': 'Pikmin-Mushroom-Radar/1.0 (contact: secretsoulful@gmail.com)' 
+                    'User-Agent': 'Pikmin-Mushroom-Radar/1.0' 
                 }
             });
 
@@ -226,7 +227,7 @@ serve(async (req) => {
         let fingerprint = 'unknown';
         if (clientIp !== 'unknown') {
             const encoder = new TextEncoder();
-            const d = encoder.encode(clientIp + 'SALT_2025');
+            const d = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', d);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
@@ -283,7 +284,7 @@ serve(async (req) => {
         let fingerprint = 'unknown';
         if (clientIp !== 'unknown') {
             const encoder = new TextEncoder();
-            const d = encoder.encode(clientIp + 'SALT_2025');
+            const d = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', d);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
@@ -351,7 +352,7 @@ serve(async (req) => {
             // ... (計算指紋邏輯同前) ...
             if (clientIp !== 'unknown') {
                 const encoder = new TextEncoder();
-                const d = encoder.encode(clientIp + 'SALT_2025');
+                const d = encoder.encode(clientIp + IP_SALT);
                 const hashBuffer = await crypto.subtle.digest('SHA-1', d);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
@@ -435,7 +436,7 @@ serve(async (req) => {
             let fingerprint = 'unknown';
             if (clientIp !== 'unknown') {
                 const encoder = new TextEncoder();
-                const d = encoder.encode(clientIp + 'SALT_2025');
+                const d = encoder.encode(clientIp + IP_SALT);
                 const hashBuffer = await crypto.subtle.digest('SHA-1', d);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
@@ -485,7 +486,7 @@ serve(async (req) => {
         let fingerprint = 'unknown';
         if (clientIp !== 'unknown') {
             const encoder = new TextEncoder();
-            const d = encoder.encode(clientIp + 'SALT_2025');
+            const d = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', d);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
@@ -632,7 +633,7 @@ serve(async (req) => {
         let fingerprint = 'unknown';
         if (clientIp !== 'unknown') {
             const encoder = new TextEncoder();
-            const data = encoder.encode(clientIp + 'SALT_2025');
+            const data = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', data);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -1303,7 +1304,7 @@ serve(async (req) => {
         let fingerprint = 'unknown';
         if (clientIp !== 'unknown') {
             const encoder = new TextEncoder();
-            const data = encoder.encode(clientIp + 'SALT_2025');
+            const data = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', data);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -1336,7 +1337,7 @@ serve(async (req) => {
         let fingerprint = 'unknown';
         if (clientIp !== 'unknown') {
             const encoder = new TextEncoder();
-            const data = encoder.encode(clientIp + 'SALT_2025');
+            const data = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', data);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
@@ -1364,7 +1365,7 @@ serve(async (req) => {
         let fingerprint = 'unknown';
         if (clientIp !== 'unknown') {
             const encoder = new TextEncoder();
-            const data = encoder.encode(clientIp + 'SALT_2025');
+            const data = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', data);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
@@ -1440,7 +1441,7 @@ serve(async (req) => {
         // B. 如果沒登入，用 IP 查
         if (userVotes.length === 0 && clientIp !== 'unknown') {
             const encoder = new TextEncoder();
-            const d = encoder.encode(clientIp + 'SALT_2025');
+            const d = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', d);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
@@ -1585,7 +1586,7 @@ serve(async (req) => {
         if (!userId) {
             const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
             const encoder = new TextEncoder();
-            const d = encoder.encode(clientIp + 'SALT_2025');
+            const d = encoder.encode(clientIp + IP_SALT);
             const hashBuffer = await crypto.subtle.digest('SHA-1', d);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             fingerprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 6);
