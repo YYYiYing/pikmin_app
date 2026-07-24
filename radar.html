@@ -76,6 +76,10 @@
                 <button onclick="openShareModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transition flex items-center gap-2 transform hover:scale-105">
                     <span>➕</span> 分享雷達純點
                 </button>
+
+                <button id="admin-add-cat-btn" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-full shadow-lg transition flex items-center gap-1 transform hover:scale-105 text-sm" onclick="openCategoryModal('add')">
+                    <span>➕</span> 新增類別
+                </button>
                 
                 <a href="javascript:void(0)" onclick="handleBack()" class="text-gray-400 hover:text-white transition cursor-pointer">← 返回</a>
             </div>
@@ -104,9 +108,13 @@
                     <span class="text-4xl">📡</span>
                 </div>
                 
-                <button id="admin-edit-category-btn" class="hidden absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white px-2 py-1 rounded text-xs backdrop-blur-sm">
-                    ⚙️
-                </button>
+                <div id="cat-info-menu" class="hidden absolute top-2 right-2 z-30">
+                    <button id="cat-info-btn" class="bg-black/50 hover:bg-black/70 text-white px-2 py-1 rounded text-xs backdrop-blur-sm">⚙️</button>
+                    <div id="cat-info-dropdown" class="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 min-w-[90px] hidden">
+                        <button onclick="openCategoryModal('edit'); toggleCatInfoMenu()" class="block w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 whitespace-nowrap">✏️ 編輯</button>
+                        <button onclick="deleteCategory(); toggleCatInfoMenu()" class="block w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 whitespace-nowrap">🗑️ 刪除</button>
+                    </div>
+                </div>
 
                 <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-4">
                     <h2 id="current-category-name" class="text-2xl font-bold text-white shadow-black drop-shadow-md"></h2>
@@ -345,8 +353,8 @@
                         displayEl.innerHTML = `<span class="text-orange-400 font-bold border border-orange-500/50 px-2 py-0.5 rounded mr-2 text-xs">管理員模式</span><span class="text-gray-300">${displayName}</span>`;
                         
                         // 如果有管理分類的按鈕，顯示它
-                        const adminBtn = document.getElementById('admin-edit-category-btn');
-                        if(adminBtn) adminBtn.classList.remove('hidden');
+                        const addCatBtn = document.getElementById('admin-add-cat-btn');
+                        if(addCatBtn) addCatBtn.classList.remove('hidden');
 
                     } else {
                         // 顯示：[會員] 暱稱
@@ -566,7 +574,7 @@
             const imgEl = document.getElementById('category-image');
             const phEl = document.getElementById('category-placeholder');
             const nameEl = document.getElementById('current-category-name');
-            const adminBtn = document.getElementById('admin-edit-category-btn');
+            const catInfoMenu = document.getElementById('cat-info-menu');
             const shareSec = document.getElementById('share-section');
             const filterSec = document.getElementById('filter-section');
 
@@ -585,12 +593,11 @@
                     if (phEl) phEl.classList.remove('hidden');
                 }
 
-                if (adminBtn) {
+                if (catInfoMenu) {
                     if (currentUser && currentUser.role === '管理者') {
-                        adminBtn.classList.remove('hidden');
-                        adminBtn.onclick = () => openCategoryModal();
+                        catInfoMenu.classList.remove('hidden');
                     } else {
-                        adminBtn.classList.add('hidden');
+                        catInfoMenu.classList.add('hidden');
                     }
                 }
             }
@@ -1015,9 +1022,34 @@
             }
         }
 
-        function openCategoryModal() {
-            document.getElementById('cat-name').value = currentCategory.name;
-            document.getElementById('cat-image').value = '';
+        function toggleCatInfoMenu() {
+            document.getElementById('cat-info-dropdown').classList.toggle('hidden');
+        }
+
+        // 點擊其他地方關閉分類圖片選單
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('cat-info-menu');
+            if (menu && !menu.contains(e.target)) {
+                document.getElementById('cat-info-dropdown').classList.add('hidden');
+            }
+        });
+
+        document.getElementById('cat-info-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleCatInfoMenu();
+        });
+
+        function openCategoryModal(mode) {
+            const modalTitle = document.querySelector('#category-modal h3');
+            if (mode === 'add') {
+                modalTitle.textContent = '新增類別';
+                document.getElementById('cat-name').value = '';
+                document.getElementById('cat-image').value = '';
+            } else {
+                modalTitle.textContent = '編輯類別';
+                document.getElementById('cat-name').value = currentCategory ? currentCategory.name : '';
+                document.getElementById('cat-image').value = '';
+            }
             document.getElementById('category-modal').classList.remove('hidden');
         }
 
@@ -1025,43 +1057,79 @@
             e.preventDefault();
             const newName = document.getElementById('cat-name').value;
             const fileInput = document.getElementById('cat-image');
-            
+            const btn = document.querySelector('#category-form button[type="submit"]');
+            const isAddMode = document.querySelector('#category-modal h3').textContent === '新增類別';
+            btn.disabled = true; btn.textContent = '處理中...';
+
             try {
-                let imageUrl = currentCategory.image_url;
+                let imageUrl = null;
 
                 if (fileInput.files.length > 0) {
                     const file = fileInput.files[0];
                     const fileName = `cat_${Date.now()}.${file.name.split('.').pop()}`;
-                    
                     const { data, error } = await supabaseClient.storage.from('radar-category-images').upload(fileName, file);
                     if (error) throw error;
-                    
                     const { data: pub } = supabaseClient.storage.from('radar-category-images').getPublicUrl(fileName);
                     imageUrl = pub.publicUrl;
                 }
 
                 const session = (await supabaseClient.auth.getSession()).data.session;
-                const { error } = await supabaseClient.functions.invoke('admin-actions', {
-                    headers: { Authorization: `Bearer ${session.access_token}` },
-                    body: JSON.stringify({ 
-                        action: 'update-radar-category', 
-                        payload: { id: currentCategory.id, name: newName, image_url: imageUrl } 
-                    })
-                });
 
-                if (error) throw error;
-                
-                alert('更新成功');
+                if (isAddMode) {
+                    const { error } = await supabaseClient.functions.invoke('admin-actions', {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ action: 'create-radar-category', payload: { name: newName, image_url: imageUrl, sort_order: allCategories.length } })
+                    });
+                    if (error) throw error;
+                    alert('新增成功');
+                } else {
+                    const { error } = await supabaseClient.functions.invoke('admin-actions', {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ action: 'update-radar-category', payload: { id: currentCategory.id, name: newName, image_url: imageUrl, sort_order: currentCategory.sort_order } })
+                    });
+                    if (error) throw error;
+                    alert('更新成功');
+                }
+
                 document.getElementById('category-modal').classList.add('hidden');
-                loadCategories(); 
-                currentCategory.name = newName;
-                currentCategory.image_url = imageUrl;
-                selectCategory(currentCategory);
+                if (isAddMode) {
+                    await loadCategories();
+                    await loadHomeData();
+                } else {
+                    currentCategory.name = newName;
+                    if (imageUrl) currentCategory.image_url = imageUrl;
+                    await loadCategories();
+                    await selectCategory(currentCategory);
+                }
 
             } catch (err) {
-                alert('更新失敗: ' + err.message);
+                alert((isAddMode ? '新增' : '更新') + '失敗: ' + err.message);
+            } finally {
+                btn.disabled = false; btn.textContent = '儲存';
             }
         });
+
+        async function deleteCategory() {
+            if (!currentCategory) return;
+            if (!confirm(`確定要刪除分類「${currentCategory.name}」嗎？\n\n若此分類下還有雷達點將無法刪除。`)) return;
+
+            try {
+                const session = (await supabaseClient.auth.getSession()).data.session;
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ action: 'delete-radar-category', payload: { id: currentCategory.id } })
+                });
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+
+                alert('已刪除');
+                currentCategory = null;
+                await loadCategories();
+                await loadHomeData();
+            } catch (err) {
+                alert('刪除失敗: ' + err.message);
+            }
+        }
 
         document.getElementById('share-form').addEventListener('submit', async (e) => {
             e.preventDefault();

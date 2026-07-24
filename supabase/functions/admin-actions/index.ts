@@ -1632,9 +1632,27 @@ serve(async (req) => {
 
     // ▼▼▼ 純點雷達站 - 需驗證功能
 
-    // 5. 管理員編輯分類 (含舊圖清理)
+    // 5. 管理員新增分類
+    if (action === 'create-radar-category') {
+        const { name, image_url, sort_order } = payload;
+        const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
+        if (profile?.role !== '管理者') throw new Error('權限不足');
+
+        if (!name) throw new Error('名稱為必填');
+
+        const insertData: any = { name };
+        if (image_url) insertData.image_url = image_url;
+        if (sort_order !== undefined) insertData.sort_order = parseInt(sort_order);
+
+        const { data, error } = await adminSupabaseClient.from('radar_categories').insert(insertData).select().single();
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ success: true, data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 6. 管理員編輯分類 (含舊圖清理)
     if (action === 'update-radar-category') {
-        const { id, name, image_url } = payload;
+        const { id, name, image_url, sort_order } = payload;
         const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
         if (profile?.role !== '管理者') throw new Error('權限不足');
 
@@ -1648,6 +1666,7 @@ serve(async (req) => {
         const updateData: any = {};
         if (name) updateData.name = name;
         if (image_url) updateData.image_url = image_url;
+        if (sort_order !== undefined) updateData.sort_order = parseInt(sort_order);
 
         // ★ 2. 執行更新
         const { error } = await adminSupabaseClient.from('radar_categories').update(updateData).eq('id', id);
@@ -1671,7 +1690,38 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 6. 刪除雷達點 (本人或管理員)
+    // 7. 管理員刪除分類
+    if (action === 'delete-radar-category') {
+        const { id } = payload;
+        const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
+        if (profile?.role !== '管理者') throw new Error('權限不足');
+
+        const { count } = await adminSupabaseClient.from('radar_posts')
+            .select('*', { count: 'exact', head: true }).eq('category_id', id);
+        if (count && count > 0) {
+            throw new Error(`此分類還有 ${count} 個雷達點，請先清空後再刪除`);
+        }
+
+        // 清理分類圖片
+        const { data: oldCat } = await adminSupabaseClient.from('radar_categories').select('image_url').eq('id', id).single();
+        if (oldCat?.image_url) {
+            try {
+                const oldFileName = oldCat.image_url.split('/').pop()?.split('?')[0];
+                if (oldFileName) {
+                    await adminSupabaseClient.storage.from('radar-category-images').remove([oldFileName]);
+                }
+            } catch (e) {
+                console.error('舊圖清理失敗 (不影響刪除):', e);
+            }
+        }
+
+        const { error } = await adminSupabaseClient.from('radar_categories').delete().eq('id', id);
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // 8. 刪除雷達點 (本人或管理員)
     if (action === 'delete-radar-post') {
         const { postId } = payload;
         const { data: post } = await adminSupabaseClient.from('radar_posts').select('uploader_id').eq('id', postId).single();
