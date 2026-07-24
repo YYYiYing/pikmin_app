@@ -25,6 +25,58 @@
 | `dedupe.html` | Admin tool: deduplicate postcards |
 | `supabase/functions/admin-actions/index.ts` | **Single Edge Function** — all backend logic lives here (Deno) |
 
+## Key changes (post-initial-AGENTS.md)
+
+### Source classification
+- `postcards.source` and `guest_postcards.source` (text DEFAULT '') — classify images as 巨大花/蘑菇/探測器
+- Pill buttons in gallery + postcard forms for source selection
+- Source badge on every card (左上角)
+- Source filter row: All / 巨大花 / 蘑菇 / 探測器
+- Old tags (大花點/蘑菇點/蘑菇/探測器) migrated to `source` column, then removed from `tags`
+- Image selector in dashboard/guest modals filters to `source='蘑菇'` only (library query + gallery tab filters)
+
+### Quick publish flow
+- Postcard/gallery cards show 「🍄 發布」button **only when `source='蘑菇'` or empty/no source**
+- **Members**: redirects to `dashboard.html?quickImg=...` → dashboard auto-fills file input, triggers `postChallengeButton.click()` for proper modal init
+- **Guests**: opens publish chooser modal (自飛菇 / 大聲公), redirects to `guest.html?quickImg=...&type=fly|loudspeaker&quickCoord=...`
+  - `type=fly`: auto-fills image + coordinate fields, opens fly modal
+  - `type=loudspeaker`: auto-fills image, opens guest challenge modal
+- Passes `quickCoord` for 自飛菇 so guest doesn't have to re-enter coordinates
+
+### Checked-in auto-full
+- Edge Function: `toggle-signup-checked-in` checks `checked_in_count >= 4` — if so, auto-fills remaining slots from waitlist (backfill)
+- RPC `cancel_signup_and_update_challenge`: also checks `checked_in_count >= 4` before backfilling
+- Frontend: `effectiveStatus` calculated client-side — if `status='open'` but `checked_in_count >= slots`, shows as full
+- Waitlist UI/logic REMOVED from frontend (no quota, no absent, no stand-by status display)
+
+### Removed features
+- **Waitlist UI**: quota display, absent score, stand-by status, waitlist count in card footer — all removed
+- **Email notification system**: dashboard subscription buttons, Edge Function 6 actions (scheduled-email-notify, scheduled-full-notify, update-subscription, send-test-email, trigger-check-now, get-subscriber-counts), cron.yml entries, admin.html notification UI, docs references. RESEND_API_KEY constant removed from Edge Function.
+- **Default slot 4→6**: new challenges default to 6 slots
+
+### Sorting
+- Card sorting: open challenges first, then by signup count (most signups first), then by challenge ID
+- Comment display: inline text with CSS overflow hidden → icon fallback when text too long (dashboard + guest comment section)
+
+### Bug fixes
+- Removed TypeScript `: any` syntax from all HTML JS files (causes SyntaxError in browsers)
+- Quick publish: must call `postChallengeButton.click()` to ensure identities/time/remembered-settings are initialized before setting file input
+- `quickPublishFromGallery` stores coord alongside imgUrl
+
+### Database migrations
+- `MIGRATION_REMOVE_WAITLIST.sql`: RPC changes for checked-in >=4 logic, waitlist removal
+- Source column added via ALTER TABLE (no migration file — done manually in Supabase SQL editor)
+- Tag migration: UPDATE guest_postcards/postcards SET source = ... based on tags, then tags = array_remove(tags, ...)
+
+### Reference files (not served, for AI context)
+- `GALLERY_POSTCARD_ANALYSIS.md` — analysis of gallery vs postcard relationship
+- `CODE_REFERENCE.md` — cross-file code reference
+- `DASHBOARD_ANALYSIS.md` — dashboard features analysis
+
+### Host release signup
+- Edge Function `host-remove-signup`: host removes a participant's signup, freeing up a slot. Full auth check (host_id === user.id). Deletes signup record, recalculates challenge status (same auto-full logic as toggle-signup-checked-in: `checked_in_count >= 4 → 已額滿`).
+- Dashboard: each participant row shows 「釋出」button (red, subtle) next to「已入」for the host. Confirm dialog before removal. No penalty to the removed user.
+
 ## Commands
 
 ```bash
@@ -74,3 +126,4 @@ Guest users are identified by **IP fingerprint** (SHA-1 hash of `clientIp + 'SAL
 - **No `.gitignore` exists.** The `.supabase` directory and `.temp/` files should be added.
 - **Windows path separators:** this repo is developed on Win11. Use forward slashes in HTML references (as-is).
 - **Supabase anon key** is hardcoded in all HTML files — this is intentional (public key, no security risk).
+- **git policy**: NO automatic push. Only commit/push when user explicitly says. User deploys via `/deploy` or direct instruction.

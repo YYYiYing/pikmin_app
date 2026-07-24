@@ -1953,7 +1953,7 @@
                     }
                 }
 
-                // 4. 處理操作按鈕 (整合 已入/缺席 邏輯)
+                // 4. 處理操作按鈕 (已入 + 釋出)
                 let actionBtn = '';
                 if (isCurrentUserHost) {
                     const baseBtnStyle = "mr-1 md:mr-2 text-[10px] px-1 md:px-2 py-0.5 rounded transition whitespace-nowrap border";
@@ -1966,8 +1966,12 @@
                     const checkInBtn = `<button onclick="window.toggleSignupCheckedIn(${challenge.id}, ${signup.id}, '${cleanName}', event)" 
                         class="${baseBtnStyle} ${checkInBtnStyle}" 
                         title="切換已入狀態">${checkInBtnText}</button>`;
+
+                    const releaseBtn = `<button onclick="window.hostReleaseSignup(${challenge.id}, ${signup.id}, '${cleanName.replace(/'/g, "\\'")}', event)" 
+                        class="${baseBtnStyle} bg-transparent text-red-400 border-red-600/50 hover:bg-red-700 hover:text-white"
+                        title="釋出名額給其他人報名">釋出</button>`;
                     
-                    actionBtn = checkInBtn;
+                    actionBtn = checkInBtn + releaseBtn;
                 }
 
                 const time = formatSignupTime(signup.signed_up_at);
@@ -3846,6 +3850,41 @@
         } catch (e) {
             console.error(e);
             showToast(`操作失敗: ${e.message}`, true);
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    };
+
+    // Dashboard 專用：發菇者釋出名額
+    window.hostReleaseSignup = async (challengeId, signupId, userName, event) => {
+        if (event) event.stopPropagation();
+
+        if (!confirm(`確定要釋出名額？${userName} 將被移除此挑戰的報名名單。`)) return;
+
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        try {
+            const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                body: { 
+                    action: 'host-remove-signup', 
+                    payload: { 
+                        challengeId: challengeId, 
+                        signupId: signupId
+                    } 
+                } 
+            });
+
+            if (error) throw error;
+            if (data && data.error) throw new Error(data.error);
+
+            showToast(`已釋出 ${userName} 的名額`, false);
+
+        } catch (e) {
+            console.error(e);
+            showToast(`釋出失敗: ${e.message}`, true);
             btn.disabled = false;
             btn.textContent = originalText;
         }

@@ -1793,6 +1793,76 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // 發菇者釋出名額 (移除報名)
+    if (action === 'host-remove-signup') {
+        const { signupId, challengeId } = payload;
+
+        // 1. 驗證權限：確認當前操作者 (user.id) 是該挑戰的 Host
+        const { data: challenge, error: cErr } = await adminSupabaseClient
+            .from('challenges')
+            .select('host_id, slots, start_time, status')
+            .eq('id', challengeId)
+            .single();
+
+        if (cErr || !challenge) throw new Error('找不到該挑戰');
+
+        if (challenge.host_id !== user.id) {
+            throw new Error('權限不足：只有發菇者可以釋出名額');
+        }
+
+        // 2. 查詢該筆報名資料
+        const { data: signup, error: sErr } = await adminSupabaseClient
+            .from('signups')
+            .select('id, challenge_id')
+            .eq('id', signupId)
+            .eq('challenge_id', challengeId)
+            .single();
+
+        if (sErr || !signup) throw new Error('找不到該報名資料');
+
+        // 3. 刪除該筆報名
+        const { error: delErr } = await adminSupabaseClient
+            .from('signups')
+            .delete()
+            .eq('id', signupId);
+
+        if (delErr) throw delErr;
+
+        // 4. 重新統計該挑戰的所有報名狀況，更新狀態
+        const { data: allSignups, error: countErr } = await adminSupabaseClient
+            .from('signups')
+            .select('is_checked_in')
+            .eq('challenge_id', challengeId);
+
+        let newStatus = challenge.status;
+        if (!countErr && allSignups) {
+            const totalCount = allSignups.length;
+            const checkedInCount = allSignups.filter((s: any) => s.is_checked_in).length;
+            const now = new Date();
+            const startTime = new Date(challenge.start_time);
+
+            if (startTime > now) {
+                newStatus = '預計開放';
+            } else if (checkedInCount >= 4 || totalCount >= challenge.slots) {
+                newStatus = '已額滿';
+            } else {
+                newStatus = '開放報名中';
+            }
+
+            if (newStatus !== challenge.status) {
+                await adminSupabaseClient
+                    .from('challenges')
+                    .update({ status: newStatus })
+                    .eq('id', challengeId);
+            }
+        }
+
+        return new Response(JSON.stringify({ 
+            success: true,
+            message: '已釋出名額'
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
     // 1. 許願功能 (v3.1 原子操作修復版)
     if (action === 'submit-wish') {
         // 直接呼叫資料庫交易函式，所有邏輯判斷(含額度檢查)都在 SQL 中完成
