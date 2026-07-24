@@ -145,7 +145,7 @@
             <a href="./radar.html" 
             class="absolute right-0 top-16 group flex items-center justify-center bg-gray-800/80 hover:bg-gray-700 text-purple-400 p-2 rounded-xl border border-purple-500/30 transition shadow-lg hover:scale-105 hover:text-purple-300 hover:shadow-purple-900/20 backdrop-blur-sm">
                 <span class="text-xl md:text-2xl group-hover:animate-pulse filter drop-shadow-md">📡</span>
-                <span class="text-[15px] font-bold mt-1 hidden md:block whitespace-nowrap" data-i18n="btn_radar_link">純點雷達</span>
+                <span class="text-[15px] font-bold mt-1 hidden md:block whitespace-nowrap" data-i18n="btn_radar_link">純點雷達站</span>
             </a>
 
             <div id="bg-music-player" class="fixed bottom-4 right-4 z-40 flex flex-col gap-1 items-center group transition-all duration-500">
@@ -214,7 +214,7 @@
                     <span class="text-xs text-gray-500 hidden md:inline" data-i18n="chat_limit_hint">(保留最新300則)</span>
                     
                     <button id="change-nick-btn" class="hidden text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded transition border border-gray-600 flex items-center gap-1">
-                        <span>⚙️</span> <span data-i18n="btn_change_nick">變更身分</span>
+                        <span>⚙️</span> <span data-i18n="btn_change_nick">暱稱變更</span>
                     </button>
                 </div>
             </div>
@@ -383,17 +383,17 @@
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_cooking">火侯</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_cooking">戰力</label>
                     <div class="flex gap-2 mt-2">
                         <button type="button" data-value="隨便亂炒（不限戰力）" 
                             class="cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400" 
-                            onclick="setGuestCookBtn(this)" data-i18n="opt_cook_any">🔥 不限</button>
+                            onclick="setGuestCookBtn(this)" data-i18n="opt_cook_any">不限</button>
                         <button type="button" data-value="大火快炒（戰力全開）" 
                             class="cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
-                            onclick="setGuestCookBtn(this)" data-i18n="opt_cook_hard">🔥 大火</button>
+                            onclick="setGuestCookBtn(this)" data-i18n="opt_cook_hard">大戰力</button>
                         <button type="button" data-value="細火慢燉（控制戰力）" 
                             class="cook-guest-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
-                            onclick="setGuestCookBtn(this)" data-i18n="opt_cook_slow">🔥 細火</button>
+                            onclick="setGuestCookBtn(this)" data-i18n="opt_cook_slow">小戰力</button>
                     </div>
                     <input type="hidden" id="m-style" value="隨便亂炒（不限戰力）">
                 </div>
@@ -493,24 +493,24 @@
                     <div class="relative mt-1">
                         <input type="text" id="f-coords" required placeholder="例如: 22.123, 120.456" class="dark-input w-full rounded-md px-3 py-2 pr-20">
                         <button type="button" id="paste-coords-btn" class="absolute right-1 top-1 bottom-1 bg-gray-700 hover:bg-gray-600 text-green-400 px-3 rounded transition text-xs font-bold" data-i18n="btn_paste">
-                            📋 貼上
+                            貼上
                         </button>
                     </div>
                     <p class="text-xs text-gray-500 mt-1" data-i18n="hint_coords_format">支援座標格式化</p>
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_cooking">火侯</label>
+                    <label class="text-sm text-gray-400 font-bold" data-i18n="label_cooking">戰力</label>
                     <div class="flex gap-2 mt-2">
                         <button type="button" data-value="隨便亂炒（不限戰力）" 
                             class="cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400" 
-                            onclick="setFlyCookBtn(this)" data-i18n="opt_cook_any">🔥 不限</button>
+                            onclick="setFlyCookBtn(this)" data-i18n="opt_cook_any">不限</button>
                         <button type="button" data-value="大火快炒（戰力全開）" 
                             class="cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
-                            onclick="setFlyCookBtn(this)" data-i18n="opt_cook_hard">🔥 大火</button>
+                            onclick="setFlyCookBtn(this)" data-i18n="opt_cook_hard">大戰力</button>
                         <button type="button" data-value="細火慢燉（控制戰力）" 
                             class="cook-fly-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
-                            onclick="setFlyCookBtn(this)" data-i18n="opt_cook_slow">🔥 細火</button>
+                            onclick="setFlyCookBtn(this)" data-i18n="opt_cook_slow">小戰力</button>
                     </div>
                     <input type="hidden" id="f-style" value="隨便亂炒（不限戰力）">
                 </div>
@@ -992,13 +992,13 @@
             
             const displayCooking = cookingTranslator ? cookingTranslator(cStyle) : cStyle;
 
-            if (cStyle.includes('大火')) cookingStyleClass = 'text-red-500 border-red-500/30';
-            else if (cStyle.includes('細火')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
-            else if (cStyle.includes('隨便')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
+            if (cStyle.includes('大火快炒')) cookingStyleClass = 'text-red-500 border-red-500/30';
+            else if (cStyle.includes('細火慢燉')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
+            else if (cStyle.includes('隨便亂炒')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
             
-            const fireLabel = safeT('label_cooking', '火侯');
+            const fireLabel = safeT('label_cooking', '戰力');
             
-            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">${fireLabel}:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${displayCooking || '未指定'}</span></div>`;
+            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">${fireLabel}:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">${displayCooking || '未指定'}</span></div>`;
             
             let notesHtml = '';
             if (c.notes && c.notes.trim()) {
@@ -1160,12 +1160,12 @@
             
             const displayCooking = cookingTranslator ? cookingTranslator(cStyle) : cStyle;
 
-            if (cStyle.includes('大火')) cookingStyleClass = 'text-red-500 border-red-500/30';
-            else if (cStyle.includes('細火')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
-            else if (cStyle.includes('隨便')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
+            if (cStyle.includes('大火快炒')) cookingStyleClass = 'text-red-500 border-red-500/30';
+            else if (cStyle.includes('細火慢燉')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
+            else if (cStyle.includes('隨便亂炒')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
             
-            const fireLabel = safeT('label_cooking', '火侯');
-            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">${fireLabel}:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${displayCooking || '未指定'}</span></div>`;
+            const fireLabel = safeT('label_cooking', '戰力');
+            const fireHtml = `<div class="flex items-center mt-1"><strong class="mr-2 text-gray-400">${fireLabel}:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">${displayCooking || '未指定'}</span></div>`;
                     
             let participantsHtml = '';
             if (signupCount > 0) {
@@ -2585,13 +2585,9 @@
                 'btn_gallery_link': '美片藝廊',
                 'btn_radar_link': '純點雷達站',
                 'toast_success': '成功！',
-                'toast_copy_success': '已複製',
                 'toast_copy_fail': '複製失敗',
                 'toast_join_success': '報名成功！',
                 'toast_cancel_success': '已取消報名',
-                'toast_post_success': '發布成功！',
-                'toast_update_success': '更新成功',
-                'toast_delete_success': '刪除成功',
                 'toast_deleted': '已刪除',
                 'toast_copied': '已複製',
                 'toast_pasted': '已貼上座標',
@@ -2600,9 +2596,6 @@
                 'toast_profile_saved': '身分已暫存！您可以開始發菇了',
                 'toast_fill_all': '請完整填寫暱稱與好友碼',
                 'toast_code_fmt': '好友碼格式錯誤：必須為12位純數字',
-                'toast_cancelled': '已取消報名',
-                'alert_fill_all': '請輸入完整資訊',
-                'confirm_delete_post': '確定要刪除這則挑戰嗎？',
                 'confirm_cancel_join': '確定要取消報名嗎？',
                 'confirm_delete': '確定刪除嗎？', // 卡片內刪除按鈕用
                 'load_fail': '讀取失敗',
@@ -2659,9 +2652,6 @@
                 'status_full': '已額滿',
                 'status_pending': '預計開放',
                 'label_wait_time': '等待時間',
-                'txt_waitlist': '備取',
-                'separator_waitlist': '備取區',
-                'rank_wait': '備',
                 'hint_click_copy': '點擊複製',
                 'hint_copy_nick': '點擊暱稱複製好友碼',
                 'hint_copy_code': '複製好友碼',
@@ -2669,7 +2659,6 @@
 
                 // --- 卡片操作按鈕 (Card Actions) ---
                 'btn_join': '立即報名',
-                'btn_join_waitlist': '報名備取',
                 'btn_cancel_join': '取消報名',
                 'btn_not_open': '尚未開放',
                 'btn_cooldown': '冷卻中',
@@ -2688,13 +2677,12 @@
                 
                 'label_m_type': '蘑菇種類',
                 'label_slots': '呼叫名額',
-                'label_slots_rem': '剩餘名額',
                 'label_joined_count': '已進場人數',
                 'label_open_time': '開放報名時間',
                 'btn_now': '現在',
                 'label_remember': '記住時間 (下次自動帶入)',
                 'label_period': '大聲公呼叫時段',
-                'label_cooking': '火侯',
+                'label_cooking': '戰力',
                 'label_postcard_image': '蘑菇美片 (選填)',
                 'label_notes': '備註（選填）',
                 'ph_notes': '發菇者留言...',
@@ -2739,9 +2727,9 @@
                 'opt_pink_s': '小粉', 'opt_ice_s': '小冰藍',
 
                 // 選項：火侯
-                'opt_cook_any': '隨便亂炒（不限戰力）',
-                'opt_cook_hard': '大火快炒（戰力全開）',
-                'opt_cook_slow': '細火慢燉（控制戰力）'
+                'opt_cook_any': '不限',
+                'opt_cook_hard': '大戰力',
+                'opt_cook_slow': '小戰力'
             },
 
             'en': {
@@ -2749,13 +2737,9 @@
                 'btn_gallery_link': 'Art Gallery',
                 'btn_radar_link': 'Radar Station',
                 'toast_success': 'Success!',
-                'toast_copy_success': 'Copied!',
                 'toast_copy_fail': 'Copy failed',
                 'toast_join_success': 'Joined successfully!',
                 'toast_cancel_success': 'Canceled successfully',
-                'toast_post_success': 'Posted successfully!',
-                'toast_update_success': 'Updated successfully',
-                'toast_delete_success': 'Deleted successfully',
                 'toast_deleted': 'Deleted',
                 'toast_copied': 'Copied',
                 'toast_pasted': 'Coords pasted',
@@ -2764,9 +2748,6 @@
                 'toast_profile_saved': 'Profile Saved!',
                 'toast_fill_all': 'Please fill nickname and friend code',
                 'toast_code_fmt': 'Code must be 12 digits',
-                'toast_cancelled': 'Cancelled',
-                'alert_fill_all': 'Please fill in all fields',
-                'confirm_delete_post': 'Delete this challenge?',
                 'confirm_cancel_join': 'Cancel your registration?',
                 'confirm_delete': 'Delete this?',
                 'load_fail': 'Load Failed',
@@ -2823,9 +2804,6 @@
                 'status_full': 'Full',
                 'status_pending': 'Pending',
                 'label_wait_time': 'Wait',
-                'txt_waitlist': 'Waitlist',
-                'separator_waitlist': 'Waitlist',
-                'rank_wait': 'W',
                 'hint_click_copy': 'Click to copy',
                 'hint_copy_nick': 'Click name to copy Friend Code',
                 'hint_copy_code': 'Copy Code',
@@ -2833,7 +2811,6 @@
 
                 // --- Card Actions ---
                 'btn_join': 'Join Now',
-                'btn_join_waitlist': 'Join Waitlist',
                 'btn_cancel_join': 'Leave',
                 'btn_not_open': 'Not Open',
                 'btn_cooldown': 'Cooling',
@@ -2852,13 +2829,12 @@
 
                 'label_m_type': 'Type',
                 'label_slots': 'Slots Needed',
-                'label_slots_rem': 'Slots Left',
                 'label_joined_count': 'Joined Players',
                 'label_open_time': 'Start Time',
                 'btn_now': 'Now',
                 'label_remember': 'Remember Time',
                 'label_period': 'Call Time Period',
-                'label_cooking': 'Power Level',
+                'label_cooking': 'Power',
                 'label_postcard_image': 'Postcard Image (Optional)',
                 'label_notes': 'Notes (Optional)',
                 'ph_notes': 'Leave a message...',
@@ -2901,9 +2877,9 @@
                 'opt_pink_s': 'S-Pink', 'opt_ice_s': 'S-Ice',
 
                 // Cooking
-                'opt_cook_any': 'Any Power (Chill)',
-                'opt_cook_hard': 'Full Power (Speed)',
-                'opt_cook_slow': 'Controlled (Slow)'
+                'opt_cook_any': 'Any',
+                'opt_cook_hard': 'High',
+                'opt_cook_slow': 'Low'
             },
 
             'ja': {
@@ -2911,13 +2887,9 @@
                 'btn_gallery_link': 'ギャラリー',
                 'btn_radar_link': 'レーダー',
                 'toast_success': '成功！',
-                'toast_copy_success': 'コピーしました',
                 'toast_copy_fail': 'コピーに失敗しました',
                 'toast_join_success': '参加しました！',
                 'toast_cancel_success': 'キャンセルしました',
-                'toast_post_success': '投稿しました！',
-                'toast_update_success': '更新しました',
-                'toast_delete_success': '削除しました',
                 'toast_deleted': '削除しました',
                 'toast_copied': 'コピーしました',
                 'toast_pasted': '貼り付けました',
@@ -2926,9 +2898,6 @@
                 'toast_profile_saved': 'プロフィールを保存しました',
                 'toast_fill_all': 'ニックネームとコードを入力してください',
                 'toast_code_fmt': 'コードは12桁の数字です',
-                'toast_cancelled': 'キャンセルしました',
-                'alert_fill_all': 'すべての項目を入力してください',
-                'confirm_delete_post': 'この投稿を削除しますか？',
                 'confirm_cancel_join': '参加をキャンセルしますか？',
                 'confirm_delete': '削除しますか？',
                 'load_fail': '読み込み失敗',
@@ -2985,9 +2954,6 @@
                 'status_full': '満員',
                 'status_pending': '待機中',
                 'label_wait_time': '待機',
-                'txt_waitlist': 'キャンセル待ち',
-                'separator_waitlist': 'キャンセル待ち',
-                'rank_wait': '待',
                 'hint_click_copy': 'コピー',
                 'hint_copy_nick': '名前タップでコードをコピー',
                 'hint_copy_code': 'コードをコピー',
@@ -2995,7 +2961,6 @@
 
                 // --- Card Actions ---
                 'btn_join': '参加する',
-                'btn_join_waitlist': 'キャンセル待ち',
                 'btn_cancel_join': '辞退',
                 'btn_not_open': '未開放',
                 'btn_cooldown': '待機',
@@ -3014,7 +2979,6 @@
 
                 'label_m_type': '種類',
                 'label_slots': '募集人数',
-                'label_slots_rem': '残り枠',
                 'label_joined_count': '参加済み人数',
                 'label_open_time': '開始時間',
                 'btn_now': '現在',
@@ -3063,9 +3027,9 @@
                 'opt_pink_s': '小ピンク', 'opt_ice_s': '小アイス',
 
                 // Cooking
-                'opt_cook_any': 'おまかせ (火力不問)',
-                'opt_cook_hard': '高火力 (即割り)',
-                'opt_cook_slow': '調整 (長時間)'
+                'opt_cook_any': 'おまかせ',
+                'opt_cook_hard': '高火力',
+                'opt_cook_slow': '低火力'
             },
 
             'ko': {
@@ -3073,13 +3037,9 @@
                 'btn_gallery_link': '갤러리',
                 'btn_radar_link': '레이더',
                 'toast_success': '성공!',
-                'toast_copy_success': '복사되었습니다',
                 'toast_copy_fail': '복사 실패',
                 'toast_join_success': '참여 완료!',
                 'toast_cancel_success': '취소되었습니다',
-                'toast_post_success': '게시되었습니다!',
-                'toast_update_success': '업데이트되었습니다',
-                'toast_delete_success': '삭제되었습니다',
                 'toast_deleted': '삭제되었습니다',
                 'toast_copied': '복사되었습니다',
                 'toast_pasted': '붙여넣기 완료',
@@ -3088,9 +3048,6 @@
                 'toast_profile_saved': '저장되었습니다',
                 'toast_fill_all': '닉네임과 코드를 입력해주세요',
                 'toast_code_fmt': '코드는 12자리 숫자입니다',
-                'toast_cancelled': '취소되었습니다',
-                'alert_fill_all': '모든 항목을 입력해주세요',
-                'confirm_delete_post': '이 게시물을 삭제하시겠습니까?',
                 'confirm_cancel_join': '참여를 취소하시겠습니까?',
                 'confirm_delete': '삭제하시겠습니까?',
                 'load_fail': '로딩 실패',
@@ -3147,9 +3104,6 @@
                 'status_full': '마감',
                 'status_pending': '대기중',
                 'label_wait_time': '대기',
-                'txt_waitlist': '대기',
-                'separator_waitlist': '대기열',
-                'rank_wait': '대',
                 'hint_click_copy': '복사',
                 'hint_copy_nick': '닉네임을 눌러 코드 복사',
                 'hint_copy_code': '코드 복사',
@@ -3157,7 +3111,6 @@
 
                 // --- Card Actions ---
                 'btn_join': '참여하기',
-                'btn_join_waitlist': '대기열 참여',
                 'btn_cancel_join': '취소',
                 'btn_not_open': '미오픈',
                 'btn_cooldown': '대기',
@@ -3176,7 +3129,6 @@
 
                 'label_m_type': '종류',
                 'label_slots': '모집 인원',
-                'label_slots_rem': '남은 자리',
                 'label_joined_count': '현재 참가 인원',
                 'label_open_time': '시작 시간',
                 'btn_now': '현재',
@@ -3225,9 +3177,9 @@
                 'opt_pink_s': '작은 분홍', 'opt_ice_s': '작은 얼음',
 
                 // Cooking
-                'opt_cook_any': '자유 (전투력 무관)',
-                'opt_cook_hard': '고화력 (빠르게)',
-                'opt_cook_slow': '저화력 (천천히)'
+                'opt_cook_any': '자유',
+                'opt_cook_hard': '고화력',
+                'opt_cook_slow': '저화력'
             }
         };
 

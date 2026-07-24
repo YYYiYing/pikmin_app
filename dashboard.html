@@ -595,8 +595,14 @@
                     </div>
 
                     <div>
-                        <label for="slots" class="block text-sm font-medium text-gray-400">名額</label>
-                        <input type="number" id="slots" min="1" max="10" required class="dark-input mt-1 block w-full rounded-md shadow-sm" value="6">
+                        <label class="block text-sm font-medium text-gray-400">名額</label>
+                        <div class="flex items-center gap-3 mt-1">
+                            <input type="range" id="slots" min="1" max="10" value="6" 
+                                class="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                oninput="document.getElementById('slots-display').textContent = this.value">
+                            <span id="slots-display" class="text-indigo-400 font-bold text-xl min-w-[3rem] text-right">6</span>
+                            <span class="text-gray-400 text-sm">人</span>
+                        </div>
                     </div>
 
                     <div>
@@ -624,12 +630,19 @@
                         </select>
                     </div>
                     <div>
-                        <label for="cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
-                        <select id="cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
-                            <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
-                            <option value="隨便亂炒（不限戰力）"selected>隨便亂炒（不限戰力）</option>
-                        </select>
+                        <label class="block text-sm font-medium text-gray-400">戰力</label>
+                        <div class="flex gap-2 mt-1">
+                            <button type="button" data-value="隨便亂炒（不限戰力）" 
+                                class="cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400" 
+                                onclick="setDashCookBtn(this, 'cooking-style')">不限</button>
+                            <button type="button" data-value="大火快炒（戰力全開）" 
+                                class="cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
+                                onclick="setDashCookBtn(this, 'cooking-style')">大戰力</button>
+                            <button type="button" data-value="細火慢燉（控制戰力）" 
+                                class="cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
+                                onclick="setDashCookBtn(this, 'cooking-style')">小戰力</button>
+                        </div>
+                        <input type="hidden" id="cooking-style" value="隨便亂炒（不限戰力）">
                     </div>
 
                     <div>
@@ -697,8 +710,14 @@
                         </select>
                     </div>
                     <div>
-                        <label for="edit-slots" class="block text-sm font-medium text-gray-400">名額</label>
-                        <input type="number" id="edit-slots" min="1" max="10" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
+                        <label class="block text-sm font-medium text-gray-400">名額</label>
+                        <div class="flex items-center gap-3 mt-1">
+                            <input type="range" id="edit-slots" min="1" max="10" value="6" 
+                                class="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                oninput="document.getElementById('edit-slots-display').textContent = this.value">
+                            <span id="edit-slots-display" class="text-indigo-400 font-bold text-xl min-w-[3rem] text-right">6</span>
+                            <span class="text-gray-400 text-sm">人</span>
+                        </div>
                     </div>
                     <div>
                         <div class="flex justify-between items-center">
@@ -720,12 +739,19 @@
                     </div>
                     
                     <div>
-                        <label for="edit-cooking-style" class="block text-sm font-medium text-gray-400">火侯</label>
-                        <select id="edit-cooking-style" class="dark-input mt-1 block w-full rounded-md shadow-sm">
-                            <option value="大火快炒（戰力全開）">大火快炒（戰力全開）</option>
-                            <option value="細火慢燉（控制戰力）">細火慢燉（控制戰力）</option>
-                            <option value="隨便亂炒（不限戰力）">隨便亂炒（不限戰力）</option>
-                        </select>
+                        <label class="block text-sm font-medium text-gray-400">戰力</label>
+                        <div class="flex gap-2 mt-1">
+                            <button type="button" data-value="隨便亂炒（不限戰力）" 
+                                class="cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400" 
+                                onclick="setDashCookBtn(this, 'edit-cooking-style')">不限</button>
+                            <button type="button" data-value="大火快炒（戰力全開）" 
+                                class="cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
+                                onclick="setDashCookBtn(this, 'edit-cooking-style')">大戰力</button>
+                            <button type="button" data-value="細火慢燉（控制戰力）" 
+                                class="cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400" 
+                                onclick="setDashCookBtn(this, 'edit-cooking-style')">小戰力</button>
+                        </div>
+                        <input type="hidden" id="edit-cooking-style" value="隨便亂炒（不限戰力）">
                     </div>
 
                     <div>
@@ -2041,10 +2067,10 @@
 
         // 火侯
         let cookingStyleClass = 'text-gray-400 border-gray-500/30';
-        const cStyle = challenge.cooking_style || '';
-        if (cStyle.includes('大火快炒')) cookingStyleClass = 'text-red-500 border-red-500/30';
-        else if (cStyle.includes('細火慢燉')) cookingStyleClass = 'text-orange-400 border-orange-400/30';
-        else if (cStyle.includes('隨便亂炒')) cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
+        const cStyle = (challenge.cooking_style || '').replace(/^隨便亂炒（不限戰力）$/, '不限').replace(/^大火快炒（戰力全開）$/, '大戰力').replace(/^細火慢燉（控制戰力）$/, '小戰力');
+        if (cStyle === '大戰力') cookingStyleClass = 'text-red-500 border-red-500/30';
+        else if (cStyle === '小戰力') cookingStyleClass = 'text-orange-400 border-orange-400/30';
+        else if (cStyle === '不限') cookingStyleClass = 'text-yellow-400 border-yellow-400/30';
 
         // 倒數計時
         let countdownDisplayHtml = '<span class="text-gray-500">倒數:--</span>';
@@ -2089,7 +2115,7 @@
                             <p><strong>呼叫時段: 📣</strong> ${displayDetails}</p>
                             <p><strong>名額:</strong> ${slotsDisplayHtml}</p>
                             ${startTimeHtml}
-                            <div class="flex items-center mt-1"><strong class="mr-2">火侯:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">🔥 ${cStyle || '未指定'}</span></div>
+                            <div class="flex items-center mt-1"><strong class="mr-2">戰力:</strong><span class="${cookingStyleClass} border px-2 py-0.5 rounded text-sm font-bold">${cStyle || '未指定'}</span></div>
                         </div>
 
                         ${desktopImageHtml}
@@ -2141,6 +2167,33 @@
         });
     }
 
+    // 火侯膠囊按鈕 (通用於發布/編輯視窗)
+    window.setDashCookBtn = function(btn, hiddenId) {
+        document.querySelectorAll('.cook-dash-btn').forEach(b => {
+            b.className = 'cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400';
+        });
+        const val = btn.dataset.value;
+        if (val === '隨便亂炒（不限戰力）') {
+            btn.className = 'cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400';
+        } else if (val === '大火快炒（戰力全開）') {
+            btn.className = 'cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-red-600/20 border-red-600/40 text-red-400';
+        } else {
+            btn.className = 'cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-orange-600/20 border-orange-600/40 text-orange-400';
+        }
+        document.getElementById(hiddenId).value = val;
+    };
+
+    function resetDashCookBtns(hiddenId) {
+        document.querySelectorAll('.cook-dash-btn').forEach(btn => {
+            btn.className = 'cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-gray-700 border-gray-600 text-gray-400';
+        });
+        const defaultBtn = document.querySelector('.cook-dash-btn[data-value="隨便亂炒（不限戰力）"]');
+        if (defaultBtn) {
+            defaultBtn.className = 'cook-dash-btn flex-1 py-2 px-3 rounded-lg text-sm font-bold border transition bg-yellow-600/20 border-yellow-600/40 text-yellow-400';
+        }
+        document.getElementById(hiddenId).value = '隨便亂炒（不限戰力）';
+    }
+
     async function reloadChallengeCard(challengeId) {
         const { data: challenge, error } = await supabaseClient.from('challenges')
             .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname))`)
@@ -2168,7 +2221,8 @@
         // 1. 重置表單與預設值 (保留既有功能)
         challengeForm.reset();
         challengeForm['mushroom-type'].value = '巨菇';
-        challengeForm['slots'].value = 6;
+        document.getElementById('slots-display').textContent = '6';
+        resetDashCookBtns('cooking-style');
         
         const remTime = localStorage.getItem('rememberedChallengeTime');
         const remDetails = localStorage.getItem('rememberedChallengeDetails');
@@ -2185,7 +2239,7 @@
             challengeForm['start-time'].value = `${datePart}T${remTime}`;
             
             if(remDetails) challengeForm['details'].value = remDetails;
-            if(remStyle) document.getElementById('cooking-style').value = remStyle;
+            if(remStyle) document.querySelector(`.cook-dash-btn[data-value="${remStyle}"]`)?.click();
             if(remNotes) document.getElementById('challenge-notes').value = remNotes;
             document.getElementById('remember-time-checkbox').checked = true;
         } else {
@@ -2325,7 +2379,7 @@
             host_id: currentUserProfile.id,
             display_host_name: displayHostName, 
             mushroom_type: form['mushroom-type'].value,
-            slots: parseInt(form['slots'].value),
+            slots: parseInt(document.getElementById('slots').value),
             start_time: startTime.toISOString(),
             details: form['details'].value,
             status: startTime > new Date() ? '預計開放' : '開放報名中',
@@ -2368,6 +2422,7 @@
         
         document.getElementById('edit-mushroom-type').value = c.mushroom_type;
         document.getElementById('edit-slots').value = c.slots;
+        document.getElementById('edit-slots-display').textContent = c.slots;
         
         // 時間處理 (將 UTC 資料庫時間轉為本地 Input 格式)
         if (c.start_time) {
@@ -2375,7 +2430,8 @@
         }
         
         document.getElementById('edit-details').value = c.details;
-        document.getElementById('edit-cooking-style').value = c.cooking_style || '大火快炒（戰力全開）';
+        const editStyle = c.cooking_style || '大火快炒（戰力全開）';
+        document.querySelector(`.cook-dash-btn[data-value="${editStyle}"]`)?.click();
 
         // 填入備註 (若無則為空字串)
         document.getElementById('edit-challenge-notes').value = c.notes || '';
