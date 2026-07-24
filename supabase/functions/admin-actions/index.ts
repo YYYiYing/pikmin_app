@@ -2522,6 +2522,49 @@ serve(async (req) => {
             break;
         }
      
+        // Case: 儲存鄰近偵測 PASS 記錄
+        case 'save-fuzzy-pass': {
+            const { signature, items, itemCount } = payload;
+            if (!signature || !items) throw new Error('缺少 signature 或 items');
+
+            const { data: passRecord, error: insertErr } = await adminSupabaseClient
+                .from('fuzzy_review_passes')
+                .insert({
+                    signature,
+                    items,
+                    item_count: itemCount || items.length,
+                    admin_id: user.id
+                })
+                .select()
+                .single();
+
+            if (insertErr) {
+                if (insertErr.message?.includes('duplicate') || insertErr.code === '23505') {
+                    return new Response(JSON.stringify({ success: true, data: null, message: '已存在' }), { headers: corsHeaders });
+                }
+                throw insertErr;
+            }
+
+            data = passRecord;
+            break;
+        }
+
+        // Case: 刪除鄰近偵測 PASS 記錄
+        case 'delete-fuzzy-pass': {
+            const { passId } = payload;
+            if (!passId) throw new Error('缺少 passId');
+
+            const { error } = await adminSupabaseClient
+                .from('fuzzy_review_passes')
+                .delete()
+                .eq('id', passId);
+
+            if (error) throw error;
+
+            data = { deleted: true };
+            break;
+        }
+
         default: throw new Error(`未知的操作: ${action}`);
 
     }

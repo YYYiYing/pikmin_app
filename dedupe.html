@@ -129,6 +129,11 @@
             <div id="tab-fuzzy" class="tab-btn" onclick="switchTab('fuzzy')">
                 鄰近偵測 <span id="count-fuzzy" class="text-xs bg-gray-700 px-1.5 py-0.5 rounded-full ml-1">0</span>
             </div>
+            <div class="flex items-center gap-2 px-3 text-gray-400 text-xs border-l border-gray-700 cursor-pointer select-none" onclick="togglePassed(event)">
+                <input type="checkbox" id="toggle-show-passed" class="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer" onchange="renderActiveTab()">
+                <label for="toggle-show-passed" class="cursor-pointer hover:text-gray-200 transition">☑️ 顯示已通過</label>
+                <span id="count-fuzzy-passed" class="text-xs bg-gray-700/50 px-1.5 py-0.5 rounded-full text-gray-500">0</span>
+            </div>
         </div>
 
         <div id="list-container" class="space-y-6 pb-20">
@@ -232,6 +237,23 @@
             return parts.join(',');
         };
 
+        // 產生群組指紋：依 source+id 排序 → JSON → 數值雜湊
+        function generateGroupSignature(items) {
+            const sorted = [...items].sort((a, b) => {
+                const aKey = `${a.source}_${a.id}`;
+                const bKey = `${b.source}_${b.id}`;
+                return aKey.localeCompare(bKey);
+            });
+            const json = JSON.stringify(sorted.map(i => ({ source: i.source, id: i.id })));
+            let hash = 0;
+            for (let i = 0; i < json.length; i++) {
+                const char = json.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return `sig_${Math.abs(hash).toString(36)}`;
+        }
+
         // 計算兩點座標距離 (單位: 公尺)
         function calculateDistance(coord1, coord2) {
             if (!coord1 || !coord2) return Infinity;
@@ -333,16 +355,47 @@
                 }
             }
 
-            // 5. 更新全域資料狀態
-            currentTabData.exact = Array.from(exactGroups.entries())
-                .filter(([_, items]) => items.length > 1)
-                .map(([key, items]) => ({ key, items }));
+            // 5. 載入 PASS 記錄並註記群組
+            let passes = [];
+            try {
+                const { data: passData } = await supabaseClient.from('fuzzy_review_passes').select('*');
+                passes = passData || [];
+            } catch (e) {
+                console.warn('無法讀取 PASS 記錄（可能是 RLS 尚未設定）:', e);
+            }
 
-            currentTabData.fuzzy = fuzzyResults; // 使用新的距離演算結果
+            const reopenedIds = [];
+            currentTabData.fuzzy = fuzzyResults.map(group => {
+                const sig = generateGroupSignature(group.items);
+                const pass = passes.find(p => p.signature === sig);
+
+                if (!pass) return { ...group, _passStatus: 'new' };
+
+                const currentIds = new Set(group.items.map(i => `${i.source}_${i.id}`));
+                const passedIds = new Set(pass.items.map(i => `${i.source}_${i.id}`));
+                const hasNew = [...currentIds].some(id => !passedIds.has(id));
+
+                if (hasNew) {
+                    reopenedIds.push(pass.id);
+                    return { ...group, _passStatus: 'reopened', _passId: pass.id };
+                }
+
+                return { ...group, _passStatus: 'passed', _passId: pass.id };
+            });
+
+            // 背景刪除 reopened 的舊 PASS 記錄
+            if (reopenedIds.length > 0) {
+                Promise.all(reopenedIds.map(id =>
+                    supabaseClient.functions.invoke('admin-actions', {
+                        body: JSON.stringify({ action: 'delete-fuzzy-pass', payload: { passId: id } })
+                    })
+                )).catch(e => console.error('清除舊 PASS 記錄失敗:', e));
+            }
 
             // 6. 更新介面數字與內容
             document.getElementById('count-exact').textContent = currentTabData.exact.length;
-            document.getElementById('count-fuzzy').textContent = currentTabData.fuzzy.length;
+            document.getElementById('count-fuzzy').textContent = currentTabData.fuzzy.filter(g => g._passStatus !== 'passed').length;
+            document.getElementById('count-fuzzy-passed').textContent = currentTabData.fuzzy.filter(g => g._passStatus === 'passed').length;
             document.getElementById('status-bar').textContent = ''; 
             
             renderActiveTab();
@@ -360,31 +413,59 @@
             const data = currentTabData[activeTab];
             container.innerHTML = '';
 
-            if (data.length === 0) {
+            // 過濾邏輯：fuzzy 分頁且 toggle 關閉時隱藏已通過群組
+            const showPassed = document.getElementById('toggle-show-passed').checked;
+            let filteredData = data;
+            if (activeTab === 'fuzzy' && !showPassed) {
+                filteredData = data.filter(g => g._passStatus !== 'passed');
+            }
+
+            if (filteredData.length === 0) {
+                let msg = '沒有發現此類型的重複資料。';
+                if (activeTab === 'fuzzy' && data.length > 0 && !showPassed) {
+                    msg = `所有 ${data.length} 個群組已標記 PASS，開啟「顯示已通過」可查看。`;
+                }
                 container.innerHTML = `
                     <div class="flex flex-col items-center justify-center py-24 px-4 text-center border-2 border-dashed border-gray-700 rounded-xl bg-gray-800/50">
                         <div class="text-4xl mb-4 opacity-80">🎉</div>
                         <h3 class="text-xl font-bold text-gray-300 mb-2">乾淨溜溜！</h3>
-                        <p class="text-gray-500">沒有發現此類型的重複資料。</p>
+                        <p class="text-gray-500">${msg}</p>
                     </div>`;
                 return;
             }
 
-            data.forEach(group => {
+            filteredData.forEach(group => {
                 const groupEl = document.createElement('div');
                 groupEl.className = 'card-group';
 
+                // 群組 CSS 樣式依狀態不同
+                const isPassed = group._passStatus === 'passed';
+                const isReopened = group._passStatus === 'reopened';
+                const headerBg = isPassed ? 'bg-gray-800/60' : isReopened ? 'bg-yellow-900/30' : 'bg-gray-900/80';
+                const borderStyle = isReopened ? 'border border-yellow-600/40' : '';
+
                 let htmlContent = `
-                    <div class="card-header bg-gray-900/80 p-3 flex flex-wrap md:flex-nowrap justify-between items-center gap-3 border-b border-gray-700">
+                    <div class="card-header ${headerBg} p-3 flex flex-wrap md:flex-nowrap justify-between items-center gap-3 border-b border-gray-700 ${borderStyle}">
                         <div class="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
                             <span class="flex items-center justify-center w-6 h-6 rounded-full bg-red-500/10 text-red-400 text-sm flex-shrink-0">📍</span>
-                            <h2 class="font-mono text-sm md:text-base text-gray-200 truncate font-bold tracking-wide select-all" title="${group.key}">
+                            ${isReopened ? '<span class="text-yellow-400 text-xs font-bold flex-shrink-0">🔄</span>' : ''}
+                            <h2 class="font-mono text-sm md:text-base ${isPassed ? 'text-gray-500' : 'text-gray-200'} truncate font-bold tracking-wide select-all" title="${group.key}">
                                 ${group.key}
                             </h2>
+                            ${isReopened ? '<span class="bg-yellow-600/20 text-yellow-400 border border-yellow-600/40 text-[10px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">有新項目</span>' : ''}
                         </div>
-                        <span class="text-xs font-mono bg-gray-800 text-gray-400 px-2 py-1 rounded border border-gray-700 whitespace-nowrap">
-                            ${group.items.length} 筆
-                        </span>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <span class="text-xs font-mono bg-gray-800 text-gray-400 px-2 py-1 rounded border border-gray-700 whitespace-nowrap">
+                                ${group.items.length} 筆
+                            </span>
+                            ${isPassed ? '<span class="text-[10px] text-green-500 font-bold bg-green-900/20 px-2 py-0.5 rounded border border-green-700/40">✅ PASS</span>' : ''}
+                            ${isReopened ? '<span class="text-[10px] text-yellow-400 font-bold bg-yellow-900/20 px-2 py-0.5 rounded border border-yellow-600/40">需重新審查</span>' : ''}
+                            ${activeTab === 'fuzzy' && !isPassed ? `
+                            <button onclick="passFuzzyGroup(this, '${group.key.replace(/'/g, "\\'")}')" 
+                                class="flex items-center gap-1 text-[11px] bg-green-800/40 hover:bg-green-700/60 text-green-400 border border-green-700/50 px-2.5 py-1 rounded transition font-bold" title="標記為已審查">
+                                ✅ PASS
+                            </button>` : ''}
+                        </div>
                     </div>
                     <div class="flex flex-col">`;
 
@@ -472,6 +553,77 @@
             });
         }
 
+        // PASS 鄰近群組
+        window.passFuzzyGroup = async (btn, groupKey) => {
+            const cardGroup = btn.closest('.card-group');
+            const headerEl = btn.closest('.card-header');
+            if (!headerEl) return;
+
+            // 從目前的資料中找出這個群組
+            const groupIndex = Array.from(headerEl.parentElement.querySelectorAll('.list-row')).map(row => row.id);
+            const groupData = currentTabData.fuzzy.find(g => g.key === groupKey);
+            if (!groupData) return;
+
+            btn.disabled = true;
+            btn.textContent = '儲存中...';
+
+            try {
+                const items = groupData.items.map(i => ({
+                    source: i.source,
+                    id: i.id,
+                    coordinate: i.coordinate
+                }));
+                const signature = generateGroupSignature(groupData.items);
+
+                const { error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({
+                        action: 'save-fuzzy-pass',
+                        payload: { signature, items, itemCount: items.length }
+                    })
+                });
+
+                if (error) throw error;
+
+                // 更新本地狀態
+                groupData._passStatus = 'passed';
+                document.getElementById('count-fuzzy').textContent = currentTabData.fuzzy.filter(g => g._passStatus !== 'passed').length;
+                document.getElementById('count-fuzzy-passed').textContent = currentTabData.fuzzy.filter(g => g._passStatus === 'passed').length;
+
+                // 淡出移除
+                const showPassed = document.getElementById('toggle-show-passed').checked;
+                if (!showPassed) {
+                    cardGroup.style.transition = 'all 0.4s ease';
+                    cardGroup.style.opacity = '0';
+                    cardGroup.style.maxHeight = '0';
+                    cardGroup.style.marginBottom = '0';
+                    cardGroup.style.overflow = 'hidden';
+                    setTimeout(() => {
+                        if (cardGroup.parentElement) cardGroup.remove();
+                        // 檢查是否全部清空
+                        const container = document.getElementById('list-container');
+                        if (container.children.length === 0) renderActiveTab();
+                    }, 400);
+                } else {
+                    renderActiveTab();
+                }
+
+            } catch (e) {
+                console.error(e);
+                alert('PASS 儲存失敗: ' + e.message);
+                btn.disabled = false;
+                btn.innerHTML = '✅ PASS';
+            }
+        };
+
+        window.togglePassed = (event) => {
+            const cb = document.getElementById('toggle-show-passed');
+            // 只處理點擊容器空白區域（label 和 checkbox 自帶切換）
+            if (event.target === event.currentTarget) {
+                cb.checked = !cb.checked;
+                renderActiveTab();
+            }
+        };
+
         window.deleteItem = async (source, id, nickname, friendCode) => {
             if (!confirm('確定要執行刪除嗎？此操作無法撤銷')) return;
             
@@ -538,6 +690,10 @@
                     }
                     
                     document.getElementById(`count-${activeTab}`).textContent = currentTabData[activeTab].length;
+                    if (activeTab === 'fuzzy') {
+                        document.getElementById('count-fuzzy').textContent = currentTabData.fuzzy.filter(g => g._passStatus !== 'passed').length;
+                        document.getElementById('count-fuzzy-passed').textContent = currentTabData.fuzzy.filter(g => g._passStatus === 'passed').length;
+                    }
 
                 }, 300);
 
