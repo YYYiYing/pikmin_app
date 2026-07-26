@@ -1739,31 +1739,27 @@
         // 將資料轉為陣列以便排序
         const challengesArray = Object.values(challengesData);
 
-        // ★★★ 排序邏輯修改 ★★★
-        // 規則：
-        // 1. 「開放報名中」置頂
-        // 2. 其餘狀態排在後面
-        // 3. 開放中系列：已報名人數越多越前面 (缺員越少越優先)，同額則新到舊
-        // 4. 其餘狀態：ID 由大到小 (新到舊) 排序
+        // ★★★ 排序邏輯 ★★★
+        // 1. 已開放 (status = 開放報名中/報名中) 置頂：剩餘缺額越少越優先，同缺額則大團優先
+        // 2. 預計開放 (status = 預計開放) 排後面，依 ID 排序
+        // 若 DB status 為「預計開放」但 start_time 已過，自動視為已開放 (stale 修正)
+        const now = new Date();
         challengesArray.sort((a, b) => {
-            // 判斷是否為開放報名中（相容新舊兩種狀態值）
-            const aIsOpen = a.status === '開放報名中' || a.status === '報名中';
-            const bIsOpen = b.status === '開放報名中' || b.status === '報名中';
+            const aIsOpen = a.status === '開放報名中' || a.status === '報名中' ||
+                (a.status === '預計開放' && a.start_time && new Date(a.start_time) <= now);
+            const bIsOpen = b.status === '開放報名中' || b.status === '報名中' ||
+                (b.status === '預計開放' && b.start_time && new Date(b.start_time) <= now);
 
-            // 如果 a 是開放中，b 不是 -> a 排前面 (-1)
             if (aIsOpen && !bIsOpen) return -1;
-            
-            // 如果 b 是開放中，a 不是 -> b 排前面 (1)
             if (!aIsOpen && bIsOpen) return 1;
 
-            // 如果都是開放中：已報名人數越多越前面
             if (aIsOpen && bIsOpen) {
-                const aCount = a.signups?.length || 0;
-                const bCount = b.signups?.length || 0;
-                if (aCount !== bCount) return bCount - aCount;
+                const aRem = a.slots - (a.signups?.length || 0);
+                const bRem = b.slots - (b.signups?.length || 0);
+                if (aRem !== bRem) return aRem - bRem;
+                return (b.slots || 0) - (a.slots || 0);
             }
 
-            // 同一狀態內，ID 由大到小 (新到舊)
             return b.id - a.id;
         });
 
@@ -2133,7 +2129,7 @@
 
         const existingCard = document.getElementById(card.id);
         if(existingCard) challengesListEl.replaceChild(card, existingCard);
-        else challengesListEl.prepend(card);
+        else challengesListEl.appendChild(card);
         
         // 檢查留言文字是否溢出，若溢出則收合為圖示
         requestAnimationFrame(() => checkCommentOverflow(card));
@@ -2430,8 +2426,10 @@
         }
         
         document.getElementById('edit-details').value = c.details;
-        const editStyle = c.cooking_style || '大火快炒（戰力全開）';
-        document.querySelector(`.cook-dash-btn[data-value="${editStyle}"]`)?.click();
+        const cookingStyleAlias = { '不限': '隨便亂炒（不限戰力）', '大戰力': '大火快炒（戰力全開）', '小戰力': '細火慢燉（控制戰力）' };
+        const rawStyle = c.cooking_style || '';
+        const editStyle = cookingStyleAlias[rawStyle] || rawStyle || '大火快炒（戰力全開）';
+        document.querySelector(`#edit-challenge-modal .cook-dash-btn[data-value="${editStyle}"]`)?.click();
 
         // 填入備註 (若無則為空字串)
         document.getElementById('edit-challenge-notes').value = c.notes || '';
