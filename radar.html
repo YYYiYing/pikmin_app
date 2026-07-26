@@ -1441,8 +1441,7 @@
 
         // 智慧返回功能
         function handleBack() {
-            // radar.html 應該也有在 checkAuth() 或類似函式中設定 currentUser
-            if (currentUser) {
+            if (currentUser && currentUser.id) {
                 window.location.href = 'dashboard.html';
             } else {
                 window.location.href = 'guest.html';

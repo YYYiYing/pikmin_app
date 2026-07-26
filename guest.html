@@ -631,6 +631,8 @@
         let myGuestPostIds = JSON.parse(localStorage.getItem('my_guest_post_ids') || '[]');
         let myFlyPostIds = JSON.parse(localStorage.getItem('my_fly_post_ids') || '[]');
 
+        let isAdmin = false;
+
         // 目前使用者的 IP 指紋與線上指紋清單
         let myIpFingerprint = null;
         let onlineFingerprints = new Set();
@@ -641,7 +643,8 @@
         let globalCooldownTimer = null; 
 
         // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAdminStatus();
             loadGuestInfo();    
             loadChallenges();   
             startGlobalCountdown(); 
@@ -649,6 +652,24 @@
             setupGuestRealtime();
             handleQuickPublish();
         });
+
+        async function checkAdminStatus() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                    const { data: profile } = await supabaseClient
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', session.user.id)
+                        .single();
+                    if (profile?.role === '管理者') {
+                        isAdmin = true;
+                    }
+                }
+            } catch (e) {
+                console.warn('Admin check failed', e);
+            }
+        }
 
         // ==========================================
         // ▼▼▼ 訪客資訊與介面控制修復版 ▼▼▼
@@ -3548,15 +3569,20 @@
                 const onlineDot = isOnline ? '<span class="online-dot text-green-500 mr-1 text-[10px] animate-pulse">●</span>' : '';
                 const fp = msg.ip_fingerprint ? `<span class="text-[10px] text-gray-500 font-mono ml-1" title="IP識別碼">#${msg.ip_fingerprint}</span>` : '';
 
-                // ★ 修改：如果是我的指紋，顯示編輯/收回按鈕 (移除 opacity-0，讓它持續顯示)
+                // ★ 修改：如果是我的指紋，顯示編輯/收回按鈕
                 let controls = '';
                 if (myIpFingerprint && msg.ip_fingerprint === myIpFingerprint) {
-                    const safeMsg = msg.message.replace(/'/g, "\\'"); // 跳脫單引號
-                    // 這裡移除了 opacity-0 group-hover:opacity-100
+                    const safeMsg = msg.message.replace(/'/g, "\\'");
                     controls = `
                         <span class="ml-auto pl-2 flex gap-1 flex-shrink-0">
                             <button onclick="editMyMessage(${msg.id}, '${safeMsg}')" class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded hover:bg-indigo-600 hover:text-white transition" title="編輯">✎</button>
                             <button onclick="deleteMyMessage(${msg.id})" class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded hover:bg-red-600 hover:text-white transition" title="收回">✕</button>
+                        </span>
+                    `;
+                } else if (isAdmin) {
+                    controls = `
+                        <span class="ml-auto pl-2 flex gap-1 flex-shrink-0">
+                            <button onclick="adminDeleteMessage(${msg.id})" class="text-[10px] bg-red-900/50 text-red-300 px-2 py-0.5 rounded hover:bg-red-700 hover:text-white transition" title="管理員刪除">✕</button>
                         </span>
                     `;
                 }
@@ -3669,6 +3695,11 @@
                                     <button onclick="editMyMessage(${msg.id}, '${safeMsg}')" class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded hover:bg-indigo-600 hover:text-white transition" title="編輯">✎</button>
                                     <button onclick="deleteMyMessage(${msg.id})" class="text-[10px] bg-gray-700 text-gray-300 px-2 py-0.5 rounded hover:bg-red-600 hover:text-white transition" title="收回">✕</button>
                                 </span>`;
+                        } else if (isAdmin) {
+                            controls = `
+                                <span class="ml-auto pl-2 flex gap-1 flex-shrink-0">
+                                    <button onclick="adminDeleteMessage(${msg.id})" class="text-[10px] bg-red-900/50 text-red-300 px-2 py-0.5 rounded hover:bg-red-700 hover:text-white transition" title="管理員刪除">✕</button>
+                                </span>`;
                         }
 
                         return `
@@ -3777,6 +3808,29 @@
             } catch (e) {
                 console.error(e);
                 showToast(safeT('toast_op_failed', '操作失敗 (可能非本人或IP已變動)'), true);
+            }
+        };
+
+        // 管理員刪除留言
+        window.adminDeleteMessage = async (id) => {
+            if (!confirm('確定以管理員身份刪除此留言？')) return;
+
+            try {
+                const { data, error } = await supabaseClient.functions.invoke('admin-actions', {
+                    body: JSON.stringify({
+                        action: 'admin-delete-message',
+                        payload: { id: id }
+                    })
+                });
+
+                if (error || (data && data.error)) throw new Error(data?.error || error.message);
+
+                showToast('留言已刪除', false);
+                loadChatMessages();
+
+            } catch (e) {
+                console.error(e);
+                showToast('刪除失敗: ' + e.message, true);
             }
         };
 
