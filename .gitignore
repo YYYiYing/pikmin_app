@@ -10,3 +10,11 @@ supabase/.temp/
 
 # OS files
 Thumbs.db
+
+# AI analysis / reference docs (local only, not for public GitHub)
+AGENTS.md
+CODE_REFERENCE.md
+DASHBOARD_ANALYSIS.md
+DB_SCHEMA.md
+GALLERY_POSTCARD_ANALYSIS.md
+MIGRATION_REMOVE_WAITLIST.sql
