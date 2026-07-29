@@ -571,6 +571,7 @@
                         <select id="mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
                             <option value="巨菇" selected>巨菇</option>
                             <option value="活動菇">活動菇</option>
+                            <option value="盲盒菇">盲盒菇</option>
                             <option value="美片菇">美片菇</option>
                             <option value="大晶">大晶</option>
                             <option value="大火">大火</option>
@@ -687,6 +688,7 @@
                         <select id="edit-mushroom-type" required class="dark-input mt-1 block w-full rounded-md shadow-sm">
                             <option value="巨菇">巨菇</option>
                             <option value="活動菇">活動菇</option>
+                            <option value="盲盒菇">盲盒菇</option>
                             <option value="美片菇">美片菇</option>
                             <option value="大晶">大晶</option>
                             <option value="大火">大火</option>
@@ -2300,6 +2302,35 @@
 
     //  關閉發布視窗
     cancelModalButton.addEventListener('click', () => challengeModal.classList.add('hidden'));
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (!challengeModal.classList.contains('hidden')) {
+                challengeModal.classList.add('hidden');
+            }
+            if (!editChallengeModal.classList.contains('hidden')) {
+                editChallengeModal.classList.add('hidden');
+            }
+        }
+    });
+
+    window.addEventListener('popstate', () => {
+        document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(el => el.classList.add('hidden'));
+    });
+
+    (new MutationObserver(ms => {
+        for (const m of ms) {
+            if (m.type === 'attributes' && m.attributeName === 'class') {
+                const el = m.target;
+                if (el.classList.contains('fixed') && el.classList.contains('inset-0')) {
+                    if (!el.classList.contains('hidden')) {
+                        if (!el.dataset.__mp) { history.pushState({__m:1}, ''); el.dataset.__mp = '1'; }
+                    } else { delete el.dataset.__mp; }
+                }
+            }
+        }
+    })).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['class']});
+
     setTimeNowButton.addEventListener('click', () => {
         // 直接使用工具函式
         challengeForm['start-time'].value = toLocalISOString(new Date());

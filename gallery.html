@@ -1302,6 +1302,31 @@
             const coord = window._pendingPublishCoord || '';
             window.location.href = `./guest.html?quickImg=${encodeURIComponent(img)}&type=${type}&quickCoord=${encodeURIComponent(coord)}`;
         };
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                ['postcard-modal', 'publish-chooser-modal'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && !el.classList.contains('hidden')) el.classList.add('hidden');
+                });
+            }
+        });
+        window.addEventListener('popstate', () => {
+            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(el => el.classList.add('hidden'));
+        });
+
+        (new MutationObserver(ms => {
+            for (const m of ms) {
+                if (m.type === 'attributes' && m.attributeName === 'class') {
+                    const el = m.target;
+                    if (el.classList.contains('fixed') && el.classList.contains('inset-0')) {
+                        if (!el.classList.contains('hidden')) {
+                            if (!el.dataset.__mp) { history.pushState({__m:1}, ''); el.dataset.__mp = '1'; }
+                        } else { delete el.dataset.__mp; }
+                    }
+                }
+            }
+        })).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['class']});
     </script>
 </body>
 </html>
