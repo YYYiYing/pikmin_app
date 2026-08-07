@@ -1765,11 +1765,11 @@ serve(async (req) => {
     }
 
     // 發菇者點名 (切換 已入/未入 狀態) [已加入：滿4人已入自動額滿邏輯]
+    // 權限：發菇者可標記任何人，報名者可標記自己
     if (action === 'toggle-signup-checked-in') {
         const { signupId, challengeId } = payload;
 
-        // 1. 驗證權限：確認當前操作者 (user.id) 是該挑戰的 Host
-        // 多選出 slots, start_time, status 以便後續判斷
+        // 1. 查詢挑戰與報名資料
         const { data: challenge, error: cErr } = await adminSupabaseClient
             .from('challenges')
             .select('host_id, slots, start_time, status') 
@@ -1777,20 +1777,22 @@ serve(async (req) => {
             .single();
 
         if (cErr || !challenge) throw new Error('找不到該挑戰');
-        
-        // 只有發菇者本人可以執行點名
-        if (challenge.host_id !== user.id) {
-            throw new Error('權限不足：只有發菇者可以執行點名');
-        }
 
-        // 2. 查詢目前的狀態
+        // 2. 查詢報名資料 (取得 user_id 以驗證自助回報權限)
         const { data: currentSignup, error: sErr } = await adminSupabaseClient
             .from('signups')
-            .select('is_checked_in')
+            .select('is_checked_in, user_id')
             .eq('id', signupId)
             .single();
             
         if (sErr || !currentSignup) throw new Error('找不到該報名資料');
+
+        // 3. 權限驗證：發菇者本人 或 報名者本人
+        const isHost = challenge.host_id === user.id;
+        const isSelf = currentSignup.user_id === user.id;
+        if (!isHost && !isSelf) {
+            throw new Error('權限不足：只有發菇者或本人可以操作');
+        }
 
         // 3. 切換狀態 (True <-> False)
         const newCheckStatus = !currentSignup.is_checked_in;
