@@ -671,6 +671,22 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // 讀取留言板開關狀態 (公開)
+    if (action === 'get-guest-chat-enabled') {
+        const { data, error } = await adminSupabaseClient
+            .from('daily_settings')
+            .select('setting_value')
+            .eq('setting_name', 'guest_chat_enabled')
+            .single();
+        
+        const enabled = error || !data ? true : data.setting_value !== 0;
+        
+        return new Response(JSON.stringify({ 
+            success: true, 
+            data: { enabled: enabled } 
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
     // ★★★ 讀取訪客蘑菇列表 (讓未登入者也能讀取) ★★★
     if (action === 'list-guest-challenges') {
         const { data, error } = await adminSupabaseClient
@@ -2491,10 +2507,21 @@ serve(async (req) => {
             ({ data } = await adminSupabaseClient.from('daily_settings').select('setting_value').eq('setting_name', 'daily_signup_limit').single()); 
             break;
             
-        case 'set-daily-limit': 
-            ({ data } = await adminSupabaseClient.from('daily_settings').update({ setting_value: payload.value, updated_at: new Date().toISOString() }).eq('setting_name', 'daily_signup_limit').select().single()); 
+        case 'set-daily-limit':
+            ({ data } = await adminSupabaseClient.from('daily_settings').update({ setting_value: payload.value, updated_at: new Date().toISOString() }).eq('setting_name', 'daily_signup_limit').select().single());
             break;
-            
+
+        case 'get-guest-chat-enabled':
+            ({ data } = await adminSupabaseClient.from('daily_settings').select('setting_value').eq('setting_name', 'guest_chat_enabled').single());
+            break;
+
+        case 'set-guest-chat-enabled': {
+            const { data: profile } = await adminSupabaseClient.from('profiles').select('role').eq('id', user.id).single();
+            if (profile?.role !== '管理者') throw new Error('權限不足：只有管理者可以操作');
+            ({ data } = await adminSupabaseClient.from('daily_settings').upsert({ setting_name: 'guest_chat_enabled', setting_value: payload.enabled ? 1 : 0, updated_at: new Date().toISOString() }, { onConflict: 'setting_name' }).select().single());
+            break;
+        }
+
         case 'daily-reset-absent':
             // ★ 修改：移除無效的空 update，只保留 RPC 呼叫
             const { error: rpcErr } = await adminSupabaseClient.rpc('daily_reduce_absent_score');
