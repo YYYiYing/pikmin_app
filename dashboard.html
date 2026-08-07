@@ -596,12 +596,23 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-400">名額</label>
+                        <label class="block text-sm font-medium text-gray-400">正取名額</label>
                         <div class="flex items-center gap-3 mt-1">
-                            <input type="range" id="slots" min="1" max="10" value="6" 
+                            <input type="range" id="slots" min="1" max="10" value="4" 
                                 class="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                                 oninput="document.getElementById('slots-display').textContent = this.value">
-                            <span id="slots-display" class="text-indigo-400 font-bold text-xl min-w-[3rem] text-right">6</span>
+                            <span id="slots-display" class="text-indigo-400 font-bold text-xl min-w-[3rem] text-right">4</span>
+                            <span class="text-gray-400 text-sm">人</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400">備取名額</label>
+                        <div class="flex items-center gap-3 mt-1">
+                            <input type="range" id="waitlist-slots" min="0" max="9" value="2" 
+                                class="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                oninput="document.getElementById('waitlist-slots-display').textContent = this.value">
+                            <span id="waitlist-slots-display" class="text-indigo-400 font-bold text-xl min-w-[3rem] text-right">2</span>
                             <span class="text-gray-400 text-sm">人</span>
                         </div>
                     </div>
@@ -615,7 +626,7 @@
                             
                         <div class="mt-2 flex items-center">
                             <input id="remember-time-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-600 dark:border-gray-500">
-                            <label for="remember-time-checkbox" class="ml-2 block text-sm text-gray-400">記住時間 (下次自動帶入)</label>
+                            <label for="remember-time-checkbox" class="ml-2 block text-sm text-gray-400">記憶設定</label>
                         </div>
                     </div>
 
@@ -712,12 +723,22 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-400">名額</label>
+                        <label class="block text-sm font-medium text-gray-400">正取名額</label>
                         <div class="flex items-center gap-3 mt-1">
-                            <input type="range" id="edit-slots" min="1" max="10" value="6" 
+                            <input type="range" id="edit-slots" min="1" max="10" value="4" 
                                 class="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                                 oninput="document.getElementById('edit-slots-display').textContent = this.value">
-                            <span id="edit-slots-display" class="text-indigo-400 font-bold text-xl min-w-[3rem] text-right">6</span>
+                            <span id="edit-slots-display" class="text-indigo-400 font-bold text-xl min-w-[3rem] text-right">4</span>
+                            <span class="text-gray-400 text-sm">人</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400">備取名額</label>
+                        <div class="flex items-center gap-3 mt-1">
+                            <input type="range" id="edit-waitlist-slots" min="0" max="9" value="2" 
+                                class="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                oninput="document.getElementById('edit-waitlist-slots-display').textContent = this.value">
+                            <span id="edit-waitlist-slots-display" class="text-indigo-400 font-bold text-xl min-w-[3rem] text-right">2</span>
                             <span class="text-gray-400 text-sm">人</span>
                         </div>
                     </div>
@@ -1793,9 +1814,14 @@
 
         // --- 2. 基本變數設定 ---
         const dailyLimitReached = false;
+
+        // 正取/備取名額切分（視覺用）：current_players 存正取數，slots 存總額（正取+備取）
+        const regSlots = (challenge.current_players && challenge.current_players > 0) ? challenge.current_players : (challenge.slots || 0);
+        const waitSlots = Math.max(0, (challenge.slots || 0) - regSlots);
         
         // 預先計算是否已入 (供鎖定判斷)
         let amICheckedIn = false;
+        let amIWaitlist = false;
         
         if (challenge.signups && challenge.signups.length > 0) {
             const sortedForRank = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
@@ -1803,6 +1829,7 @@
             
             if (myIndex !== -1) {
                 amICheckedIn = sortedForRank[myIndex].is_checked_in === true;
+                amIWaitlist = myIndex >= regSlots;
             }
         }
 
@@ -1889,7 +1916,11 @@
             if (amICheckedIn) {
                 actionButtonHtml = `<button class="w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-green-500 shadow-inner" disabled>🚗 已上車</button>`;
             } else if (dispatchStatus === '已發') {
-                actionButtonHtml = `<button class="w-full bg-gray-600 text-gray-300 font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-gray-500" disabled>🚗 已發車 (請聯繫機長)</button>`;
+                if (amIWaitlist) {
+                    actionButtonHtml = `<button class="cancel-signup-button w-full bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition" data-challenge-id="${challenge.id}">取消報名（備取）</button>`;
+                } else {
+                    actionButtonHtml = `<button class="w-full bg-gray-600 text-gray-300 font-bold py-2 px-4 rounded-lg cursor-not-allowed border border-gray-500" disabled>🚗 已發車 (請聯繫機長)</button>`;
+                }
             } else {
                 actionButtonHtml = `<button class="cancel-signup-button w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition" data-challenge-id="${challenge.id}">取消報名</button>`;
             }
@@ -1910,6 +1941,9 @@
                     const cooldownLeft = Math.ceil((globalCooldownUntil - Date.now()) / 1000);
                     if (cooldownLeft > 0) {
                         actionButtonHtml = `<button class="signup-button w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
+                    } else if (signupCount >= regSlots && waitSlots > 0) {
+                        const waitRank = signupCount - regSlots + 1;
+                        actionButtonHtml = `<button class="signup-button w-full bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition" data-challenge-id="${challenge.id}">待確認 (${waitRank})</button>`;
                     } else {
                         actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
                     }
@@ -1932,8 +1966,25 @@
             const isCurrentUserHost = (challenge.host && challenge.host.id === currentUserProfile.id);
 
             const list = sortedSignups.map((signup, index) => {
-                // 排名顯示
-                const rankText = `${index + 1}${getRankSuffix(index + 1)}`;
+                // 備取名單分隔線
+                let separatorHtml = '';
+                if (index === regSlots && waitSlots > 0) {
+                    separatorHtml = `
+                        <div class="flex items-center my-2 select-none">
+                            <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
+                            <span class="mx-2 text-[10px] text-orange-400 font-bold bg-orange-900/30 px-2 rounded-full">備取名單</span>
+                            <div class="flex-grow border-t border-dashed border-orange-500/50"></div>
+                        </div>
+                    `;
+                }
+
+                // 排名顯示（正取 1st, 2nd...；備取 備1, 備2...）
+                let rankText;
+                if (index >= regSlots && waitSlots > 0) {
+                    rankText = `<span class="text-orange-400 font-bold">備${index - regSlots + 1}</span>`;
+                } else {
+                    rankText = `${index + 1}${getRankSuffix(index + 1)}`;
+                }
                 
                 // 1. 處理暱稱
                 let rawNickname = signup.profile ? signup.profile.nickname : (signup.guest_name || '未知');
@@ -2003,6 +2054,7 @@
                 
                 // 5. 組合 HTML (調整排版)
                 return `
+                    ${separatorHtml}
                     <div class="participant-item group py-1 flex justify-between items-center">
                         <div class="flex items-center flex-1 min-w-0 pr-1 overflow-hidden">
                             <span class="participant-rank w-8 flex-shrink-0 text-center mr-1">${rankText}</span>
@@ -2078,8 +2130,15 @@
         if (dataEndTime) countdownDisplayHtml = '計算中...';
         const battleTimerHtml = `<span class="battle-timer text-white font-bold" data-endtime="${dataEndTime}">${countdownDisplayHtml}</span><button class="open-sync-modal-button text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded ml-2 hover:bg-gray-600 border border-gray-600 transition" data-id="${challenge.id}" title="校正時間">校時</button>`;
 
-        // 名額顯示
-        const slotsDisplayHtml = `<span id="signup-count-${challenge.id}">${signupCount}</span> / ${challenge.slots}`;
+        // 名額顯示（正取 / 備取）
+        let slotsDisplayHtml;
+        if (waitSlots > 0) {
+            const usedReg = Math.min(signupCount, regSlots);
+            const usedWait = Math.max(0, signupCount - regSlots);
+            slotsDisplayHtml = `<span class="text-white font-bold">正取 ${usedReg} / ${regSlots}</span>&emsp;<span class="text-orange-400 font-bold">備取 ${usedWait} / ${waitSlots}</span>`;
+        } else {
+            slotsDisplayHtml = `<span class="text-white font-bold">${signupCount} / ${challenge.slots}</span>`;
+        }
 
         // --- 8. 組裝 HTML (插入mobileImageHtml) ---
         card.innerHTML = `
@@ -2220,12 +2279,16 @@
         // 1. 重置表單與預設值 (保留既有功能)
         challengeForm.reset();
         challengeForm['mushroom-type'].value = '巨菇';
-        document.getElementById('slots-display').textContent = '6';
+        document.getElementById('slots-display').textContent = '4';
+        document.getElementById('waitlist-slots-display').textContent = '2';
         resetDashCookBtns('cooking-style');
         
         const remTime = localStorage.getItem('rememberedChallengeTime');
         const remDetails = localStorage.getItem('rememberedChallengeDetails');
         const remStyle = localStorage.getItem('rememberedCookingStyle');
+        const remMushroom = localStorage.getItem('rememberedMushroomType');
+        const remSlots = localStorage.getItem('rememberedChallengeSlots');
+        const remWait = localStorage.getItem('rememberedChallengeWait');
         const remIdentity = localStorage.getItem('rememberedIdentity');
         const remNotes = localStorage.getItem('rememberedNotes');
 
@@ -2239,7 +2302,10 @@
             
             if(remDetails) challengeForm['details'].value = remDetails;
             if(remStyle) document.querySelector(`.cook-dash-btn[data-value="${remStyle}"]`)?.click();
+            if(remMushroom) challengeForm['mushroom-type'].value = remMushroom;
             if(remNotes) document.getElementById('challenge-notes').value = remNotes;
+            if(remSlots) document.getElementById('slots').value = remSlots, document.getElementById('slots-display').textContent = remSlots;
+            if(remWait) document.getElementById('waitlist-slots').value = remWait, document.getElementById('waitlist-slots-display').textContent = remWait;
             document.getElementById('remember-time-checkbox').checked = true;
         } else {
             // 使用新的工具函式，精準帶入現在時間
@@ -2360,14 +2426,20 @@
             localStorage.setItem('rememberedChallengeTime', timeVal.split('T')[1]);
             localStorage.setItem('rememberedChallengeDetails', form['details'].value);
             localStorage.setItem('rememberedCookingStyle', styleVal);
+            localStorage.setItem('rememberedMushroomType', form['mushroom-type'].value);
             
             // 記憶身分與備註
             localStorage.setItem('rememberedIdentity', form['post-identity'].value);
             localStorage.setItem('rememberedNotes', document.getElementById('challenge-notes').value);
+            localStorage.setItem('rememberedChallengeSlots', document.getElementById('slots').value);
+            localStorage.setItem('rememberedChallengeWait', document.getElementById('waitlist-slots').value);
         } else {
             localStorage.removeItem('rememberedChallengeTime');
             localStorage.removeItem('rememberedChallengeDetails');
             localStorage.removeItem('rememberedCookingStyle');
+            localStorage.removeItem('rememberedMushroomType');
+            localStorage.removeItem('rememberedChallengeSlots');
+            localStorage.removeItem('rememberedChallengeWait');
             
             // 移除身分與備註記憶
             localStorage.removeItem('rememberedIdentity');
@@ -2407,7 +2479,8 @@
             host_id: currentUserProfile.id,
             display_host_name: displayHostName, 
             mushroom_type: form['mushroom-type'].value,
-            slots: parseInt(document.getElementById('slots').value),
+            slots: parseInt(document.getElementById('slots').value) + parseInt(document.getElementById('waitlist-slots').value),
+            current_players: parseInt(document.getElementById('slots').value),
             start_time: startTime.toISOString(),
             details: form['details'].value,
             status: startTime > new Date() ? '預計開放' : '開放報名中',
@@ -2449,8 +2522,12 @@
         document.getElementById('edit-challenge-form').dataset.originalImage = c.image_url || '';
         
         document.getElementById('edit-mushroom-type').value = c.mushroom_type;
-        document.getElementById('edit-slots').value = c.slots;
-        document.getElementById('edit-slots-display').textContent = c.slots;
+        const editReg = (c.current_players && c.current_players > 0) ? c.current_players : c.slots;
+        const editWait = Math.max(0, (c.slots || 0) - editReg);
+        document.getElementById('edit-slots').value = editReg;
+        document.getElementById('edit-slots-display').textContent = editReg;
+        document.getElementById('edit-waitlist-slots').value = editWait;
+        document.getElementById('edit-waitlist-slots-display').textContent = editWait;
         
         // 時間處理 (將 UTC 資料庫時間轉為本地 Input 格式)
         if (c.start_time) {
@@ -2510,7 +2587,9 @@
         btn.textContent = '儲存中...';
         
         const id = document.getElementById('edit-challenge-id').value;
-        const newSlots = parseInt(document.getElementById('edit-slots').value);
+        const newReg = parseInt(document.getElementById('edit-slots').value);
+        const newWait = parseInt(document.getElementById('edit-waitlist-slots').value);
+        const newSlots = newReg + newWait;
         const newTime = new Date(document.getElementById('edit-start-time').value);
         
         // 取得暫存的舊圖網址 (用於垃圾清理)
@@ -2530,6 +2609,7 @@
         const updateData = {
             mushroom_type: document.getElementById('edit-mushroom-type').value,
             slots: newSlots,
+            current_players: newReg,
             start_time: newTime.toISOString(),
             details: document.getElementById('edit-details').value,
             status: status,
