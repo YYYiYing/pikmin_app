@@ -1943,7 +1943,7 @@
                         actionButtonHtml = `<button class="signup-button w-full bg-gray-600 text-white font-bold py-2 px-4 rounded-lg cursor-not-allowed btn-cooldown" disabled>冷卻中 ${cooldownLeft}s</button>`;
                     } else if (signupCount >= regSlots && waitSlots > 0) {
                         const waitRank = signupCount - regSlots + 1;
-                        actionButtonHtml = `<button class="signup-button w-full bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition" data-challenge-id="${challenge.id}">待確認 (${waitRank})</button>`;
+                        actionButtonHtml = `<button class="signup-button w-full bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 transition" data-challenge-id="${challenge.id}">報名備取</button>`;
                     } else {
                         actionButtonHtml = `<button class="signup-button w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition" data-challenge-id="${challenge.id}">報名</button>`;
                     }
