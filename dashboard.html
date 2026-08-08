@@ -310,6 +310,7 @@
                 <button id="manage-alts-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">🎭 分身</button>
                 <button id="change-nickname-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">🏷️ 改暱稱</button>
                 <button id="change-password-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">㊙️ 改密碼</button>
+                <button id="notification-button" class="bg-gray-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-gray-600 transition">🔔 推播</button>
                 <button id="logout-button" class="bg-red-700 text-white px-3 py-1.5 text-xs rounded-full font-bold hover:bg-red-600 transition">🏃‍♂️ 登出</button>
             </div>
         </div>
@@ -335,6 +336,7 @@
                 <button id="manage-alts-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🎭 分身設定</button>
                 <button id="change-nickname-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🏷️ 改暱稱</button>
                 <button id="change-password-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">㊙️ 改密碼</button>
+                <button id="notification-button-mobile" class="w-full text-left text-gray-300 hover:bg-gray-700 p-2 rounded-md">🔔 推播通知</button>
                 <button id="logout-button-mobile" class="w-full text-left text-red-400 hover:bg-gray-700 p-2 rounded-md">🏃‍♂️ 登出</button>
             </div>
         </div>
@@ -1026,6 +1028,7 @@
     let currentUserProfile = null;
     let challengesData = {};        // 儲存所有挑戰資料 (Key: ID)
     let userSignedUpChallengeIds = new Set(); // 使用者已報名的 ID
+    let notifiedKeys = new Set(); // 推播去重：full:${id} / sent:${id}
     let onlineNicknames = [];       // 在線名單
     // 報名ID 對應 挑戰ID 的快取表
     let signupIdToChallengeMap = {};
@@ -1421,7 +1424,15 @@
         setupOnlinePresence();
         startGlobalCountdown();
         updateMarquee();
-        
+
+        // 首次詢問推播權限（只用 confirm 問一次，記得使用者選擇）
+        if (!localStorage.getItem('notifAsked') && 'Notification' in window && Notification.permission === 'default') {
+            localStorage.setItem('notifAsked', '1');
+            if (confirm('要開啟瀏覽器推播通知嗎？\n\n卡片額滿 / 蘑菇發送時會即時通知你。')) {
+                requestNotificationPermission();
+            }
+        }
+
         handleQuickPublish();
     }
 
@@ -1713,6 +1724,10 @@
         // 使用 replace 來跳轉，通常比 reload 更乾淨，且不會產生 unload 警告
         window.location.replace('./index.html');
     });
+
+    // 推播通知按鈕
+    document.getElementById('notification-button').addEventListener('click', requestNotificationPermission);
+    document.getElementById('notification-button-mobile').addEventListener('click', requestNotificationPermission);
 
     // 修改密碼
     changePasswordButton.addEventListener('click', () => { passwordForm.reset(); passwordModal.classList.remove('hidden'); });
@@ -2279,11 +2294,11 @@
         document.getElementById(hiddenId).value = '隨便亂炒（不限戰力）';
     }
 
-    async function reloadChallengeCard(challengeId) {
+    async function reloadChallengeCard(challengeId, notifyKind = null) {
         const { data: challenge, error } = await supabaseClient.from('challenges')
             .select(`*, host:profiles(nickname, id), signups(*, profile:profiles(nickname))`)
             .eq('id', challengeId).single();
-        
+
         if (error) {
             if (error.code === 'PGRST116') {
                 const el = document.getElementById(`challenge-${challengeId}`);
@@ -2294,6 +2309,19 @@
         renderChallenge(challenge);
         applyFilter();
         updateFilterBadges();
+
+        if (!notifyKind) return;
+        if (notifyKind === 'full') {
+            pushNotification('full', challenge);
+        } else if (notifyKind === 'sent') {
+            // 僅正取通知
+            const regSlots = (challenge.current_players && challenge.current_players > 0) ? challenge.current_players : (challenge.slots || 0);
+            const sorted = [...challenge.signups].sort((a, b) => new Date(a.signed_up_at) - new Date(b.signed_up_at));
+            const myIndex = sorted.findIndex(s => s.user_id === currentUserProfile.id);
+            if (myIndex !== -1 && myIndex < regSlots) {
+                pushNotification('sent', challenge);
+            }
+        }
     }
 
     // =========================================================================
@@ -3161,7 +3189,20 @@
                         updateFilterBadges();
                     }
                 } else {
-                    reloadChallengeCard(payload.new.id);
+                    // 偵測狀態變化以觸發推播
+                    let notifyKind = null;
+                    if (payload.eventType === 'UPDATE' && payload.old && payload.new) {
+                        const old = payload.old, nw = payload.new;
+                        // 已額滿 → 通知發菇者（本尊，分身發佈時 host_id 仍為本尊）
+                        if (old.status !== '已額滿' && nw.status === '已額滿' && nw.host_id === currentUserProfile.id) {
+                            notifyKind = 'full';
+                        }
+                        // 已發 → 通知有報名的人（是否正取在 reloadChallengeCard 判斷）
+                        else if (old.dispatch_status !== '已發' && nw.dispatch_status === '已發' && userSignedUpChallengeIds.has(nw.id)) {
+                            notifyKind = 'sent';
+                        }
+                    }
+                    reloadChallengeCard(payload.new.id, notifyKind);
                 }
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, payload => {
@@ -3282,6 +3323,43 @@
         setTimeout(() => {
             toastMessage.classList.add('hidden');
         }, 3000);
+    }
+
+    // === 瀏覽器推播通知 ===
+    async function requestNotificationPermission() {
+        if (!('Notification' in window)) {
+            showToast('此瀏覽器不支援通知', true);
+            return false;
+        }
+        if (Notification.permission === 'granted') return true;
+        if (Notification.permission === 'denied') {
+            showToast('推播已被封鎖，請從瀏覽器設定開啟', true);
+            return false;
+        }
+        const result = await Notification.requestPermission();
+        if (result === 'granted') showToast('推播通知已開啟', false);
+        return result === 'granted';
+    }
+
+    function pushNotification(kind, challenge) {
+        const key = `${kind}:${challenge.id}`;
+        if (notifiedKeys.has(key)) return;
+        notifiedKeys.add(key);
+
+        const title = kind === 'full' ? '🍄 你的蘑菇已額滿' : '🚚 蘑菇已經發送';
+        const body = kind === 'full'
+            ? `「${challenge.mushroom_type}」報名已滿，快去發送蘑菇吧！`
+            : `「${challenge.mushroom_type}」已經發送，趁新鮮吃哦！`;
+
+        if (!('Notification' in window) || Notification.permission !== 'granted') {
+            showToast(body, false);
+            return;
+        }
+        try {
+            new Notification(title, { body, icon: './mashroom_s.png', tag: key });
+        } catch (e) {
+            showToast(body, false);
+        }
     }
 
     // 工具函式：取得本地時間字串 (格式：YYYY-MM-DDTHH:mm)
