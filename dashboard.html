@@ -1764,8 +1764,11 @@
         const challengesArray = Object.values(challengesData);
 
         // ★★★ 排序邏輯 ★★★
-        // 1. 已開放 (status = 開放報名中/報名中) 置頂：剩餘缺額越少越優先，同缺額則大團優先
-        // 2. 預計開放 (status = 預計開放) 排後面，依 ID 排序
+        // 依卡片動作分三層排序（與按鈕狀態一致）：
+        //   層級0「報名」：正取尚有位置 → 依正取剩餘越少越優先，同剩餘則大團優先
+        //   層級1「報名備取」：正取已滿但有備位 → 依備取剩餘越少越優先，同剩餘則大團優先
+        //   層級2「尚未開放/已額滿」→ 依 ID 排序
+        // reg 正取名額：current_players>0 取其值，否則視為全正取 (舊卡，reg = slots)
         // 若 DB status 為「預計開放」但 start_time 已過，自動視為已開放 (stale 修正)
         const now = new Date();
         challengesArray.sort((a, b) => {
@@ -1778,8 +1781,21 @@
             if (!aIsOpen && bIsOpen) return 1;
 
             if (aIsOpen && bIsOpen) {
-                const aRem = a.slots - (a.signups?.length || 0);
-                const bRem = b.slots - (b.signups?.length || 0);
+                const aReg = (a.current_players && a.current_players > 0) ? a.current_players : (a.slots || 0);
+                const bReg = (b.current_players && b.current_players > 0) ? b.current_players : (b.slots || 0);
+                const aN = a.signups?.length || 0;
+                const bN = b.signups?.length || 0;
+                const aWait = Math.max(0, (a.slots || 0) - aReg);
+                const bWait = Math.max(0, (b.slots || 0) - bReg);
+
+                // 層級分類：0=報名 ／ 1=報名備取
+                const aTier = (aN < aReg) ? 0 : (aWait > 0 ? 1 : 2);
+                const bTier = (bN < bReg) ? 0 : (bWait > 0 ? 1 : 2);
+                if (aTier !== bTier) return aTier - bTier;
+
+                // 同層級內：剩餘越少越優先
+                const aRem = (aTier === 0) ? (aReg - aN) : (a.slots - aN);
+                const bRem = (bTier === 0) ? (bReg - bN) : (b.slots - bN);
                 if (aRem !== bRem) return aRem - bRem;
                 return (b.slots || 0) - (a.slots || 0);
             }
