@@ -678,8 +678,7 @@
                 changeRoleModal.classList.remove('hidden');
 
             } else if (target.classList.contains('delete-user-button')) {
-                // --- 刪除使用者 ---
-                const confirmationMessage = `【高風險管理員操作】\n\n您確定要永久刪除使用者「${userToEdit.nickname}」嗎？\n\n此操作會將其帳號及所有相關資料從系統中移除，且無法復原。`;
+                const confirmationMessage = `【高風險管理員操作】\n\n刪除使用者「${userToEdit.nickname}」？\n\n一併移除：分身帳號、報名記錄、發布的蘑菇卡片（含圖片）。\n\n保留：美片圖書館、美片藝廊、雷達站資料。\n\n無法復原。`;
                 if (confirm(confirmationMessage)) {
                     target.disabled = true; target.textContent = '刪除中';
                     try {
@@ -687,7 +686,7 @@
                         showMessage(`使用者 ${userToEdit.nickname} 已成功刪除。`, false);
                         loadUsers();
                     } catch (error) {
-                        showMessage(`刪除使用者失敗: ${error.message}`, true);
+                        showMessage(`刪除失敗: ${error.message}`, true);
                         target.disabled = false; target.textContent = '刪除';
                     }
                 }

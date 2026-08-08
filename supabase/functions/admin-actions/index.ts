@@ -2456,9 +2456,28 @@ serve(async (req) => {
             ({ data } = await adminSupabaseClient.auth.admin.updateUserById(payload.userId, { password: payload.password })); 
             break;
             
-        case 'delete-user': 
-            if (!payload.userId) throw new Error('缺少 userId'); 
-            ({ data } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId)); 
+        case 'delete-user':
+            if (!payload.userId) throw new Error('缺少 userId');
+
+            await adminSupabaseClient.from('user_alts').delete().eq('user_id', payload.userId);
+            await adminSupabaseClient.from('signups').delete().eq('user_id', payload.userId);
+            await adminSupabaseClient.from('signup_history').delete().eq('user_id', payload.userId);
+
+            const { data: challenges } = await adminSupabaseClient
+                .from('challenges').select('image_url').eq('host_id', payload.userId);
+            if (challenges) {
+                for (const c of challenges) {
+                    if (c.image_url) {
+                        try {
+                            const f = c.image_url.split('/').pop()?.split('?')[0];
+                            if (f) await adminSupabaseClient.storage.from('challenge-images').remove([f]);
+                        } catch (e) { console.error('挑戰圖片刪除失敗:', e); }
+                    }
+                }
+            }
+            await adminSupabaseClient.from('challenges').delete().eq('host_id', payload.userId);
+
+            ({ data } = await adminSupabaseClient.auth.admin.deleteUser(payload.userId));
             break;
             
         // 同時更新暱稱與備註
