@@ -1764,9 +1764,16 @@
         const challengesArray = Object.values(challengesData);
 
         // ★★★ 排序邏輯 ★★★
-        // 1. 已開放 (status = 開放報名中/報名中) 置頂：剩餘缺額越少越優先，同缺額則大團優先
-        // 2. 預計開放 (status = 預計開放) 排後面，依 ID 排序
+        // 1. 已開放 (status = 開放報名中/報名中) 置頂；其中「正取未滿」優先，正取剩越多越靠前
+        // 2. 正取已滿 (只剩備取) 排在其後，依總缺額升序 (越接近全滿越前)，同缺額大團優先
+        // 3. 預計開放 (status = 預計開放) 排最後，依 ID 排序
         // 若 DB status 為「預計開放」但 start_time 已過，自動視為已開放 (stale 修正)
+        // 正取剩餘口徑：current_players 存正取數，slots 存總額 (正取+備取)，signups 含兩者
+        const regRemaining = c => {
+            const regSlots = (c.current_players && c.current_players > 0) ? c.current_players : (c.slots || 0);
+            const regUsed = Math.min((c.signups && c.signups.length) || 0, regSlots);
+            return regSlots - regUsed;
+        };
         const now = new Date();
         challengesArray.sort((a, b) => {
             const aIsOpen = a.status === '開放報名中' || a.status === '報名中' ||
@@ -1778,9 +1785,23 @@
             if (!aIsOpen && bIsOpen) return 1;
 
             if (aIsOpen && bIsOpen) {
-                const aRem = a.slots - (a.signups?.length || 0);
-                const bRem = b.slots - (b.signups?.length || 0);
-                if (aRem !== bRem) return aRem - bRem;
+                const aRegRem = regRemaining(a);
+                const bRegRem = regRemaining(b);
+
+                // 正取未滿 (還有正取名額可報) 優先於正取已滿 (只剩備取)
+                if (aRegRem > 0 && bRegRem <= 0) return -1;
+                if (aRegRem <= 0 && bRegRem > 0) return 1;
+
+                if (aRegRem > 0 && bRegRem > 0) {
+                    // 正取剩越多越優先，同缺額則大團優先
+                    if (aRegRem !== bRegRem) return bRegRem - aRegRem;
+                    return (b.slots || 0) - (a.slots || 0);
+                }
+
+                // 兩者正取皆滿：總缺額少者優先 (越接近全滿越前)，同缺額則大團優先
+                const aTotalRem = (a.slots || 0) - (a.signups?.length || 0);
+                const bTotalRem = (b.slots || 0) - (b.signups?.length || 0);
+                if (aTotalRem !== bTotalRem) return aTotalRem - bTotalRem;
                 return (b.slots || 0) - (a.slots || 0);
             }
 
