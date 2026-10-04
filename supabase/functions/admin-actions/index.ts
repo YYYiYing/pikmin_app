@@ -25,6 +25,9 @@ serve(async (req) => {
 
     let data: unknown = null;
 
+    // Silence edge-function stdout to cut Log Ingestion: shadow global console (logic unchanged)
+    const console = { log: (..._a: unknown[]) => {}, error: (..._a: unknown[]) => {}, warn: (..._a: unknown[]) => {} };
+
 
     // ============================================================
     // 區塊 A：系統自動化 與 訪客公開功能 (無需 User Auth)
@@ -1405,22 +1408,25 @@ serve(async (req) => {
     // (放在區塊 B 檢查之前，讓訪客也能讀取)
     // ==========================================
 
-    // 1. 取得所有分類
+    // 1. 取得所有分類 (RPC打包版：1次取代2次REST)
     if (action === 'get-radar-categories') {
-        const { data, error } = await adminSupabaseClient
-            .from('radar_categories')
-            .select('id, name, image_url, sort_order')
-            .order('sort_order', { ascending: true });
-
-        if (error) throw error;
-        
-        // 簡單計算每個分類的貼文數
-        const { data: counts } = await adminSupabaseClient.from('radar_posts').select('category_id');
-        const countMap: Record<string, number> = {};
-        if (counts) counts.forEach((c: any) => countMap[c.category_id] = (countMap[c.category_id] || 0) + 1);
-
-        const result = data.map((c: any) => ({ ...c, count: countMap[c.id] || 0 }));
-        return new Response(JSON.stringify({ success: true, data: result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        try {
+            const { data, error } = await adminSupabaseClient.rpc('get_radar_categories_with_counts');
+            if (error) throw error;
+            const result = (data ?? []).map((c: any) => ({ ...c, count: Number(c.post_count ?? 0) }));
+            return new Response(JSON.stringify({ success: true, data: result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        } catch (_e) {
+            const { data, error } = await adminSupabaseClient
+                .from('radar_categories')
+                .select('id, name, image_url, sort_order')
+                .order('sort_order', { ascending: true });
+            if (error) throw error;
+            const { data: counts } = await adminSupabaseClient.from('radar_posts').select('category_id');
+            const countMap: Record<string, number> = {};
+            if (counts) counts.forEach((c: any) => countMap[c.category_id] = (countMap[c.category_id] || 0) + 1);
+            const result = data.map((c: any) => ({ ...c, count: countMap[c.id] || 0 }));
+            return new Response(JSON.stringify({ success: true, data: result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
     }
 
     // 2. 取得雷達點 (需手動檢查 Auth 以判斷投票狀態)

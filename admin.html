@@ -591,7 +591,6 @@
             loadChallenges();
             setupAdminRealtime();
             checkDbConnection();
-            dbConnectionInterval = setInterval(checkDbConnection, 30000);
         }
 
         async function checkDbConnection() {
@@ -929,8 +928,14 @@
 
         function setupAdminRealtime() {
             supabaseClient.channel('admin-realtime')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, loadChallenges)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, loadUsers) 
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, () => {
+                    clearTimeout(window._challengesRefreshTimer);
+                    window._challengesRefreshTimer = setTimeout(loadChallenges, 2000);
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+                    clearTimeout(window._usersRefreshTimer);
+                    window._usersRefreshTimer = setTimeout(loadUsers, 2000);
+                })
                 .subscribe();
         }
 

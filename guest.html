@@ -872,7 +872,7 @@
         let activeFilter = 'all'; // 當前篩選狀態
 
         // 載入挑戰
-        async function loadChallenges() {
+        async function loadChallengesImmediate() {
             const list = document.getElementById('guest-list');
             if(!list) return;
 
@@ -1063,6 +1063,13 @@
                 console.error(err);
                 list.innerHTML = `<p class="col-span-full text-center text-red-400">${window.t ? window.t('load_fail') : '讀取失敗'}</p>`;
             }
+        }
+
+        // 防抖包裝：短時間內多次呼叫只執行最後一次，減少 API/Edge log
+        let loadChallengesTimer = null;
+        function loadChallenges() {
+            clearTimeout(loadChallengesTimer);
+            loadChallengesTimer = setTimeout(() => { loadChallengesImmediate(); }, 500);
         }
 
         // 輔助函式：取得翻譯 (若模組尚未載入，回傳預設值)
